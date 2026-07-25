@@ -1,36 +1,44 @@
 import AnimatedSection from "./components/AnimatedSection";
 import ApplyForm from "./components/ApplyForm";
 
+/* ── Static data ── */
+
 const COMMISSIONS = [
-  { category: "Tees & Hoodies",     commission: "12%"   },
-  { category: "Caps & Accessories", commission: "13%"   },
-  { category: "Sneakers & Footwear",commission: "14%"   },
-  { category: "Jewellery & Others", commission: "14.5%" },
+  { category: "Tees & Hoodies",      commission: "12%"   },
+  { category: "Caps & Accessories",  commission: "13%"   },
+  { category: "Sneakers & Footwear", commission: "14%"   },
+  { category: "Jewellery & Others",  commission: "14.5%" },
 ];
 
-const THE_NUMBERS = [
-  { value: "12–14%",  label: "Commission per sale", sub: "Varies by category"           },
-  { value: "₹0",      label: "Setup fee",            sub: "No monthly charges"           },
-  { value: "2 hrs",   label: "Time to go live",      sub: "After onboarding"             },
-  { value: "Monthly", label: "Payout cycle",         sub: "Transferred by 7th of month"  },
+const HANDLES = [
+  { title: "Marketing & ads",      desc: "We run campaigns that drive real buyers to your products."        },
+  { title: "Payment collection",   desc: "We collect, verify, and settle payments on your behalf."         },
+  { title: "Customer support",     desc: "Every query, complaint, and return — handled by our team."       },
+  { title: "Platform & tech",      desc: "Your storefront, listings, and pages — fully managed."           },
+  { title: "Delivery & returns",   desc: "2-hour delivery in Delhi NCR. Same-day or next-day elsewhere."   },
+  { title: "Performance reports",  desc: "Monthly breakdowns of sales, returns, and payout summaries."     },
 ];
 
-const HANDLES_LEFT  = ["Marketing & promotions", "Customer support",    "Delivery & logistics" ];
-const HANDLES_RIGHT = ["Payment collection",      "Returns management",  "Platform & technology"];
-
-const HOW_IT_WORKS = [
+const STEPS = [
   { num: "01", title: "Apply",   desc: "Fill the form below. Takes 2 minutes."               },
-  { num: "02", title: "Review",  desc: "We review applications in 2–3 working days."         },
-  { num: "03", title: "Onboard", desc: "Share KYC documents and product details."            },
-  { num: "04", title: "Go Live", desc: "Your products are live within 2 hours of approval."  },
+  { num: "02", title: "Review",  desc: "We review all applications in 2–3 working days."     },
+  { num: "03", title: "Onboard", desc: "Share KYC documents and your product details."       },
+  { num: "04", title: "Go Live", desc: "Products are live within 2 hours of approval."       },
 ];
 
-const REQUIREMENTS = [
-  "Original/authentic products only",
-  "Minimum 5 products to list",
-  "Quality photos (we can help if needed)",
-  "Ability to dispatch within 48 hours of order",
-  "Valid business identity (GST optional for small sellers)",
+const WHO = [
+  {
+    title: "Independent Labels",
+    desc:  "You've built something. We help you scale it across Delhi NCR and beyond.",
+  },
+  {
+    title: "Small Batch Makers",
+    desc:  "50 pieces or 500. We work with what you make — no volume minimums.",
+  },
+  {
+    title: "Delhi NCR Brands",
+    desc:  "Your customers get 2-hour delivery. No other platform offers this.",
+  },
 ];
 
 const FAQS = [
@@ -60,282 +68,303 @@ const FAQS = [
   },
 ];
 
+const MOCK_ORDERS = [
+  { name: "Heavyweight Tee — Black",   price: "₹1,299", ago: "2m"  },
+  { name: "5-Panel Cap — Olive",       price: "₹899",   ago: "18m" },
+  { name: "Oversized Hoodie — Ash",    price: "₹2,199", ago: "1h"  },
+];
+
+/* ── Page ── */
+
 export default function Home() {
   return (
-    <main className="min-h-screen" style={{ background: "#FFFFFF" }}>
+    <main className="min-h-screen bg-white">
 
       {/* ── NAV ── */}
       <nav
-        className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-6 md:px-12 py-4 bg-white"
-        style={{ borderBottom: "1px solid #E5E5E5" }}
+        className="fixed top-0 left-0 right-0 z-50 bg-white"
+        style={{ borderBottom: "1px solid #EBEBEB" }}
       >
-        <span className="font-bebas text-2xl tracking-widest">
-          <span style={{ color: "#111111" }}>NOT</span>
-          <span style={{ color: "#C41E2E" }}>MADE</span>
-        </span>
-        <a
-          href="#apply"
-          className="btn-red text-xs font-semibold tracking-widest uppercase px-5 py-2.5"
-        >
-          Apply Now
-        </a>
+        <div className="max-w-6xl mx-auto px-6 md:px-10 h-[58px] flex items-center justify-between">
+          <span className="font-bebas text-[1.5rem] tracking-widest leading-none">
+            <span style={{ color: "#111111" }}>NOT</span>
+            <span style={{ color: "#C41E2E" }}>MADE</span>
+          </span>
+          <a
+            href="#apply"
+            className="btn-primary text-[11px] font-semibold tracking-[0.08em] uppercase px-5 py-2"
+          >
+            Apply to Sell
+          </a>
+        </div>
       </nav>
 
-      {/* ══════════════════════════════════════
-          1 — HERO
-      ══════════════════════════════════════ */}
-      <section className="px-6 md:px-12 pt-32 pb-24" style={{ background: "#FFFFFF" }}>
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      {/* ════════════════════════════════════
+          HERO
+      ════════════════════════════════════ */}
+      <section className="pt-[58px]">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-24 grid grid-cols-1 lg:grid-cols-[58fr_42fr] gap-16 lg:gap-20 items-center">
 
-          {/* Text */}
+          {/* Left — copy */}
           <div>
-            <span className="seller-tag">Seller Programme</span>
+            {/* Status tag */}
+            <div className="inline-flex items-center gap-2 mb-8">
+              <span
+                className="inline-block w-[7px] h-[7px] rounded-full"
+                style={{ background: "#22C55E" }}
+              />
+              <span
+                className="text-[11px] font-semibold uppercase tracking-[0.18em]"
+                style={{ color: "#666666", fontFamily: "var(--font-space-mono)" }}
+              >
+                Seller Programme · Open
+              </span>
+            </div>
 
-            <h1 className="hero-heading mt-5 mb-6">
-              Your brand deserves<br />better distribution.
+            <h1 className="display-heading mb-6 text-balance">
+              Reach Delhi&apos;s streetwear buyers. Fast.
             </h1>
 
             <p
-              className="text-base leading-[1.8] mb-10"
-              style={{ color: "#666666", maxWidth: "460px" }}
+              className="text-[17px] leading-[1.78] mb-10"
+              style={{ color: "#555555", maxWidth: "455px" }}
             >
-              NOTMADE gives independent labels direct access to Delhi NCR&apos;s
-              streetwear buyers. Same-day delivery, zero setup cost, real customers.
+              List your brand on NOTMADE. We handle marketing, delivery,
+              payments, and customer support. You focus on making great products.
             </p>
 
-            <div className="flex items-center gap-8 mb-10">
-              <div>
-                <div className="text-3xl font-bold leading-none" style={{ color: "#C41E2E" }}>12%</div>
-                <div
-                  className="text-[10px] uppercase tracking-[0.2em] mt-1"
-                  style={{ color: "#999999", fontFamily: "var(--font-space-mono)" }}
-                >
-                  Commission
-                </div>
-              </div>
-              <div style={{ width: "1px", height: "40px", background: "#E5E5E5" }} />
-              <div>
-                <div className="text-3xl font-bold leading-none" style={{ color: "#C41E2E" }}>₹0</div>
-                <div
-                  className="text-[10px] uppercase tracking-[0.2em] mt-1"
-                  style={{ color: "#999999", fontFamily: "var(--font-space-mono)" }}
-                >
-                  Setup fee
-                </div>
-              </div>
+            {/* CTAs */}
+            <div className="flex flex-col sm:flex-row items-start gap-4 mb-9">
+              <a
+                href="#apply"
+                className="btn-primary font-semibold text-[13px] tracking-[0.05em] uppercase px-8 py-[13px]"
+              >
+                Apply to Sell
+              </a>
+              <a
+                href="#commission"
+                className="flex items-center self-center text-[14px] font-medium transition-colors"
+                style={{ color: "#888888" }}
+              >
+                Learn more ↓
+              </a>
             </div>
 
-            <a
-              href="#apply"
-              className="btn-red inline-block font-semibold text-sm tracking-widest uppercase px-10 py-4"
-            >
-              Apply Now →
-            </a>
-          </div>
-
-          {/* Geometric shape */}
-          <div className="relative hidden lg:flex items-center justify-end">
-            <div className="relative" style={{ width: "360px", height: "380px" }}>
-              <div
-                style={{
-                  position: "absolute",
-                  top: "15%",
-                  left: "20%",
-                  right: 0,
-                  bottom: 0,
-                  background: "#C41E2E",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: "200px",
-                  height: "200px",
-                  border: "1.5px solid #E5E5E5",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: "8%",
-                  left: "12%",
-                  width: "22px",
-                  height: "22px",
-                  background: "#C41E2E",
-                }}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
-          2 — THE NUMBERS (grey)
-      ══════════════════════════════════════ */}
-      <section className="px-6 md:px-12 py-20" style={{ background: "#F8F8F8" }}>
-        <div className="max-w-6xl mx-auto">
-          <AnimatedSection className="mb-12">
-            <span className="eyebrow">By the numbers</span>
-            <h2 className="section-heading">The numbers that matter.</h2>
-          </AnimatedSection>
-
-          <AnimatedSection delay={80}>
-            <div
-              className="grid grid-cols-2 lg:grid-cols-4 gap-px"
-              style={{ background: "#E5E5E5" }}
-            >
-              {THE_NUMBERS.map(({ value, label, sub }) => (
-                <div
-                  key={label}
-                  className="px-8 py-10"
-                  style={{ background: "#F8F8F8", borderTop: "3px solid #C41E2E" }}
-                >
-                  <div
-                    className="font-bold leading-none mb-2"
-                    style={{
-                      fontSize: "clamp(2rem, 3.5vw, 2.75rem)",
-                      color: "#111111",
-                    }}
-                  >
-                    {value}
-                  </div>
-                  <div className="text-sm font-semibold mb-1" style={{ color: "#111111" }}>
-                    {label}
-                  </div>
-                  <div className="text-xs" style={{ color: "#999999" }}>{sub}</div>
-                </div>
+            {/* Trust row */}
+            <div className="flex flex-wrap gap-x-6 gap-y-2">
+              {["Reviewed within 2–3 days", "No setup fee", "Cancel anytime"].map((t) => (
+                <span key={t} className="flex items-center gap-1.5 text-[13px]" style={{ color: "#AAAAAA" }}>
+                  <svg width="12" height="12" fill="none" viewBox="0 0 12 12">
+                    <path d="M2 6.5l2.5 2.5L10 3" stroke="#22C55E" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                  {t}
+                </span>
               ))}
             </div>
-          </AnimatedSection>
+          </div>
+
+          {/* Right — seller dashboard mockup */}
+          <div className="hidden lg:block relative">
+            {/* Floating label */}
+            <div
+              className="absolute -top-3.5 right-6 z-10"
+              style={{
+                background: "#111111",
+                color: "#FFFFFF",
+                padding: "4px 12px",
+                fontSize: "11px",
+                fontWeight: 600,
+                letterSpacing: "0.06em",
+                textTransform: "uppercase",
+              }}
+            >
+              ₹0 setup fee
+            </div>
+
+            <div
+              style={{
+                background: "#FFFFFF",
+                border: "1px solid #E4E4E4",
+                boxShadow: "0 8px 40px rgba(0,0,0,0.07), 0 2px 8px rgba(0,0,0,0.04)",
+                overflow: "hidden",
+              }}
+            >
+              {/* Window chrome */}
+              <div
+                style={{
+                  background: "#FAFAFA",
+                  borderBottom: "1px solid #EBEBEB",
+                  padding: "11px 18px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                }}
+              >
+                <span style={{ fontSize: "13px", fontWeight: 600, color: "#111" }}>
+                  DEADSTOCK CO.
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                  <span style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", display: "inline-block" }} />
+                  <span style={{ fontSize: "11px", color: "#22C55E", fontWeight: 500 }}>Live</span>
+                </span>
+              </div>
+
+              {/* Stats */}
+              <div style={{ padding: "18px 18px 0" }}>
+                <div
+                  style={{
+                    fontSize: "10px", color: "#BBBBBB", textTransform: "uppercase",
+                    letterSpacing: "0.12em", marginBottom: "12px",
+                    fontFamily: "var(--font-space-mono)",
+                  }}
+                >
+                  November 2025
+                </div>
+                <div
+                  style={{
+                    display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "12px",
+                    paddingBottom: "16px", borderBottom: "1px solid #F0F0F0", marginBottom: "14px",
+                  }}
+                >
+                  {[
+                    { val: "47",     label: "Orders",     red: false },
+                    { val: "₹89.4K", label: "Revenue",    red: false },
+                    { val: "12%",    label: "Commission",  red: true  },
+                  ].map(({ val, label, red }) => (
+                    <div key={label}>
+                      <div style={{ fontSize: "20px", fontWeight: 700, color: red ? "#C41E2E" : "#111", lineHeight: 1 }}>
+                        {val}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#999", marginTop: 3 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Order list */}
+              <div style={{ padding: "0 18px 6px" }}>
+                <div
+                  style={{
+                    fontSize: "10px", color: "#BBBBBB", textTransform: "uppercase",
+                    letterSpacing: "0.12em", marginBottom: "8px",
+                    fontFamily: "var(--font-space-mono)",
+                  }}
+                >
+                  Recent orders
+                </div>
+                {MOCK_ORDERS.map((order, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                      paddingTop: 9, paddingBottom: 9,
+                      borderTop: i > 0 ? "1px solid #F5F5F5" : undefined,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 500, color: "#111" }}>{order.name}</div>
+                      <div style={{ fontSize: "11px", color: "#999" }}>{order.price}</div>
+                    </div>
+                    <span style={{ fontSize: "11px", color: "#C8C8C8" }}>{order.ago} ago</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Payout row */}
+              <div
+                style={{
+                  margin: "10px 18px 18px",
+                  padding: "11px 15px",
+                  background: "#F8F8F8",
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                }}
+              >
+                <span style={{ fontSize: "12px", color: "#777" }}>Next payout</span>
+                <span style={{ fontSize: "13px", fontWeight: 600, color: "#111" }}>₹78,672 · Dec 7</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          3 — COMMISSION BREAKDOWN (white)
-      ══════════════════════════════════════ */}
-      <section className="px-6 md:px-12 py-20" style={{ background: "#FFFFFF" }}>
-        <div className="max-w-2xl mx-auto">
-          <AnimatedSection className="mb-10">
-            <span className="eyebrow">Pricing</span>
-            <h2 className="section-heading">Simple, transparent pricing.</h2>
-          </AnimatedSection>
+      <div style={{ borderTop: "1px solid #F0F0F0" }} />
 
-          <AnimatedSection delay={80}>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr style={{ borderBottom: "2px solid #111111" }}>
-                  <th
-                    className="text-left pb-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
-                    style={{ color: "#111111", fontFamily: "var(--font-space-mono)" }}
-                  >
-                    Category
-                  </th>
-                  <th
-                    className="text-right pb-3 text-[10px] font-semibold uppercase tracking-[0.2em]"
-                    style={{ color: "#111111", fontFamily: "var(--font-space-mono)" }}
-                  >
-                    Commission
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMMISSIONS.map(({ category, commission }, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid #E5E5E5" }}>
-                    <td className="py-4 text-sm" style={{ color: "#444444" }}>{category}</td>
-                    <td
-                      className="py-4 text-sm font-bold text-right"
-                      style={{ color: "#C41E2E" }}
-                    >
-                      {commission}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p className="mt-6 text-sm leading-relaxed" style={{ color: "#888888" }}>
-              No hidden fees. No monthly charges. You only pay when you sell.
+      {/* ════════════════════════════════════
+          COMMISSION
+      ════════════════════════════════════ */}
+      <section id="commission" className="py-24" style={{ background: "#F5F5F5" }}>
+        <div className="max-w-xl mx-auto px-6 md:px-10">
+          <AnimatedSection>
+            <span className="eyebrow">Pricing</span>
+            <h2 className="section-heading mb-3">
+              Straightforward pricing. Nothing hidden.
+            </h2>
+            <p className="text-[15px] leading-relaxed" style={{ color: "#666666" }}>
+              We charge a commission on each completed sale. That&apos;s it.
             </p>
           </AnimatedSection>
-        </div>
-      </section>
-
-      {/* ══════════════════════════════════════
-          4 — WHAT WE HANDLE (white, rule-top)
-      ══════════════════════════════════════ */}
-      <section
-        className="px-6 md:px-12 py-20"
-        style={{ background: "#FFFFFF", borderTop: "1px solid #F0F0F0" }}
-      >
-        <div className="max-w-4xl mx-auto">
-          <AnimatedSection className="mb-10">
-            <span className="eyebrow">What&apos;s included</span>
-            <h2 className="section-heading">You make it. We handle everything else.</h2>
-          </AnimatedSection>
 
           <AnimatedSection delay={80}>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-3">
-                {HANDLES_LEFT.map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-3 py-3.5 px-5"
-                    style={{ background: "#F8F8F8" }}
-                  >
-                    <span className="flex-shrink-0 font-bold text-sm" style={{ color: "#C41E2E" }}>✓</span>
-                    <span className="text-sm" style={{ color: "#333333" }}>{item}</span>
-                  </div>
-                ))}
-              </div>
-              <div className="space-y-3">
-                {HANDLES_RIGHT.map((item) => (
-                  <div
-                    key={item}
-                    className="flex items-center gap-3 py-3.5 px-5"
-                    style={{ background: "#F8F8F8" }}
-                  >
-                    <span className="flex-shrink-0 font-bold text-sm" style={{ color: "#C41E2E" }}>✓</span>
-                    <span className="text-sm" style={{ color: "#333333" }}>{item}</span>
-                  </div>
-                ))}
-              </div>
+            <div style={{ marginTop: "2rem" }}>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #D0D0D0" }}>
+                    <th
+                      className="text-left pb-3 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                      style={{ color: "#999999", fontFamily: "var(--font-space-mono)" }}
+                    >
+                      Category
+                    </th>
+                    <th
+                      className="text-right pb-3 text-[10px] font-semibold uppercase tracking-[0.18em]"
+                      style={{ color: "#999999", fontFamily: "var(--font-space-mono)" }}
+                    >
+                      Commission
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {COMMISSIONS.map(({ category, commission }, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid #E8E8E8" }}>
+                      <td className="py-[14px] text-[15px]" style={{ color: "#333333" }}>
+                        {category}
+                      </td>
+                      <td
+                        className="py-[14px] text-[15px] font-semibold text-right tabular-nums"
+                        style={{ color: "#C41E2E" }}
+                      >
+                        {commission}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="mt-5 text-[13px]" style={{ color: "#999999" }}>
+                No monthly fees. No setup costs. No surprise charges.
+              </p>
             </div>
           </AnimatedSection>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          5 — HOW IT WORKS (grey)
-      ══════════════════════════════════════ */}
-      <section
-        id="how-it-works"
-        className="px-6 md:px-12 py-20"
-        style={{ background: "#F8F8F8" }}
-      >
-        <div className="max-w-6xl mx-auto">
+      {/* ════════════════════════════════════
+          WHAT WE HANDLE
+      ════════════════════════════════════ */}
+      <section className="py-24 bg-white" style={{ borderTop: "1px solid #F0F0F0" }}>
+        <div className="max-w-4xl mx-auto px-6 md:px-10">
           <AnimatedSection className="mb-12">
-            <span className="eyebrow">The process</span>
-            <h2 className="section-heading">Four steps to go live.</h2>
+            <span className="eyebrow">What&apos;s included</span>
+            <h2 className="section-heading">You make it. We sell it.</h2>
           </AnimatedSection>
 
           <AnimatedSection delay={80}>
-            <div
-              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px"
-              style={{ background: "#E5E5E5" }}
-            >
-              {HOW_IT_WORKS.map(({ num, title, desc }) => (
-                <div key={num} className="p-8" style={{ background: "#F8F8F8" }}>
-                  <div
-                    className="font-bebas text-5xl leading-none mb-4"
-                    style={{ color: "rgba(196,30,46,0.18)" }}
-                  >
-                    {num}
-                  </div>
-                  <h3 className="font-bold text-base mb-2" style={{ color: "#111111" }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-px" style={{ background: "#EBEBEB" }}>
+              {HANDLES.map(({ title, desc }) => (
+                <div key={title} className="bg-white px-8 py-7">
+                  <h3 className="text-[15px] font-semibold mb-1.5" style={{ color: "#111111" }}>
                     {title}
                   </h3>
-                  <p className="text-sm leading-relaxed" style={{ color: "#666666" }}>
+                  <p className="text-[13px] leading-relaxed" style={{ color: "#777777" }}>
                     {desc}
                   </p>
                 </div>
@@ -345,92 +374,127 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          6 — REQUIREMENTS (white)
-      ══════════════════════════════════════ */}
-      <section className="px-6 md:px-12 py-20" style={{ background: "#FFFFFF" }}>
-        <div className="max-w-2xl mx-auto">
-          <AnimatedSection className="mb-10">
-            <span className="eyebrow">Who can apply</span>
-            <h2 className="section-heading">What we look for in sellers.</h2>
+      {/* ════════════════════════════════════
+          HOW IT WORKS
+      ════════════════════════════════════ */}
+      <section className="py-24" style={{ background: "#F5F5F5", borderTop: "1px solid #EBEBEB" }}>
+        <div className="max-w-6xl mx-auto px-6 md:px-10">
+          <AnimatedSection className="mb-12">
+            <span className="eyebrow">The process</span>
+            <h2 className="section-heading">Four steps to go live.</h2>
           </AnimatedSection>
 
           <AnimatedSection delay={80}>
-            <ul className="space-y-0">
-              {REQUIREMENTS.map((item, i) => (
-                <li
-                  key={i}
-                  className="flex items-start gap-4 py-4"
-                  style={{ borderBottom: "1px solid #F0F0F0" }}
-                >
-                  <span
-                    className="flex-shrink-0 w-1.5 h-1.5 rounded-full mt-[7px]"
-                    style={{ background: "#C41E2E" }}
-                  />
-                  <span className="text-sm leading-relaxed" style={{ color: "#444444" }}>
-                    {item}
-                  </span>
-                </li>
+            <div
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-px"
+              style={{ background: "#DEDEDE" }}
+            >
+              {STEPS.map(({ num, title, desc }) => (
+                <div key={num} className="px-8 py-10" style={{ background: "#F5F5F5" }}>
+                  <div
+                    className="font-bebas leading-none mb-6 select-none"
+                    style={{ fontSize: "3.75rem", color: "#E0E0E0", letterSpacing: "-0.03em" }}
+                  >
+                    {num}
+                  </div>
+                  <h3 className="text-[15px] font-semibold mb-2" style={{ color: "#111111" }}>
+                    {title}
+                  </h3>
+                  <p className="text-[13px] leading-relaxed" style={{ color: "#777777" }}>
+                    {desc}
+                  </p>
+                </div>
               ))}
-            </ul>
-            <p className="mt-6 text-sm italic" style={{ color: "#888888" }}>
-              We work with small batch makers, independent labels, and growing brands.
-            </p>
+            </div>
           </AnimatedSection>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          7 — APPLICATION FORM (red)
-      ══════════════════════════════════════ */}
-      <section id="apply" className="px-6 md:px-12 py-24" style={{ background: "#C41E2E" }}>
-        <div className="max-w-2xl mx-auto">
-          <AnimatedSection className="mb-8">
-            <h2
-              className="font-bold leading-tight mb-2"
-              style={{ fontSize: "clamp(2rem, 4.5vw, 3rem)", color: "#FFFFFF" }}
-            >
-              Apply in 2 minutes.
+      {/* ════════════════════════════════════
+          WHO WE WORK WITH
+      ════════════════════════════════════ */}
+      <section className="py-24 bg-white" style={{ borderTop: "1px solid #F0F0F0" }}>
+        <div className="max-w-5xl mx-auto px-6 md:px-10">
+          <AnimatedSection className="mb-12">
+            <span className="eyebrow">Who can apply</span>
+            <h2 className="section-heading">Built for independent brands.</h2>
+          </AnimatedSection>
+
+          <AnimatedSection delay={80}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {WHO.map(({ title, desc }) => (
+                <div
+                  key={title}
+                  className="px-7 py-8"
+                  style={{ border: "1px solid #EBEBEB" }}
+                >
+                  <h3 className="text-[15px] font-semibold mb-3" style={{ color: "#111111" }}>
+                    {title}
+                  </h3>
+                  <p className="text-[13px] leading-relaxed" style={{ color: "#777777" }}>
+                    {desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </AnimatedSection>
+        </div>
+      </section>
+
+      {/* ════════════════════════════════════
+          APPLICATION FORM
+      ════════════════════════════════════ */}
+      <section
+        id="apply"
+        className="py-24"
+        style={{ background: "#F5F5F5", borderTop: "1px solid #EBEBEB" }}
+      >
+        <div className="max-w-xl mx-auto px-6 md:px-10">
+          <AnimatedSection className="mb-10 text-center">
+            <span className="eyebrow">Get started</span>
+            <h2 className="section-heading mt-0.5 mb-3">
+              Apply to sell on NOTMADE
             </h2>
-            <p className="text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>
-              We read every application ourselves. You&apos;ll hear back within 2–3 working days.
+            <p className="text-[15px]" style={{ color: "#777777" }}>
+              Takes 2 minutes. We&apos;ll get back within 2–3 days.
             </p>
           </AnimatedSection>
 
           <AnimatedSection delay={80}>
-            <div style={{ background: "#FFFFFF", padding: "clamp(1.75rem, 5vw, 2.5rem)" }}>
+            <div
+              style={{
+                background: "#FFFFFF",
+                border: "1px solid #E4E4E4",
+                padding: "clamp(1.75rem, 5vw, 2.5rem)",
+              }}
+            >
               <ApplyForm />
             </div>
           </AnimatedSection>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          8 — FAQ (white)
-      ══════════════════════════════════════ */}
-      <section className="px-6 md:px-12 py-20" style={{ background: "#FFFFFF" }}>
-        <div className="max-w-2xl mx-auto">
+      {/* ════════════════════════════════════
+          FAQ
+      ════════════════════════════════════ */}
+      <section className="py-24 bg-white" style={{ borderTop: "1px solid #F0F0F0" }}>
+        <div className="max-w-2xl mx-auto px-6 md:px-10">
           <AnimatedSection className="mb-10">
             <span className="eyebrow">FAQ</span>
             <h2 className="section-heading">Common questions.</h2>
           </AnimatedSection>
 
           <AnimatedSection delay={80}>
-            <div style={{ borderTop: "1px solid #E5E5E5" }}>
+            <div style={{ borderTop: "1px solid #EBEBEB" }}>
               {FAQS.map(({ q, a }, i) => (
                 <details key={i} className="faq-item">
                   <summary className="flex items-start justify-between py-5 gap-6 cursor-pointer select-none">
-                    <span
-                      className="text-sm font-semibold leading-snug"
-                      style={{ color: "#111111" }}
-                    >
+                    <span className="text-[15px] font-semibold leading-snug" style={{ color: "#111111" }}>
                       {q}
                     </span>
-                    <span className="faq-chevron flex-shrink-0" style={{ color: "#C41E2E" }}>
-                      +
-                    </span>
+                    <span className="faq-chevron flex-shrink-0" style={{ color: "#C41E2E" }}>+</span>
                   </summary>
-                  <p className="pb-5 text-sm leading-relaxed" style={{ color: "#666666" }}>
+                  <p className="pb-5 text-[14px] leading-relaxed" style={{ color: "#666666" }}>
                     {a}
                   </p>
                 </details>
@@ -440,38 +504,29 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          FOOTER (dark)
-      ══════════════════════════════════════ */}
-      <footer className="px-6 md:px-12 py-16" style={{ background: "#111111" }}>
-        <div className="max-w-6xl mx-auto">
+      {/* ════════════════════════════════════
+          FOOTER
+      ════════════════════════════════════ */}
+      <footer className="py-16" style={{ background: "#111111" }}>
+        <div className="max-w-6xl mx-auto px-6 md:px-10">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
-            <span className="font-bebas text-3xl tracking-widest" style={{ color: "#FFFFFF" }}>
+            <span className="font-bebas text-[1.6rem] tracking-widest leading-none" style={{ color: "#FFFFFF" }}>
               NOTMADE
             </span>
-            <p className="text-sm" style={{ color: "#888888" }}>
-              For seller queries:{" "}
-              <a
-                href="mailto:admin@notmade.in"
-                className="transition-colors hover:text-white"
-                style={{ color: "#AAAAAA" }}
-              >
+            <p className="text-[13px]" style={{ color: "#888888" }}>
+              <a href="mailto:admin@notmade.in" className="transition-colors hover:text-white" style={{ color: "#AAAAAA" }}>
                 admin@notmade.in
               </a>
-              {" | "}
-              <a
-                href="tel:+919354852701"
-                className="transition-colors hover:text-white"
-                style={{ color: "#AAAAAA" }}
-              >
+              {" · "}
+              <a href="tel:+919354852701" className="transition-colors hover:text-white" style={{ color: "#AAAAAA" }}>
                 +91 93548 52701
               </a>
             </p>
           </div>
 
           <div
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-6"
-            style={{ borderTop: "1px solid #222222" }}
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-8"
+            style={{ borderTop: "1px solid #1E1E1E" }}
           >
             <p
               className="text-[10px] uppercase tracking-widest"
@@ -483,9 +538,9 @@ export default function Home() {
               className="flex gap-6 text-[10px] uppercase tracking-widest"
               style={{ color: "#555555", fontFamily: "var(--font-space-mono)" }}
             >
-              <a href="/privacy-policy" className="transition-colors hover:text-white">Privacy Policy</a>
+              <a href="/privacy-policy" className="transition-colors hover:text-white">Privacy</a>
               <a href="/terms"          className="transition-colors hover:text-white">Terms</a>
-              <a href="/refund-policy"  className="transition-colors hover:text-white">Refund Policy</a>
+              <a href="/refund-policy"  className="transition-colors hover:text-white">Refund</a>
             </div>
           </div>
         </div>
