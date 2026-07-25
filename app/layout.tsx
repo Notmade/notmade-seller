@@ -23,18 +23,15 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sell on NOTMADE — Apply Now",
+  title: "Sell on NOTMADE — Apply for Seller Programme",
   description:
-    "Join NOTMADE's curated street-culture marketplace. Apply to become a seller and get your brand in front of the culture.",
+    "List your streetwear brand on NOTMADE marketplace. 12% commission, same-day Delhi NCR delivery, zero setup fees.",
+  robots: { index: true, follow: true },
   openGraph: {
-    title: "Sell on NOTMADE — Apply Now",
-    description:
-      "Join NOTMADE's curated street-culture marketplace. Apply to become a seller.",
-    siteName: "NOTMADE",
-  },
-  icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    title: "Sell on NOTMADE",
+    description: "12% commission. ₹0 fees. Same day Delhi NCR delivery.",
+    url: "https://seller.notmade.in",
+    siteName: "NOTMADE Seller Portal",
   },
 };
 
