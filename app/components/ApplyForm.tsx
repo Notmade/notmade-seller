@@ -2,19 +2,34 @@
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
 
-const CATEGORIES = ["Tees", "Hoodies", "Caps", "Accessories", "Footwear", "Jewellery", "Other"];
+const CATEGORIES = [
+  "Tees & Hoodies",
+  "Caps & Accessories",
+  "Sneakers & Footwear",
+  "Jewellery & Others",
+  "Other",
+];
+
 const CAPACITIES = [
-  { value: "<50",     label: "Less than 50 units/month" },
+  { value: "<50",     label: "Under 50 units/month"    },
   { value: "50-200",  label: "50–200 units/month"       },
   { value: "200-500", label: "200–500 units/month"      },
   { value: "500+",    label: "500+ units/month"         },
 ];
 
 interface FormData {
-  brandName: string; name: string; whatsapp: string; email: string;
-  category: string; about: string; instagram: string;
-  monthlyCapacity: string; cityState: string; gstNumber: string;
+  brandName:       string;
+  name:            string;
+  whatsapp:        string;
+  email:           string;
+  category:        string;
+  about:           string;
+  instagram:       string;
+  monthlyCapacity: string;
+  cityState:       string;
+  gstNumber:       string;
 }
+
 const EMPTY: FormData = {
   brandName: "", name: "", whatsapp: "", email: "", category: "",
   about: "", instagram: "", monthlyCapacity: "", cityState: "", gstNumber: "",
@@ -25,7 +40,7 @@ type Status = "idle" | "loading" | "success" | "error";
 const Label = ({ children }: { children: React.ReactNode }) => (
   <label
     className="block text-[10px] uppercase tracking-[0.18em] mb-2 font-semibold"
-    style={{ color: "#666666", fontFamily: "var(--font-space-mono)" }}
+    style={{ color: "#666666", fontFamily: "var(--font-space-mono), 'Space Mono', monospace" }}
   >
     {children}
   </label>
@@ -44,7 +59,9 @@ export default function ApplyForm() {
   const [status, setStatus] = useState<Status>("idle");
   const [errMsg, setErrMsg] = useState("");
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
     const { name, value } = e.target;
     if (name === "about" && value.length > 300) return;
     setForm((p) => ({ ...p, [name]: value }));
@@ -63,7 +80,7 @@ export default function ApplyForm() {
           body: JSON.stringify({
             brand_name:       form.brandName,
             name:             form.name,
-            whatsapp:         form.whatsapp,
+            whatsapp:         `+91${form.whatsapp}`,
             email:            form.email,
             category:         form.category,
             about:            form.about,
@@ -106,8 +123,8 @@ export default function ApplyForm() {
             </svg>
           </div>
         </div>
-        <div className="space-y-1">
-          <h3 className="font-bold text-2xl" style={{ color: "#111111" }}>
+        <div>
+          <h3 className="font-bold text-2xl" style={{ color: "#0A0A0A", marginBottom: "4px" }}>
             Application received.
           </h3>
           <p
@@ -117,9 +134,10 @@ export default function ApplyForm() {
             In review
           </p>
         </div>
-        <p className="text-sm leading-relaxed max-w-xs" style={{ color: "#666666" }}>
-          We read every application ourselves. You&apos;ll hear back within 2–3 working days at{" "}
-          <span className="font-semibold" style={{ color: "#111111" }}>{form.email}</span>.
+        <p className="text-sm leading-relaxed max-w-xs" style={{ color: "#6B7280" }}>
+          We&apos;ll be in touch at{" "}
+          <span className="font-semibold" style={{ color: "#0A0A0A" }}>{form.email}</span>{" "}
+          within 2–3 working days.
         </p>
         <button
           onClick={() => { setStatus("idle"); setForm(EMPTY); }}
@@ -139,7 +157,7 @@ export default function ApplyForm() {
           <Label>Brand Name *</Label>
           <input
             type="text" name="brandName" value={form.brandName}
-            onChange={handleChange} required placeholder="e.g. DEADSTOCK CO."
+            onChange={handleChange} required placeholder="Your brand name"
             className="field-input"
           />
         </div>
@@ -155,12 +173,20 @@ export default function ApplyForm() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <Label>WhatsApp (with +91) *</Label>
-          <input
-            type="tel" name="whatsapp" value={form.whatsapp}
-            onChange={handleChange} required placeholder="+91 98765 43210"
-            className="field-input"
-          />
+          <Label>WhatsApp *</Label>
+          <div className="whatsapp-field">
+            <span className="whatsapp-prefix">+91</span>
+            <input
+              type="tel"
+              name="whatsapp"
+              value={form.whatsapp}
+              onChange={handleChange}
+              required
+              placeholder="98765 43210"
+              className="whatsapp-input"
+              maxLength={10}
+            />
+          </div>
         </div>
         <div>
           <Label>Email *</Label>
@@ -181,7 +207,9 @@ export default function ApplyForm() {
             className="field-input appearance-none cursor-pointer"
           >
             <option value="" disabled>Select a category</option>
-            {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            {CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
           </select>
           <Chevron />
         </div>
@@ -239,7 +267,9 @@ export default function ApplyForm() {
               className="field-input appearance-none cursor-pointer"
             >
               <option value="" disabled>Select range</option>
-              {CAPACITIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {CAPACITIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
             </select>
             <Chevron />
           </div>
@@ -248,7 +278,7 @@ export default function ApplyForm() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <Label>City / State *</Label>
+          <Label>City &amp; State *</Label>
           <input
             type="text" name="cityState" value={form.cityState}
             onChange={handleChange} required placeholder="New Delhi, Delhi"
@@ -290,6 +320,7 @@ export default function ApplyForm() {
         type="submit"
         disabled={status === "loading"}
         className="btn-black w-full font-semibold text-sm tracking-widest uppercase py-4 disabled:opacity-50 disabled:cursor-not-allowed"
+        style={{ borderRadius: "6px" }}
       >
         {status === "loading" ? "Submitting..." : "Submit Application"}
       </button>
@@ -298,7 +329,7 @@ export default function ApplyForm() {
         className="text-center text-[10px] leading-relaxed"
         style={{ color: "#AAAAAA", fontFamily: "var(--font-space-mono)" }}
       >
-        12–14% commission · Monthly payouts · Minimum 5 products
+        12–14.5% commission · Monthly payouts · Minimum 5 products
       </p>
     </form>
   );
