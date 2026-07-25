@@ -46,7 +46,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={`${bebasNeue.variable} ${inter.variable} ${spaceMono.variable}`}>
-      <body className="antialiased bg-[#080808] text-white">{children}</body>
+      <body className="antialiased bg-white text-[#111111]">{children}</body>
     </html>
   );
 }
