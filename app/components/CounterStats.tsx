@@ -8,10 +8,7 @@ function useCounter(target: number, duration: number, started: boolean) {
 
   useEffect(() => {
     if (!started) return;
-    if (target === 0) {
-      setCount(0);
-      return;
-    }
+    if (target === 0) { setCount(0); return; }
     let startTime = 0;
     const step = (ts: number) => {
       if (!startTime) startTime = ts;
@@ -27,27 +24,23 @@ function useCounter(target: number, duration: number, started: boolean) {
 }
 
 const STATS = [
-  { value: 12, prefix: "", suffix: "%", label: "Commission Only" },
-  { value: 0, prefix: "₹", suffix: "", label: "Hidden Fees" },
-  { value: 2, prefix: "", suffix: "HR", label: "Delhi NCR Delivery" },
+  { value: 12, prefix: "",  suffix: "%",  label: "Commission" },
+  { value: 0,  prefix: "₹", suffix: "",   label: "Hidden Fees" },
+  { value: 2,  prefix: "",  suffix: "HR", label: "Delhi Delivery" },
+  { value: 24, prefix: "",  suffix: "H",  label: "Support Response" },
 ];
 
-function StatItem({
-  stat,
-  started,
-}: {
-  stat: (typeof STATS)[0];
-  started: boolean;
-}) {
+function StatItem({ stat, started }: { stat: (typeof STATS)[0]; started: boolean }) {
   const count = useCounter(stat.value, 1400, started);
   return (
-    <div className="text-center">
-      <div className="font-bebas text-5xl md:text-6xl text-[#CC0000] tracking-wider leading-none">
-        {stat.prefix}
-        {count}
-        {stat.suffix}
+    <div className="flex flex-col items-center gap-2 px-6 py-5 glass-card flex-1 min-w-[110px]">
+      <div className="stat-number text-4xl md:text-5xl">
+        {stat.prefix}{count}{stat.suffix}
       </div>
-      <div className="text-xs text-gray-500 uppercase tracking-[0.2em] mt-2">
+      <div
+        className="font-mono text-[10px] uppercase tracking-[0.2em]"
+        style={{ color: "var(--muted)" }}
+      >
         {stat.label}
       </div>
     </div>
@@ -63,10 +56,7 @@ export default function CounterStats() {
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting) {
-          setStarted(true);
-          observer.disconnect();
-        }
+        if (entry.isIntersecting) { setStarted(true); observer.disconnect(); }
       },
       { threshold: 0.3 }
     );
@@ -77,7 +67,7 @@ export default function CounterStats() {
   return (
     <div
       ref={ref}
-      className="flex flex-col sm:flex-row items-center justify-center gap-10 md:gap-20 pt-8 border-t border-[#1A1A1A]"
+      className="flex flex-wrap items-stretch justify-center gap-3 pt-8"
     >
       {STATS.map((stat) => (
         <StatItem key={stat.label} stat={stat} started={started} />

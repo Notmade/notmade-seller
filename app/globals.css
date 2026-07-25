@@ -3,63 +3,166 @@
 @tailwind utilities;
 
 :root {
-  --background: #080808;
-  --foreground: #ffffff;
+  --bg: #080808;
+  --card: #0F0F0F;
+  --red: #CC0000;
+  --red-hot: #FF0000;
+  --cream: #F4F1EC;
+  --muted: #404040;
+  --green: #00FF88;
 }
 
 body {
-  color: var(--foreground);
-  background: var(--background);
+  color: var(--cream);
+  background: var(--bg);
   font-family: var(--font-inter), Inter, sans-serif;
 }
 
+/* ── Typography utilities ── */
 .font-bebas {
   font-family: var(--font-bebas), "Bebas Neue", cursive;
 }
-
-@layer utilities {
-  .text-balance {
-    text-wrap: balance;
-  }
+.font-mono {
+  font-family: var(--font-space-mono), "Space Mono", monospace;
 }
 
-/* Scroll-reveal animation */
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+}
+
+/* ── Grid background ── */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(204, 0, 0, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(204, 0, 0, 0.05) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* ── Glass card ── */
+.glass-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(204, 0, 0, 0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+}
+.glass-card:hover {
+  background: rgba(204, 0, 0, 0.03);
+  border-color: rgba(204, 0, 0, 0.38);
+  box-shadow: 0 0 30px rgba(204, 0, 0, 0.08), inset 0 0 30px rgba(204, 0, 0, 0.03);
+}
+
+/* ── Red glow button ── */
+.btn-glow {
+  background: #CC0000;
+  box-shadow: 0 0 20px rgba(204, 0, 0, 0.35), 0 0 40px rgba(204, 0, 0, 0.15);
+  transition: all 0.3s ease;
+}
+.btn-glow:hover {
+  background: #e60000;
+  box-shadow: 0 0 30px rgba(204, 0, 0, 0.6), 0 0 60px rgba(204, 0, 0, 0.25);
+  transform: translateY(-1px);
+}
+.btn-glow:active {
+  transform: translateY(0);
+}
+
+/* ── Outline button ── */
+.btn-outline {
+  border: 1px solid rgba(204, 0, 0, 0.3);
+  color: var(--cream);
+  transition: all 0.3s ease;
+}
+.btn-outline:hover {
+  border-color: #CC0000;
+  box-shadow: 0 0 15px rgba(204, 0, 0, 0.2);
+  color: #ffffff;
+}
+
+/* ── Form card (pulsing glow) ── */
+@keyframes cardPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(204, 0, 0, 0.06), 0 0 0 1px rgba(204, 0, 0, 0.1); }
+  50%       { box-shadow: 0 0 40px rgba(204, 0, 0, 0.12), 0 0 0 1px rgba(204, 0, 0, 0.2); }
+}
+.form-card {
+  background: rgba(15, 15, 15, 0.95);
+  animation: cardPulse 5s ease-in-out infinite;
+}
+
+/* ── Form input styling ── */
+.field-input {
+  width: 100%;
+  background: #0A0A0A;
+  border: 1px solid rgba(204, 0, 0, 0.15);
+  color: #F4F1EC;
+  border-radius: 0;
+  padding: 0.875rem 1rem;
+  font-size: 0.875rem;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  font-family: var(--font-inter), Inter, sans-serif;
+}
+.field-input::placeholder {
+  color: #404040;
+}
+.field-input:focus {
+  border-color: rgba(204, 0, 0, 0.6);
+  box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.12);
+}
+.field-input option {
+  background: #111;
+  color: #F4F1EC;
+}
+
+/* ── Scroll-reveal animation ── */
 .anim-section {
   opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
-    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1);
+  transform: translateY(24px);
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
 }
 .anim-section.animate-in {
   opacity: 1;
   transform: translateY(0);
 }
 
-/* Form field red glow on focus */
-input:focus,
-textarea:focus,
-select:focus {
-  box-shadow: 0 0 0 3px rgba(204, 0, 0, 0.18);
+/* ── Green live pulse ── */
+@keyframes livePulse {
+  0%, 100% { box-shadow: 0 0 4px rgba(0, 255, 136, 0.6); }
+  50%       { box-shadow: 0 0 12px rgba(0, 255, 136, 0.9), 0 0 20px rgba(0, 255, 136, 0.3); }
+}
+.live-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background: #00FF88;
+  border-radius: 50%;
+  animation: livePulse 2s ease-in-out infinite;
 }
 
-/* Success checkmark draw animation */
+/* ── Red dot timeline glow ── */
+.timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #CC0000;
+  border: 2px solid rgba(204, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+.timeline-dot:hover,
+.group:hover .timeline-dot {
+  box-shadow: 0 0 12px rgba(204, 0, 0, 0.7);
+  transform: scale(1.4);
+}
+
+/* ── Success animation ── */
 @keyframes scaleIn {
-  from {
-    transform: scale(0);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
+  from { transform: scale(0); opacity: 0; }
+  to   { transform: scale(1); opacity: 1; }
 }
 @keyframes checkDraw {
-  from {
-    stroke-dashoffset: 50;
-  }
-  to {
-    stroke-dashoffset: 0;
-  }
+  from { stroke-dashoffset: 50; }
+  to   { stroke-dashoffset: 0; }
 }
 .success-ring {
   animation: scaleIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
@@ -70,14 +173,16 @@ select:focus {
   animation: checkDraw 0.5s ease forwards 0.45s;
 }
 
-/* Timeline connector */
-.timeline-line::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: linear-gradient(to bottom, transparent, #222 10%, #222 90%, transparent);
-  transform: translateX(-50%);
+/* ── Divider line ── */
+.red-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(204, 0, 0, 0.5) 50%, transparent);
+}
+
+/* ── Number section stat ── */
+.stat-number {
+  font-family: var(--font-bebas), "Bebas Neue", cursive;
+  color: #CC0000;
+  line-height: 1;
+  letter-spacing: 0.05em;
 }

@@ -19,6 +19,7 @@ const config: Config = {
       fontFamily: {
         bebas: ["var(--font-bebas)", "Bebas Neue", "cursive"],
         inter: ["var(--font-inter)", "Inter", "sans-serif"],
+        mono: ["var(--font-space-mono)", "Space Mono", "monospace"],
       },
     },
   },
