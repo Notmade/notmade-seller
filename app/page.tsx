@@ -6,22 +6,22 @@ const HOW_WE_WORK = [
   {
     step: "01",
     title: "Apply in 2 Minutes",
-    desc: "Fill out the application form below. Tell us about your brand and what you make.",
+    desc: "Takes 2 minutes. Just tell us what you make and where you're from.",
   },
   {
     step: "02",
     title: "We Review in 2–3 Days",
-    desc: "Our team manually reviews every application. Expect an email within 2–3 working days.",
+    desc: "We read every application ourselves. No algorithms, no auto-rejections. You'll hear from us in 2–3 days.",
   },
   {
     step: "03",
     title: "Share KYC + Products",
-    desc: "Once approved, share your KYC documents and product details with our onboarding team.",
+    desc: "Quick KYC, product photos, pricing. Our team walks you through it — usually done in a day.",
   },
   {
     step: "04",
     title: "Go Live in 2 Hours",
-    desc: "Your products go live on NOTMADE within 2 hours of onboarding approval.",
+    desc: "2 hours. That's all it takes to go live on NOTMADE. Delhi NCR sellers also unlock same-day delivery.",
   },
 ];
 
@@ -30,7 +30,7 @@ const WHO_WE_SUPPORT = [
   { icon: "◉", text: "Small batch manufacturers" },
   {
     icon: "◐",
-    text: "Delhi NCR based preferred — for same-day express delivery",
+    text: "Delhi NCR based preferred — you get 2-hour express delivery",
   },
   { icon: "◇", text: "Pan India sellers welcome" },
   { icon: "◆", text: "Minimum 10 products to list" },
@@ -39,62 +39,66 @@ const WHO_WE_SUPPORT = [
 const WHY_NOTMADE = [
   {
     icon: "◈",
-    title: "12–14% Commission ONLY",
-    desc: "That's all we take. No registration fee, no listing fee, no monthly subscription. Zero.",
+    title: "12–14% Commission. That's It.",
+    desc: "We don't take a cut of everything you do. Just 12% per sale. No registration fee, no listing fee, no monthly subscription.",
   },
   {
     icon: "◉",
-    title: "₹0 Setup & Monthly Fee",
-    desc: "Getting started costs you nothing. We only earn when you earn.",
+    title: "₹0 to Get Started",
+    desc: "Zero setup cost. We only make money when you make money. If you're not selling, we're not charging.",
   },
   {
     icon: "◐",
-    title: "We Handle Everything",
-    desc: "Marketing, customer communication, and delivery — all handled by NOTMADE.",
+    title: "Your Products. Our Reach.",
+    desc: "Marketing, customer support, delivery — we run all of it. You make the product, we do the rest.",
   },
   {
     icon: "◇",
-    title: "Real Orders, Real Customers",
-    desc: "17+ orders already delivered. A real buyer community that's growing every day.",
+    title: "Real Orders, Real Money",
+    desc: "17+ orders delivered and counting. Real buyers, real money — not just followers on a page.",
   },
   {
     icon: "◆",
-    title: "Mobile App Launching Soon",
-    desc: "Your products will be on NOTMADE's dedicated mobile app, reaching buyers on the go.",
+    title: "App Coming Soon",
+    desc: "Our mobile app is in the works. When it drops, your products are already on it.",
   },
   {
     icon: "◑",
     title: "Monthly Payout Reports",
-    desc: "Clean, transparent payout reports every month so you always know where you stand.",
+    desc: "Every month, a clean breakdown — what sold, what you earned, what's incoming. No spreadsheet headaches.",
   },
   {
     icon: "◫",
-    title: "Dedicated Seller Support",
-    desc: "A direct line to our team. No chatbots, no tickets — real people who care.",
+    title: "2-Hour WhatsApp Response",
+    desc: "We reply within 2 hours on WhatsApp. Seriously. No bots, no ticket queues, no waiting.",
   },
 ];
 
 const TIMELINE = [
-  { day: "Day 1", title: "Apply", desc: "Submit your application using the form below." },
+  {
+    day: "Day 1",
+    title: "Apply",
+    desc: "Submit the form below. Whole thing takes under 2 minutes.",
+  },
   {
     day: "Day 2–3",
-    title: "Application Reviewed",
-    desc: "Our team reviews your brand manually — no automated filters.",
+    title: "We Review It",
+    desc: "We read every application ourselves. No automated filters.",
   },
   {
     day: "Day 3",
-    title: "Approval / Rejection Email",
-    desc: "You'll get a clear yes or no with next steps via email.",
+    title: "You Get an Email",
+    desc: "A clear yes or no with next steps. No ghosting.",
   },
   {
     day: "Week 1",
     title: "KYC + Product Onboarding",
-    desc: "Share your KYC documents and product catalogue with our team.",
+    desc: "Quick KYC and product catalogue. Our team handles the onboarding.",
   },
   {
     day: "Week 1",
-    title: "Products LIVE",
-    desc: "Within 2 hours of onboarding approval, your products are live on NOTMADE.",
+    title: "Products Live",
+    desc: "Within 2 hours of onboarding approval, you're on NOTMADE.",
   },
 ];
 
@@ -116,7 +120,6 @@ export default function Home() {
 
       {/* ── HERO ── */}
       <section className="relative min-h-screen flex flex-col items-center justify-center text-center px-6 overflow-hidden pt-20">
-        {/* Grid bg */}
         <div
           className="absolute inset-0 opacity-[0.03]"
           style={{
@@ -125,7 +128,6 @@ export default function Home() {
             backgroundSize: "60px 60px",
           }}
         />
-        {/* Radial glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-[#CC0000]/6 rounded-full blur-[140px] pointer-events-none" />
 
         <div className="relative z-10 max-w-5xl mx-auto space-y-6">
@@ -156,7 +158,6 @@ export default function Home() {
             </a>
           </div>
 
-          {/* Animated counter stats */}
           <CounterStats />
         </div>
 
@@ -177,14 +178,15 @@ export default function Home() {
               HOW WE WORK
             </h2>
             <p className="text-gray-500 text-sm max-w-md mx-auto">
-              Simple 4-step process. From application to your products going live.
+              From form submission to live on the platform — most sellers are up
+              within a week.
             </p>
           </AnimatedSection>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-px bg-[#111111]">
             {HOW_WE_WORK.map(({ step, title, desc }, i) => (
               <AnimatedSection key={step} delay={i * 100}>
-                <div className="bg-[#080808] p-8 group hover:bg-[#0D0D0D] transition-colors h-full">
+                <div className="bg-[#080808] p-8 group hover:bg-[#0D0D0D] transition-all duration-300 h-full border-t-2 border-t-transparent hover:border-t-[#CC0000]">
                   <div className="font-bebas text-6xl text-[#CC0000]/20 group-hover:text-[#CC0000]/50 transition-colors leading-none mb-4">
                     {step}
                   </div>
@@ -211,20 +213,21 @@ export default function Home() {
               <br />
               SUPPORT
             </h2>
-            <p className="text-gray-500 text-sm leading-relaxed max-w-sm">
-              NOTMADE is built for creators who make things with purpose. If
-              that sounds like you, you belong here.
+            <p className="text-gray-400 text-sm leading-relaxed max-w-sm">
+              We don&apos;t care if you&apos;ve been making clothes for 10 years
+              or 10 months. If you make something real and you own it, you
+              belong here.
             </p>
           </AnimatedSection>
 
           <AnimatedSection delay={150}>
-            <ul className="space-y-4">
+            <ul className="space-y-3">
               {WHO_WE_SUPPORT.map(({ icon, text }, i) => (
                 <li
                   key={i}
-                  className="flex items-start gap-4 border border-[#151515] bg-[#0D0D0D] px-5 py-4 group hover:border-[#CC0000]/30 transition-colors"
+                  className="flex items-start gap-4 border border-[#1A1A1A] bg-[#0D0D0D] px-5 py-4 group hover:border-[#CC0000]/40 hover:bg-[#100808] transition-all duration-200"
                 >
-                  <span className="text-[#CC0000] text-lg mt-0.5 flex-shrink-0">
+                  <span className="text-[#CC0000] text-base mt-0.5 flex-shrink-0">
                     {icon}
                   </span>
                   <span className="text-gray-300 text-sm">{text}</span>
@@ -246,15 +249,15 @@ export default function Home() {
               WHY NOTMADE
             </h2>
             <p className="text-gray-500 max-w-lg mx-auto text-sm leading-relaxed">
-              Transparent commissions, zero hidden costs, real support. This is
-              how a seller platform should work.
+              We don&apos;t take a cut of everything you do. Just 12% per sale.
+              That&apos;s it.
             </p>
           </AnimatedSection>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-px bg-[#151515]">
             {WHY_NOTMADE.map(({ icon, title, desc }, i) => (
               <AnimatedSection key={title} delay={i * 80}>
-                <div className="bg-[#080808] p-8 group hover:bg-[#0D0D0D] transition-colors h-full">
+                <div className="bg-[#080808] p-8 group hover:bg-[#0D0D0D] transition-all duration-300 h-full border-l-2 border-l-transparent hover:border-l-[#CC0000]">
                   <div className="text-[#CC0000] text-2xl mb-4 group-hover:scale-110 transition-transform inline-block">
                     {icon}
                   </div>
@@ -285,14 +288,12 @@ export default function Home() {
             {TIMELINE.map(({ day, title, desc }, i) => (
               <AnimatedSection key={i} delay={i * 100}>
                 <div className="flex gap-6 group">
-                  {/* Left: day label */}
                   <div className="flex flex-col items-center flex-shrink-0 w-24">
-                    <div className="w-3 h-3 rounded-full bg-[#CC0000] mt-1 flex-shrink-0 group-hover:scale-125 transition-transform" />
+                    <div className="w-3 h-3 rounded-full bg-[#CC0000] mt-1 flex-shrink-0 group-hover:scale-150 group-hover:shadow-[0_0_8px_#CC0000] transition-all duration-300" />
                     {i < TIMELINE.length - 1 && (
                       <div className="w-px flex-1 bg-[#1A1A1A] my-2" />
                     )}
                   </div>
-                  {/* Right: content */}
                   <div className="pb-8">
                     <span className="font-bebas text-[#CC0000] tracking-widest text-sm">
                       {day}
@@ -300,7 +301,9 @@ export default function Home() {
                     <h3 className="font-bebas text-xl tracking-wider text-white mt-0.5 mb-1">
                       {title}
                     </h3>
-                    <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+                    <p className="text-gray-500 text-sm leading-relaxed">
+                      {desc}
+                    </p>
                   </div>
                 </div>
               </AnimatedSection>
@@ -324,8 +327,8 @@ export default function Home() {
               APPLY NOW
             </h2>
             <p className="text-gray-500 text-sm leading-relaxed max-w-md mx-auto">
-              Applications reviewed manually. We&apos;ll get back to you on
-              email within 2–3 working days.
+              Fill this out in 2 minutes. We read every single application
+              ourselves.
             </p>
           </AnimatedSection>
 
@@ -360,11 +363,15 @@ export default function Home() {
                   "Products must be original and authentic",
                   "Minimum quality standards as per NOTMADE guidelines",
                   "Payments processed monthly",
-                  "NOTMADE reserves the right to remove listings",
-                  "Registered as: NOTMADE LLP",
+                  "NOTMADE reserves the right to remove listings that don't meet standards",
                 ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-3 text-sm text-gray-400">
-                    <span className="text-[#CC0000] mt-0.5 flex-shrink-0">—</span>
+                  <li
+                    key={i}
+                    className="flex items-start gap-3 text-sm text-gray-400"
+                  >
+                    <span className="text-[#CC0000] mt-0.5 flex-shrink-0">
+                      —
+                    </span>
                     {item}
                   </li>
                 ))}
@@ -378,12 +385,9 @@ export default function Home() {
       <footer className="border-t border-[#111111] py-12 px-6">
         <div className="max-w-5xl mx-auto">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 mb-8">
-            <div>
-              <span className="font-bebas text-3xl tracking-widest text-white">
-                NOTMADE
-              </span>
-              <p className="text-gray-600 text-xs mt-1">Registered as NOTMADE LLP</p>
-            </div>
+            <span className="font-bebas text-3xl tracking-widest text-white">
+              NOTMADE
+            </span>
             <div className="text-sm text-gray-500 space-y-1">
               <p>
                 Seller queries:{" "}
@@ -410,13 +414,19 @@ export default function Home() {
               © 2026 NOTMADE. ALL RIGHTS RESERVED.
             </p>
             <div className="flex gap-6 text-xs text-gray-600">
-              <a href="#" className="hover:text-white transition-colors">
+              <a
+                href="/privacy-policy"
+                className="hover:text-white transition-colors"
+              >
                 Privacy Policy
               </a>
-              <a href="#" className="hover:text-white transition-colors">
+              <a href="/terms" className="hover:text-white transition-colors">
                 Terms & Conditions
               </a>
-              <a href="#" className="hover:text-white transition-colors">
+              <a
+                href="/refund-policy"
+                className="hover:text-white transition-colors"
+              >
                 Refund Policy
               </a>
             </div>
