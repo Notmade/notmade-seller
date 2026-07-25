@@ -32,6 +32,10 @@ export const metadata: Metadata = {
       "Join NOTMADE's curated street-culture marketplace. Apply to become a seller.",
     siteName: "NOTMADE",
   },
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
