@@ -33,6 +33,10 @@ export const metadata: Metadata = {
     url: "https://seller.notmade.in",
     siteName: "NOTMADE Seller Portal",
   },
+  icons: {
+    icon: "/favicon.svg",
+    shortcut: "/favicon.svg",
+  },
 };
 
 export default function RootLayout({
