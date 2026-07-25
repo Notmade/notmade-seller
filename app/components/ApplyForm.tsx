@@ -22,11 +22,16 @@ const EMPTY: FormData = {
 
 type Status = "idle" | "loading" | "success" | "error";
 
-const labelClass = "block font-mono text-[10px] uppercase tracking-[0.2em] mb-2" as const;
+const Label = ({ children }: { children: React.ReactNode }) => (
+  <label className="block font-mono text-[10px] uppercase tracking-[0.2em] mb-2"
+         style={{ color: "#888888" }}>
+    {children}
+  </label>
+);
 
-const SelectChevron = () => (
+const Chevron = () => (
   <div className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2">
-    <svg className="w-3.5 h-3.5" style={{ color: "var(--muted)" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <svg className="w-3.5 h-3.5" style={{ color: "#555" }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
     </svg>
   </div>
@@ -80,41 +85,35 @@ export default function ApplyForm() {
 
   if (status === "success") {
     return (
-      <div className="flex flex-col items-center justify-center py-14 text-center space-y-5">
+      <div className="flex flex-col items-center justify-center py-14 text-center gap-5">
         <div className="success-ring">
-          <div
-            className="w-20 h-20 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(0,255,136,0.08)", border: "2px solid #00FF88" }}
-          >
-            <svg className="w-10 h-10" viewBox="0 0 24 24" fill="none" stroke="#00FF88" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+          <div className="w-16 h-16 rounded-full flex items-center justify-center"
+               style={{ background: "rgba(34,197,94,0.1)", border: "2px solid #22c55e" }}>
+            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="#22c55e"
+                 strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
               <path className="check-path" d="M5 13l4 4L19 7" />
             </svg>
           </div>
         </div>
-        <div>
-          <h3 className="font-bebas text-4xl tracking-widest mb-1" style={{ color: "var(--cream)" }}>
-            APPLICATION RECEIVED
+        <div className="space-y-1">
+          <h3 className="font-bebas text-3xl tracking-widest" style={{ color: "#F4F1EC" }}>
+            Application received.
           </h3>
-          <div className="flex items-center justify-center gap-2 mt-1">
+          <div className="flex items-center justify-center gap-2">
             <span className="live-dot" />
-            <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "#00FF88" }}>
-              IN REVIEW
+            <span className="font-mono text-[10px] uppercase tracking-widest" style={{ color: "#22c55e" }}>
+              In review
             </span>
           </div>
         </div>
-        <div className="max-w-sm space-y-2">
-          <p className="text-sm leading-relaxed" style={{ color: "rgba(244,241,236,0.6)" }}>
-            We read every application ourselves. We&apos;ll get back to you within 2–3 working days.
-          </p>
-          <p className="text-sm" style={{ color: "var(--muted)" }}>
-            Watch:{" "}
-            <span className="font-medium" style={{ color: "#CC0000" }}>{form.email}</span>
-          </p>
-        </div>
+        <p className="text-sm leading-relaxed max-w-xs" style={{ color: "#888888" }}>
+          We read every application ourselves. You&apos;ll hear back within 2–3 working days at{" "}
+          <span style={{ color: "#F4F1EC" }}>{form.email}</span>.
+        </p>
         <button
           onClick={() => { setStatus("idle"); setForm(EMPTY); }}
-          className="mt-2 text-xs underline underline-offset-4 transition-colors"
-          style={{ color: "var(--muted)" }}
+          className="text-xs underline underline-offset-4 transition-colors hover:text-white"
+          style={{ color: "#555" }}
         >
           Submit another application
         </button>
@@ -123,86 +122,87 @@ export default function ApplyForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>Brand Name *</label>
+          <Label>Brand Name *</Label>
           <input type="text" name="brandName" value={form.brandName} onChange={handleChange} required placeholder="e.g. DEADSTOCK CO." className="field-input" />
         </div>
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>Your Name *</label>
+          <Label>Your Name *</Label>
           <input type="text" name="name" value={form.name} onChange={handleChange} required placeholder="Full name" className="field-input" />
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>WhatsApp Number *</label>
+          <Label>WhatsApp Number *</Label>
           <input type="tel" name="whatsapp" value={form.whatsapp} onChange={handleChange} required placeholder="+91 98765 43210" className="field-input" />
         </div>
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>Email *</label>
+          <Label>Email *</Label>
           <input type="email" name="email" value={form.email} onChange={handleChange} required placeholder="you@brand.com" className="field-input" />
         </div>
       </div>
 
       <div>
-        <label className={labelClass} style={{ color: "var(--muted)" }}>Category *</label>
+        <Label>Category *</Label>
         <div className="relative">
           <select name="category" value={form.category} onChange={handleChange} required className="field-input appearance-none cursor-pointer">
             <option value="" disabled>Select a category</option>
             {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
           </select>
-          <SelectChevron />
+          <Chevron />
         </div>
       </div>
 
       <div>
         <div className="flex items-center justify-between mb-2">
-          <label className={labelClass + " mb-0"} style={{ color: "var(--muted)" }}>About Your Brand *</label>
-          <span className="font-mono text-[10px] tabular-nums" style={{ color: form.about.length >= 280 ? "#CC0000" : "var(--muted)" }}>
+          <span className="font-mono text-[10px] uppercase tracking-[0.2em]" style={{ color: "#888888" }}>About your brand *</span>
+          <span className="font-mono text-[10px] tabular-nums"
+                style={{ color: form.about.length >= 280 ? "#CC0000" : "#555555" }}>
             {form.about.length}/300
           </span>
         </div>
-        <textarea name="about" value={form.about} onChange={handleChange} required rows={4} maxLength={300} placeholder="What do you make? Who is it for? What makes it different?" className="field-input resize-none" />
+        <textarea
+          name="about" value={form.about} onChange={handleChange} required
+          rows={4} maxLength={300}
+          placeholder="What do you make, who is it for, and what makes it different?"
+          className="field-input resize-none"
+        />
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>
-            Instagram{" "}
-            <span className="normal-case tracking-normal font-sans" style={{ color: "rgba(64,64,64,0.6)", fontSize: "9px" }}>(optional)</span>
-          </label>
+          <Label>Instagram <span className="normal-case tracking-normal" style={{ fontSize: "9px", color: "#444" }}>(optional)</span></Label>
           <input type="text" name="instagram" value={form.instagram} onChange={handleChange} placeholder="@yourbrand" className="field-input" />
         </div>
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>Monthly Capacity *</label>
+          <Label>Monthly Capacity *</Label>
           <div className="relative">
             <select name="monthlyCapacity" value={form.monthlyCapacity} onChange={handleChange} required className="field-input appearance-none cursor-pointer">
               <option value="" disabled>Select range</option>
               {CAPACITIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
             </select>
-            <SelectChevron />
+            <Chevron />
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>City / State *</label>
+          <Label>City / State *</Label>
           <input type="text" name="cityState" value={form.cityState} onChange={handleChange} required placeholder="New Delhi, Delhi" className="field-input" />
         </div>
         <div>
-          <label className={labelClass} style={{ color: "var(--muted)" }}>
-            GST Number{" "}
-            <span className="normal-case tracking-normal font-sans" style={{ color: "rgba(64,64,64,0.6)", fontSize: "9px" }}>(optional)</span>
-          </label>
+          <Label>GST Number <span className="normal-case tracking-normal" style={{ fontSize: "9px", color: "#444" }}>(optional)</span></Label>
           <input type="text" name="gstNumber" value={form.gstNumber} onChange={handleChange} placeholder="22AAAAA0000A1Z5" className="field-input" />
         </div>
       </div>
 
       {status === "error" && (
-        <p className="text-sm px-4 py-3" style={{ color: "#CC0000", border: "1px solid rgba(204,0,0,0.3)", background: "rgba(204,0,0,0.05)" }}>
+        <p className="text-sm px-4 py-3"
+           style={{ color: "#CC0000", border: "1px solid rgba(204,0,0,0.3)", background: "rgba(204,0,0,0.05)" }}>
           {errMsg}
         </p>
       )}
@@ -210,14 +210,14 @@ export default function ApplyForm() {
       <button
         type="submit"
         disabled={status === "loading"}
-        className="btn-glow w-full font-bebas text-xl tracking-widest py-4 rounded-none disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ color: "#fff" }}
+        className="btn-red w-full font-bebas text-xl tracking-widest py-4 disabled:opacity-50 disabled:cursor-not-allowed"
       >
-        {status === "loading" ? "SUBMITTING..." : "APPLY NOW →"}
+        {status === "loading" ? "Submitting..." : "Submit Application →"}
       </button>
 
-      <p className="text-center font-mono text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>
-        Minimum 10 products · Monthly payouts · 12–14% commission
+      <p className="text-center font-mono text-[10px] leading-relaxed"
+         style={{ color: "#555555" }}>
+        12–14% commission · Monthly payouts · Minimum 10 products
       </p>
     </form>
   );
