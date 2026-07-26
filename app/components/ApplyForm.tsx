@@ -94,7 +94,7 @@ export default function ApplyForm() {
       );
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.message || "Something went wrong. Try again.");
+        throw new Error(data?.error || data?.message || "Something went wrong. Try again.");
       }
       setStatus("success");
     } catch (err: unknown) {
