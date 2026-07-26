@@ -12,9 +12,9 @@ const COMMISSIONS = [
 
 const WHY = [
   {
-    icon: "📍",
-    title: "Delhi NCR's fastest delivery",
-    desc:  "Your customers in Delhi NCR get 2-hour delivery. No other platform offers this for streetwear.",
+    icon: "🚀",
+    title: "India's fastest streetwear marketplace",
+    desc:  "Delhi NCR gets 2-hour delivery. Pan India in 3–5 days. No other platform moves streetwear this fast.",
   },
   {
     icon: "📦",
@@ -30,7 +30,7 @@ const WHY = [
 
 const HANDLES = [
   { title: "Marketing & promotions",      desc: "We run campaigns that drive real buyers to your products."       },
-  { title: "Same-day Delhi NCR delivery", desc: "2-hour delivery in Delhi NCR. Same-day or next-day elsewhere."   },
+  { title: "Fast nationwide delivery",    desc: "2-hour delivery in Delhi NCR. Pan India in 3–5 days."           },
   { title: "Customer support & queries",  desc: "Every query, complaint, and return — handled by our team."       },
   { title: "Payment collection",          desc: "We collect, verify, and settle payments on your behalf."         },
   { title: "Returns & exchanges",         desc: "Full returns management. We handle the entire process."          },
@@ -70,8 +70,8 @@ const WHO = [
     desc:  "50 pieces or 500. We work with what you make. Minimum 5 products to list.",
   },
   {
-    title: "Delhi NCR Sellers",
-    desc:  "List with us and your customers get 2-hour delivery. No other streetwear platform offers this.",
+    title: "Pan India Sellers",
+    desc:  "List from anywhere in India. We reach buyers nationwide — not just one city.",
   },
 ];
 
@@ -97,8 +97,8 @@ const FAQS = [
     a: "Not mandatory for smaller sellers. Helpful for higher volumes and proper B2B invoicing.",
   },
   {
-    q: "Can I list from outside Delhi NCR?",
-    a: "Yes. Pan India sellers are welcome. Delhi NCR sellers get the same-day delivery advantage.",
+    q: "Can I list from anywhere in India?",
+    a: "Yes. All Pan India sellers are welcome. Delhi NCR sellers get the 2-hour delivery advantage for local customers.",
   },
   {
     q: "What happens after approval?",
@@ -187,7 +187,7 @@ export default function Home() {
                 maxWidth: "520px",
               }}
             >
-              We&apos;re building Delhi&apos;s fastest streetwear marketplace.
+              We&apos;re building India&apos;s fastest streetwear marketplace.
               Independent labels list with us — we handle marketing,
               delivery, and customer support. You focus on the product.
             </p>

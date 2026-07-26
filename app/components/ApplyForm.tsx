@@ -72,8 +72,9 @@ export default function ApplyForm() {
     setStatus("loading");
     setErrMsg("");
     try {
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "https://notmade-backend-production.up.railway.app"
       const res = await fetch(
-        "https://notmade-backend-production.up.railway.app/sellers/apply",
+        `${apiBase}/sellers/apply`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
