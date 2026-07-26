@@ -775,7 +775,7 @@ export default function Home() {
                 <Logo light />
               </div>
               <p style={{ fontSize: "13px", color: "#555" }}>
-                Delhi&apos;s streetwear marketplace.
+                India&apos;s fastest streetwear marketplace
               </p>
             </div>
             <p style={{ fontSize: "13px" }}>
