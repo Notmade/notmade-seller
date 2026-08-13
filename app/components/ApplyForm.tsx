@@ -71,11 +71,16 @@ export default function ApplyForm() {
     e.preventDefault();
     setStatus("loading");
     setErrMsg("");
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+
     try {
       const res = await fetch(
         `https://notmade-backend-production.up.railway.app/sellers/apply`,
         {
           method: "POST",
+          signal: controller.signal,
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             brand_name:       form.brandName,
@@ -91,14 +96,30 @@ export default function ApplyForm() {
           }),
         }
       );
+      clearTimeout(timer);
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data?.error || data?.message || "Something went wrong. Try again.");
+        throw new Error(data?.error || data?.message || `Server error (${res.status}). Please try again.`);
       }
       setStatus("success");
     } catch (err: unknown) {
+      clearTimeout(timer);
       setStatus("error");
-      setErrMsg(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      if (err instanceof Error) {
+        if (err.name === "AbortError") {
+          setErrMsg("Request timed out. Please check your internet connection and try again.");
+        } else if (
+          err.message === "Load failed" ||
+          err.message === "Failed to fetch" ||
+          err.message.toLowerCase().includes("network")
+        ) {
+          setErrMsg("Could not connect to server. Please check your internet connection and try again.");
+        } else {
+          setErrMsg(err.message);
+        }
+      } else {
+        setErrMsg("Something went wrong. Please try again.");
+      }
     }
   };
 
