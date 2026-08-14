@@ -77,7 +77,7 @@ export default function ApplyForm() {
 
     try {
       const res = await fetch(
-        `https://notmade-backend-production.up.railway.app/sellers/apply`,
+        `https://api.notmade.in/sellers/apply`,
         {
           method: "POST",
           signal: controller.signal,
