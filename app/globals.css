@@ -2,21 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── Design tokens ── */
 :root {
-  --red:      #C41E2E;
-  --red-dark: #A01828;
-  --text:     #0A0A0A;
-  --muted:    #6B7280;
-  --subtle:   #9CA3AF;
-  --border:   #E5E5E5;
-  --bg-grey:  #F5F5F5;
+  --red:     #CC0000;
+  --red-dk:  #AA0000;
+  --text:    #111111;
+  --muted:   #555555;
+  --subtle:  #888888;
+  --border:  #EEEEEE;
+  --grey:    #F7F7F7;
 }
 
-/* ── Base ── */
 body {
   background: #FFFFFF;
-  color: #0A0A0A;
+  color: #111111;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -26,10 +24,10 @@ body {
   .text-balance { text-wrap: balance; }
 }
 
-/* ── Fade-in on scroll ── */
+/* ── Scroll fade-in ── */
 .anim-section {
   opacity: 0;
-  transform: translateY(20px);
+  transform: translateY(22px);
   transition:
     opacity   0.55s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
@@ -39,116 +37,144 @@ body {
   transform: translateY(0);
 }
 
-/* ── Display heading (hero H1) ── */
+/* ── Typography ── */
 .display-heading {
-  font-size: clamp(2.5rem, 6vw, 56px);
-  font-weight: 800;
-  line-height: 1.05;
-  letter-spacing: -0.03em;
-  color: #0A0A0A;
+  font-size: clamp(3rem, 8.5vw, 84px);
+  font-weight: 900;
+  line-height: 1.0;
+  letter-spacing: -0.04em;
+  color: #111111;
 }
-
-/* ── Section heading (H2) ── */
 .section-heading {
-  font-size: clamp(1.625rem, 3.5vw, 2.25rem);
-  font-weight: 700;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 800;
   line-height: 1.1;
-  letter-spacing: -0.02em;
-  color: #0A0A0A;
+  letter-spacing: -0.03em;
+  color: #111111;
 }
 
-/* ── Buttons ── */
+/* ── Primary button (red, 3D shadow) ── */
 .btn-primary {
-  background: #0A0A0A;
-  color: #ffffff;
+  background: #CC0000;
+  color: #FFFFFF;
   display: inline-block;
   text-align: center;
-  transition: background 0.18s ease, transform 0.15s ease;
+  transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
+  box-shadow:
+    0 4px 14px rgba(204,0,0,0.30),
+    0 2px 6px  rgba(204,0,0,0.15);
 }
-.btn-primary:hover  { background: #222222; transform: translateY(-1px); }
+.btn-primary:hover {
+  background: #AA0000;
+  transform: translateY(-2px);
+  box-shadow:
+    0 8px 24px rgba(204,0,0,0.35),
+    0 4px 12px rgba(204,0,0,0.20);
+}
 .btn-primary:active { transform: translateY(0); }
 
-.btn-black {
-  background: #0A0A0A;
-  color: #ffffff;
-  display: inline-block;
-  text-align: center;
-  transition: background 0.18s ease, transform 0.15s ease;
+/* ── 3D Card ── */
+.card-3d {
+  background: #FFFFFF;
+  border: 1px solid #EEEEEE;
+  border-radius: 16px;
+  padding: 22px 20px;
+  box-shadow:
+    0 1px 2px  rgba(0,0,0,0.04),
+    0 4px 12px rgba(0,0,0,0.06),
+    0 12px 28px rgba(0,0,0,0.04);
+  transition:
+    transform   0.25s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow  0.25s ease;
 }
-.btn-black:hover  { background: #222222; transform: translateY(-1px); }
-.btn-black:active { transform: translateY(0); }
+.card-3d:hover {
+  transform: translateY(-6px);
+  box-shadow:
+    0 2px 4px  rgba(0,0,0,0.06),
+    0 10px 24px rgba(0,0,0,0.10),
+    0 20px 40px rgba(0,0,0,0.08);
+}
 
 /* ── Form inputs ── */
 .field-input {
   width: 100%;
   background: #FFFFFF;
-  border: 1px solid #D8D8D8;
-  color: #0A0A0A;
-  padding: 0.8125rem 0.875rem;
+  border: 1.5px solid #E0E0E0;
+  color: #111111;
+  padding: 0.875rem 1rem;
   font-size: 0.9375rem;
   line-height: 1.5;
   outline: none;
-  border-radius: 0;
-  transition: border-color 0.18s ease;
+  border-radius: 10px;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
 }
-.field-input::placeholder { color: #B0B0B0; }
-.field-input:focus        { border-color: var(--red); }
-.field-input option       { background: #FFFFFF; color: #0A0A0A; }
-
-/* WhatsApp field with prefix */
-.whatsapp-field {
-  display: flex;
-  border: 1px solid #D8D8D8;
-  transition: border-color 0.18s ease;
+.field-input::placeholder { color: #BEBEBE; }
+.field-input:focus {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(204,0,0,0.08);
 }
-.whatsapp-field:focus-within { border-color: var(--red); }
-.whatsapp-prefix {
-  padding: 0.8125rem 0.75rem;
+.field-input option { background: #FFFFFF; color: #111111; }
+
+/* ── Phone prefix field ── */
+.phone-field {
+  display: flex;
+  border: 1.5px solid #E0E0E0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #FFFFFF;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+.phone-field:focus-within {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(204,0,0,0.08);
+}
+.phone-prefix {
+  padding: 0.875rem 0.875rem;
   font-size: 0.9375rem;
-  color: #555;
-  border-right: 1px solid #E5E5E5;
+  color: #555555;
+  border-right: 1px solid #E8E8E8;
   background: #F9F9F9;
   flex-shrink: 0;
   line-height: 1.5;
   user-select: none;
+  font-weight: 600;
 }
-.whatsapp-input {
+.phone-input {
   flex: 1;
   border: none;
   outline: none;
-  padding: 0.8125rem 0.875rem;
+  padding: 0.875rem 1rem;
   font-size: 0.9375rem;
   background: transparent;
-  color: #0A0A0A;
+  color: #111111;
   font-family: var(--font-inter), Inter, system-ui, sans-serif;
 }
-.whatsapp-input::placeholder { color: #B0B0B0; }
+.phone-input::placeholder { color: #BEBEBE; }
 
-/* ── FAQ accordion ── */
-details.faq-item { border-bottom: 1px solid #E5E5E5; }
-details.faq-item summary::-webkit-details-marker { display: none; }
-details.faq-item summary { list-style: none; }
-.faq-chevron {
-  transition: transform 0.2s ease;
-  font-size: 1.25rem;
-  line-height: 1;
-  font-weight: 300;
+/* ── File upload ── */
+.file-drop {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  border: 1.5px dashed #DDDDDD;
+  border-radius: 10px;
+  padding: 18px 20px;
+  cursor: pointer;
+  background: #FAFAFA;
+  transition: border-color 0.18s ease, background 0.18s ease;
 }
-details.faq-item[open] .faq-chevron { transform: rotate(45deg); }
+.file-drop:hover    { border-color: var(--red); background: rgba(204,0,0,0.02); }
+.file-drop.selected { border-color: var(--red); border-style: solid; background: rgba(204,0,0,0.03); }
 
-/* ── Who cards (dark section) ── */
-.who-card {
-  background: #1A1A1A;
-  box-shadow: inset 3px 0 0 #C41E2E;
-  padding: 28px 24px;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
-  cursor: default;
+/* ── Footer links ── */
+.footer-link {
+  font-size: 13px;
+  color: #888888;
+  text-decoration: none;
+  transition: color 0.15s ease;
 }
-.who-card:hover {
-  box-shadow: inset 6px 0 0 #C41E2E;
-  transform: translateY(-2px);
-}
+.footer-link:hover { color: #CC0000; }
 
 /* ── Success animation ── */
 @keyframes scaleIn {
@@ -166,5 +192,10 @@ details.faq-item[open] .faq-chevron { transform: rotate(45deg); }
   animation: checkDraw 0.5s ease forwards 0.45s;
 }
 
-/* ── Font helpers ── */
 .font-bebas { font-family: var(--font-bebas), "Bebas Neue", cursive; }
+
+/* ── Spinner ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.spin { animation: spin 0.8s linear infinite; }

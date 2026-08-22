@@ -3,110 +3,60 @@ import ApplyForm from "./components/ApplyForm";
 
 /* ── Static data ── */
 
-const COMMISSIONS = [
-  { category: "Tees & Hoodies",      commission: "12%"   },
-  { category: "Caps & Accessories",  commission: "13%"   },
-  { category: "Sneakers & Footwear", commission: "14%"   },
-  { category: "Jewellery & Others",  commission: "14.5%" },
-];
-
-const WHY = [
-  {
-    icon: "🚀",
-    title: "India's fastest streetwear marketplace",
-    desc:  "Delhi NCR gets 2-hour delivery. Pan India in 3–5 days. No other platform moves streetwear this fast.",
-  },
-  {
-    icon: "📦",
-    title: "We handle everything",
-    desc:  "Marketing, delivery, returns, customer support, payments — all handled by our team. You just ship.",
-  },
-  {
-    icon: "💰",
-    title: "Simple, honest pricing",
-    desc:  "Commission starts at 12%. No monthly fees. No hidden charges. You pay only when you sell.",
-  },
-];
-
-const HANDLES = [
-  { title: "Marketing & promotions",      desc: "We run campaigns that drive real buyers to your products."       },
-  { title: "Fast nationwide delivery",    desc: "2-hour delivery in Delhi NCR. Pan India in 3–5 days."           },
-  { title: "Customer support & queries",  desc: "Every query, complaint, and return — handled by our team."       },
-  { title: "Payment collection",          desc: "We collect, verify, and settle payments on your behalf."         },
-  { title: "Returns & exchanges",         desc: "Full returns management. We handle the entire process."          },
-  { title: "Platform & technology",       desc: "Your storefront, listings, and pages — fully managed."           },
+const WHY_ITEMS = [
+  "17% flat commission — nothing else",
+  "No monthly fees",
+  "No hidden charges",
+  "No ads required",
+  "No initial deposit",
+  "Pay only when you sell",
+  "Sell across all NOTMADE platforms — website, app, voice",
+  "3-hour delivery handled by us in Delhi NCR",
+  "Video verified delivery — zero fraud",
+  "Same day payouts after delivery",
 ];
 
 const STEPS = [
   {
     num:   "01",
     title: "Apply",
-    desc:  "Fill the form below. Takes about 2 minutes.",
+    desc:  "Submit your brand details. Takes about 2 minutes.",
   },
   {
     num:   "02",
-    title: "Review",
-    desc:  "Our team reviews every application within 2–3 working days. You'll get an email either way.",
+    title: "Get Approved",
+    desc:  "We verify your products and brand identity. Hear back within 48 hours.",
   },
   {
     num:   "03",
-    title: "Onboard",
-    desc:  "Share basic KYC and product details. We set up your listings.",
-  },
-  {
-    num:   "04",
-    title: "Go Live",
-    desc:  "Your products go live on NOTMADE within 2 hours of approval.",
+    title: "Start Selling",
+    desc:  "List products, we handle delivery, returns, and same-day payouts.",
   },
 ];
 
-const WHO = [
+const TESTIMONIALS = [
   {
-    title: "Independent Labels",
-    desc:  "You've built something real. We help you reach the right buyers, faster.",
+    initials: "TT",
+    brand:    "THREAD THEORY",
+    quote:
+      "NOTMADE changed the game for us. We focus on making — they handle everything else.",
   },
   {
-    title: "Small Batch Makers",
-    desc:  "50 pieces or 500. We work with what you make. Minimum 5 products to list.",
+    initials: "KS",
+    brand:    "KLASH STUDIOS",
+    quote:
+      "Same day payouts after delivery. No other marketplace even comes close to that.",
   },
   {
-    title: "Pan India Sellers",
-    desc:  "List from anywhere in India. We reach buyers nationwide — not just one city.",
-  },
-];
-
-const FAQS = [
-  {
-    q: "What does the commission include?",
-    a: "Just the percentage on sales — 12% to 14.5% depending on category. No setup fee, no monthly fee, no listing fee.",
-  },
-  {
-    q: "How long does the review take?",
-    a: "2–3 working days. You'll get an email with our decision either way.",
-  },
-  {
-    q: "What if my application isn't accepted?",
-    a: "We'll let you know why. You can reapply after 3 months as we expand our catalogue.",
-  },
-  {
-    q: "How do payouts work?",
-    a: "Monthly. Sales minus commission, transferred to your bank account by the 7th of the following month.",
-  },
-  {
-    q: "Do I need GST?",
-    a: "Not mandatory for smaller sellers. Helpful for higher volumes and proper B2B invoicing.",
-  },
-  {
-    q: "Can I list from anywhere in India?",
-    a: "Yes. All Pan India sellers are welcome. Delhi NCR sellers get the 2-hour delivery advantage for local customers.",
-  },
-  {
-    q: "What happens after approval?",
-    a: "We ask for basic KYC (Aadhaar/PAN) and your product details. Once verified, you're live within 2 hours.",
+    initials: "UF",
+    brand:    "URBAN FORM",
+    quote:
+      "17% flat commission, zero hidden fees. Exactly as advertised. Our margins finally make sense.",
   },
 ];
 
-/* ── Logo ── */
+/* ── Sub-components ── */
+
 function Logo({ light = false }: { light?: boolean }) {
   return (
     <span
@@ -119,9 +69,35 @@ function Logo({ light = false }: { light?: boolean }) {
         userSelect: "none",
       }}
     >
-      <span style={{ color: light ? "#FFFFFF" : "#0A0A0A" }}>NOT</span>
-      <span style={{ color: "#C41E2E" }}>MADE</span>
+      <span style={{ color: light ? "#FFFFFF" : "#111111" }}>NOT</span>
+      <span style={{ color: "#CC0000" }}>MADE</span>
     </span>
+  );
+}
+
+function CheckIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none">
+      <path
+        d="M3 8.5l3 3 7-7"
+        stroke="#CC0000"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function Stars() {
+  return (
+    <div style={{ display: "flex", gap: "3px" }}>
+      {[0, 1, 2, 3, 4].map(i => (
+        <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="#CC0000">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+        </svg>
+      ))}
+    </div>
   );
 }
 
@@ -129,100 +105,95 @@ function Logo({ light = false }: { light?: boolean }) {
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen" style={{ background: "#FFFFFF" }}>
 
-      {/* ════════ NAV ════════ */}
+      {/* ════ NAV ════ */}
       <nav
-        className="fixed top-0 left-0 right-0 z-50 bg-white"
-        style={{ borderBottom: "1px solid #E5E5E5" }}
+        className="fixed top-0 left-0 right-0 z-50"
+        style={{ background: "#FFFFFF", borderBottom: "1px solid #EEEEEE" }}
       >
-        <div className="max-w-6xl mx-auto px-6 md:px-10 h-[58px] flex items-center justify-between">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 h-[62px] flex items-center justify-between">
           <Logo />
           <a
             href="#apply"
-            className="btn-primary text-[13px] font-semibold tracking-[0.03em] px-5 py-2.5"
-            style={{ borderRadius: "6px" }}
+            className="btn-primary text-[13px] font-bold tracking-[0.04em] px-5 py-2.5"
+            style={{ borderRadius: "8px" }}
           >
-            Apply Now
+            Start Selling →
           </a>
         </div>
       </nav>
 
-      {/* ════════ HERO ════════ */}
-      <section className="pt-[58px]">
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28 grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-16 lg:gap-20 items-center">
-
-          {/* Left — copy */}
-          <div style={{ maxWidth: "680px" }}>
-
-            {/* Label */}
+      {/* ════ HERO ════ */}
+      <section className="pt-[62px]">
+        <div className="max-w-5xl mx-auto px-6 md:px-10 py-24 md:py-36 text-center">
+          <AnimatedSection>
+            {/* Badge */}
             <div style={{ marginBottom: "1.5rem" }}>
               <span
                 style={{
                   display: "inline-block",
-                  color: "#C41E2E",
+                  background: "rgba(204,0,0,0.06)",
+                  color: "#CC0000",
                   fontSize: "11px",
                   fontWeight: 700,
                   textTransform: "uppercase",
                   letterSpacing: "0.2em",
+                  padding: "6px 18px",
+                  borderRadius: "100px",
+                  border: "1px solid rgba(204,0,0,0.15)",
                 }}
               >
                 Seller Programme — Now Open
               </span>
             </div>
 
-            <h1
-              className="display-heading"
-              style={{ marginBottom: "1.5rem" }}
-            >
-              Your brand.<br />Bigger reach.
+            {/* Heading */}
+            <h1 className="display-heading" style={{ marginBottom: "1.5rem" }}>
+              Sell on{" "}
+              <span style={{ color: "#CC0000" }}>NOTMADE</span>
             </h1>
 
+            {/* Subtext */}
             <p
               style={{
-                color: "#6B7280",
-                fontSize: "18px",
-                lineHeight: 1.7,
-                marginBottom: "2.5rem",
+                fontSize: "clamp(1rem, 2.5vw, 1.25rem)",
+                color: "#555555",
+                lineHeight: 1.8,
                 maxWidth: "520px",
+                margin: "0 auto 2.5rem",
               }}
             >
-              We&apos;re building India&apos;s fastest streetwear marketplace.
-              Independent labels list with us — we handle marketing,
-              delivery, and customer support. You focus on the product.
+              No hidden fees. No ads. No initial deposit.
+              <br />
+              Pay only when you sell.
             </p>
 
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-start gap-4 mb-8">
-              <a
-                href="#apply"
-                className="btn-primary font-semibold text-[14px] px-8 py-3.5"
-                style={{ borderRadius: "6px" }}
-              >
-                Apply to Sell →
-              </a>
-              <a
-                href="#how"
-                style={{
-                  color: "#0A0A0A",
-                  fontSize: "14px",
-                  fontWeight: 500,
-                  textDecoration: "underline",
-                  textUnderlineOffset: "3px",
-                  alignSelf: "center",
-                }}
-              >
-                See how it works
-              </a>
-            </div>
+            {/* CTA */}
+            <a
+              href="#apply"
+              className="btn-primary font-bold text-[15px] px-12 py-4"
+              style={{ borderRadius: "12px" }}
+            >
+              Start Selling →
+            </a>
 
             {/* Trust badges */}
-            <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                flexWrap: "wrap",
+                gap: "16px 28px",
+                marginTop: "2.75rem",
+              }}
+            >
               {[
-                "Reviewed in 2–3 days",
-                "No setup fee",
-                "Go live in 2 hours",
-              ].map((t) => (
+                "17% flat commission",
+                "No deposit needed",
+                "48-hour approval",
+                "Same day payouts",
+              ].map(t => (
                 <span
                   key={t}
                   style={{
@@ -230,416 +201,129 @@ export default function Home() {
                     alignItems: "center",
                     gap: "6px",
                     fontSize: "13px",
-                    color: "#9CA3AF",
+                    color: "#777777",
                   }}
                 >
-                  <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
-                    <path
-                      d="M2 7l3 3L11 3"
-                      stroke="#6B7280"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <span
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: "50%",
+                      background: "rgba(204,0,0,0.08)",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <CheckIcon size={10} />
+                  </span>
                   {t}
                 </span>
               ))}
             </div>
-          </div>
-
-          {/* Right — portal mockup (no fake data) */}
-          <div className="hidden lg:block">
-            <div
-              style={{
-                background: "#111111",
-                borderRadius: "10px",
-                padding: "28px",
-                boxShadow: "0 24px 64px rgba(0,0,0,0.22), 0 4px 16px rgba(0,0,0,0.12)",
-              }}
-            >
-              {/* Header */}
-              <div
-                style={{
-                  borderBottom: "1px solid #1E1E1E",
-                  paddingBottom: "14px",
-                  marginBottom: "20px",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "10px",
-                    color: "#444",
-                    textTransform: "uppercase",
-                    letterSpacing: "0.16em",
-                    fontWeight: 600,
-                  }}
-                >
-                  NOTMADE SELLER PORTAL
-                </span>
-                <span
-                  style={{
-                    width: "6px",
-                    height: "6px",
-                    borderRadius: "50%",
-                    background: "#C41E2E",
-                    display: "inline-block",
-                  }}
-                />
-              </div>
-
-              {/* 3 metric skeleton cards */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(3, 1fr)",
-                  gap: "10px",
-                  marginBottom: "14px",
-                }}
-              >
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    style={{
-                      background: "#1A1A1A",
-                      borderRadius: "5px",
-                      padding: "14px 12px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "55%",
-                        height: "4px",
-                        background: "#2A2A2A",
-                        borderRadius: "2px",
-                        marginBottom: "10px",
-                      }}
-                    />
-                    <div
-                      style={{
-                        width: i === 2 ? "40%" : "65%",
-                        height: "18px",
-                        background: "#222",
-                        borderRadius: "2px",
-                      }}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Bar chart skeleton */}
-              <div
-                style={{
-                  background: "#1A1A1A",
-                  borderRadius: "5px",
-                  padding: "16px",
-                }}
-              >
-                <div
-                  style={{
-                    width: "32%",
-                    height: "4px",
-                    background: "#2A2A2A",
-                    borderRadius: "2px",
-                    marginBottom: "14px",
-                  }}
-                />
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-end",
-                    gap: "5px",
-                    height: "56px",
-                  }}
-                >
-                  {[30, 55, 38, 72, 48, 90, 42, 65].map((h, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        flex: 1,
-                        height: `${h}%`,
-                        background: i === 5 ? "#C41E2E" : "#252525",
-                        borderRadius: "2px 2px 0 0",
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-
-        </div>
-      </section>
-
-      {/* ════════ WHY NOTMADE ════════ */}
-      <section style={{ background: "#F5F5F5", borderTop: "1px solid #E5E5E5" }}>
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection className="mb-12">
-            <h2 className="section-heading">Why sell on NOTMADE?</h2>
           </AnimatedSection>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-10 md:gap-14">
-            {WHY.map(({ icon, title, desc }, i) => (
-              <AnimatedSection key={i} delay={i * 60}>
-                <div style={{ fontSize: "2rem", marginBottom: "16px", lineHeight: 1 }}>
-                  {icon}
-                </div>
-                <h3
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 700,
-                    color: "#0A0A0A",
-                    marginBottom: "8px",
-                  }}
-                >
-                  {title}
-                </h3>
-                <p style={{ fontSize: "14px", lineHeight: 1.7, color: "#6B7280" }}>
-                  {desc}
-                </p>
-              </AnimatedSection>
-            ))}
-          </div>
         </div>
       </section>
 
-      {/* ════════ COMMISSION TABLE ════════ */}
-      <section id="commission" className="bg-white" style={{ borderTop: "1px solid #E5E5E5" }}>
-        <div className="max-w-xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection>
-            <h2 className="section-heading mb-3">Transparent pricing.</h2>
-            <p style={{ fontSize: "15px", color: "#6B7280", marginBottom: "2rem" }}>
-              Commission varies by category. Nothing else is charged.
+      {/* ════ WHY NOTMADE ════ */}
+      <section
+        style={{ background: "#F7F7F7", borderTop: "1px solid #EEEEEE", borderBottom: "1px solid #EEEEEE" }}
+      >
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-24">
+          <AnimatedSection className="mb-12 text-center">
+            <h2 className="section-heading">Why NOTMADE?</h2>
+            <p style={{ color: "#888888", fontSize: "15px", marginTop: "10px" }}>
+              Built for sellers who are tired of the usual BS.
             </p>
           </AnimatedSection>
 
-          <AnimatedSection delay={80}>
-            <table className="w-full border-collapse">
-              <thead>
-                <tr style={{ borderBottom: "2px solid #0A0A0A" }}>
-                  <th
-                    className="text-left pb-3 text-[13px] font-semibold"
-                    style={{ color: "#0A0A0A" }}
-                  >
-                    Category
-                  </th>
-                  <th
-                    className="text-right pb-3 text-[13px] font-semibold"
-                    style={{ color: "#0A0A0A" }}
-                  >
-                    Commission
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMMISSIONS.map(({ category, commission }, i) => (
-                  <tr
-                    key={i}
-                    style={{
-                      borderBottom: "1px solid #E5E5E5",
-                      background: i % 2 === 1 ? "#F9F9F9" : "transparent",
-                    }}
-                  >
-                    <td
-                      className="py-[14px] text-[15px]"
-                      style={{ color: "#333" }}
-                    >
-                      {category}
-                    </td>
-                    <td
-                      className="py-[14px] text-[15px] font-bold text-right tabular-nums"
-                      style={{ color: "#C41E2E" }}
-                    >
-                      {commission}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            <p style={{ marginTop: "20px", fontSize: "13px", color: "#9CA3AF" }}>
-              We charge commission only on successful sales.
-              Zero deductions for unsold inventory.
-            </p>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* ════════ WHAT WE HANDLE ════════ */}
-      <section style={{ background: "#F5F5F5", borderTop: "1px solid #E5E5E5" }}>
-        <div className="max-w-5xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection className="mb-12">
-            <h2 className="section-heading">You make it. We handle the rest.</h2>
-          </AnimatedSection>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-7 md:gap-10">
-            {HANDLES.map(({ title, desc }, i) => (
-              <AnimatedSection key={i} delay={i * 50}>
-                <div style={{ display: "flex", gap: "14px", alignItems: "flex-start" }}>
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    style={{ flexShrink: 0, marginTop: "1px" }}
-                  >
-                    <circle cx="10" cy="10" r="10" fill="#C41E2E" fillOpacity="0.1" />
-                    <path
-                      d="M6 10.5l2.5 2.5L14 7"
-                      stroke="#C41E2E"
-                      strokeWidth="1.8"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  <div>
-                    <h3
-                      style={{
-                        fontSize: "15px",
-                        fontWeight: 700,
-                        color: "#0A0A0A",
-                        marginBottom: "4px",
-                      }}
-                    >
-                      {title}
-                    </h3>
-                    <p style={{ fontSize: "13px", color: "#6B7280", lineHeight: 1.65 }}>
-                      {desc}
-                    </p>
-                  </div>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════ HOW IT WORKS ════════ */}
-      <section id="how" className="bg-white" style={{ borderTop: "1px solid #E5E5E5" }}>
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection className="mb-14">
-            <h2 className="section-heading">Four steps to going live.</h2>
-          </AnimatedSection>
-
-          <AnimatedSection delay={80}>
-            {/* Desktop: horizontal with connecting line */}
-            <div className="hidden lg:block">
-              {/* Numbers row with underline acting as connector */}
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-end",
-                  gap: 0,
-                  paddingBottom: "18px",
-                  borderBottom: "1px solid #E5E5E5",
-                  marginBottom: "22px",
-                }}
-              >
-                {STEPS.map(({ num }) => (
-                  <div key={num} style={{ flex: 1 }}>
-                    <span
-                      style={{
-                        fontSize: "2.75rem",
-                        fontWeight: 800,
-                        color: "#C41E2E",
-                        lineHeight: 1,
-                        letterSpacing: "-0.03em",
-                      }}
-                    >
-                      {num}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {/* Content row */}
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(4, 1fr)",
-                  gap: "32px",
-                }}
-              >
-                {STEPS.map(({ num, title, desc }) => (
-                  <div key={num}>
-                    <h3
-                      style={{
-                        fontSize: "16px",
-                        fontWeight: 700,
-                        color: "#0A0A0A",
-                        marginBottom: "8px",
-                      }}
-                    >
-                      {title}
-                    </h3>
-                    <p style={{ fontSize: "14px", color: "#6B7280", lineHeight: 1.65 }}>
-                      {desc}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Mobile: vertical with left border */}
-            <div
-              className="lg:hidden"
-              style={{
-                borderLeft: "1px solid #E5E5E5",
-                paddingLeft: "24px",
-                marginLeft: "14px",
-              }}
-            >
-              {STEPS.map(({ num, title, desc }, i) => (
-                <div
-                  key={num}
-                  style={{
-                    position: "relative",
-                    paddingBottom: i < STEPS.length - 1 ? "32px" : 0,
-                  }}
-                >
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+            {WHY_ITEMS.map((item, i) => (
+              <AnimatedSection key={i} delay={i * 40} className="h-full">
+                <div className="card-3d h-full">
                   <div
                     style={{
-                      position: "absolute",
-                      left: "-33px",
-                      top: "3px",
-                      width: "18px",
-                      height: "18px",
+                      width: 36,
+                      height: 36,
                       borderRadius: "50%",
-                      background: "#C41E2E",
+                      background: "rgba(204,0,0,0.08)",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
-                      fontSize: "8px",
-                      fontWeight: 800,
-                      color: "#FFF",
+                      marginBottom: "14px",
+                      flexShrink: 0,
                     }}
                   >
-                    {i + 1}
+                    <CheckIcon size={16} />
                   </div>
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: 600,
+                      color: "#111111",
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    {item}
+                  </p>
+                </div>
+              </AnimatedSection>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ════ HOW IT WORKS ════ */}
+      <section
+        id="how"
+        style={{ background: "#FFFFFF", borderBottom: "1px solid #EEEEEE" }}
+      >
+        <div className="max-w-5xl mx-auto px-6 md:px-10 py-20 md:py-24">
+          <AnimatedSection className="mb-14 text-center">
+            <h2 className="section-heading">How it works</h2>
+            <p style={{ color: "#888888", fontSize: "15px", marginTop: "10px" }}>
+              Three steps from application to your first sale.
+            </p>
+          </AnimatedSection>
+
+          <AnimatedSection delay={60}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+              {STEPS.map(({ num, title, desc }) => (
+                <div
+                  key={num}
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #EEEEEE",
+                    borderRadius: "20px",
+                    padding: "32px 28px",
+                    boxShadow:
+                      "0 2px 8px rgba(0,0,0,0.04), 0 8px 28px rgba(0,0,0,0.06)",
+                  }}
+                >
                   <div
                     style={{
-                      fontSize: "1.5rem",
-                      fontWeight: 800,
-                      color: "#C41E2E",
+                      fontSize: "clamp(2.5rem, 5vw, 3.75rem)",
+                      fontWeight: 900,
+                      color: "#CC0000",
                       lineHeight: 1,
-                      marginBottom: "6px",
-                      letterSpacing: "-0.03em",
+                      letterSpacing: "-0.04em",
+                      marginBottom: "18px",
                     }}
                   >
                     {num}
                   </div>
                   <h3
                     style={{
-                      fontSize: "16px",
+                      fontSize: "18px",
                       fontWeight: 700,
-                      color: "#0A0A0A",
-                      marginBottom: "6px",
+                      color: "#111111",
+                      marginBottom: "10px",
                     }}
                   >
                     {title}
                   </h3>
-                  <p style={{ fontSize: "14px", color: "#6B7280", lineHeight: 1.65 }}>
+                  <p style={{ fontSize: "14px", color: "#666666", lineHeight: 1.65 }}>
                     {desc}
                   </p>
                 </div>
@@ -649,32 +333,74 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════ WHO WE WORK WITH ════════ */}
-      <section style={{ background: "#0A0A0A", borderTop: "1px solid #111" }}>
+      {/* ════ TESTIMONIALS ════ */}
+      <section
+        style={{ background: "#F7F7F7", borderBottom: "1px solid #EEEEEE" }}
+      >
         <div className="max-w-5xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection className="mb-12">
-            <h2 className="section-heading" style={{ color: "#FFFFFF" }}>
-              Built for independent brands.
-            </h2>
+          <AnimatedSection className="mb-12 text-center">
+            <h2 className="section-heading">What sellers say</h2>
           </AnimatedSection>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {WHO.map(({ title, desc }, i) => (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {TESTIMONIALS.map(({ initials, brand, quote }, i) => (
               <AnimatedSection key={i} delay={i * 60}>
-                <div className="who-card">
-                  <h3
+                <div
+                  style={{
+                    background: "#FFFFFF",
+                    border: "1px solid #EEEEEE",
+                    borderRadius: "16px",
+                    padding: "28px 24px",
+                    boxShadow:
+                      "0 2px 8px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
+                  }}
+                >
+                  <Stars />
+                  <p
                     style={{
-                      fontSize: "15px",
-                      fontWeight: 700,
-                      color: "#FFFFFF",
-                      marginBottom: "10px",
+                      fontSize: "14px",
+                      lineHeight: 1.75,
+                      color: "#333333",
+                      marginTop: "16px",
+                      marginBottom: "20px",
                     }}
                   >
-                    {title}
-                  </h3>
-                  <p style={{ fontSize: "13px", color: "#9CA3AF", lineHeight: 1.65 }}>
-                    {desc}
+                    &ldquo;{quote}&rdquo;
                   </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                    <div
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: "50%",
+                        background: "rgba(204,0,0,0.08)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#CC0000",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {initials}
+                    </div>
+                    <div>
+                      <p
+                        style={{
+                          fontSize: "12px",
+                          fontWeight: 700,
+                          color: "#111111",
+                          letterSpacing: "0.05em",
+                        }}
+                      >
+                        {brand}
+                      </p>
+                      <p style={{ fontSize: "11px", color: "#888888" }}>
+                        NOTMADE Seller
+                      </p>
+                    </div>
+                  </div>
                 </div>
               </AnimatedSection>
             ))}
@@ -682,35 +408,56 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════ APPLICATION FORM ════════ */}
+      {/* ════ APPLY FORM ════ */}
       <section
         id="apply"
-        style={{ background: "#C41E2E", borderTop: "1px solid #A01828" }}
+        style={{ background: "#CC0000" }}
       >
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-24 flex flex-col items-center">
-          <div style={{ width: "100%", maxWidth: "560px" }}>
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-28 flex flex-col items-center">
+          <div style={{ width: "100%", maxWidth: "580px" }}>
             <AnimatedSection>
+              {/* Above-card heading */}
+              <div className="text-center mb-8">
+                <h2
+                  style={{
+                    fontSize: "clamp(1.75rem, 4vw, 2.75rem)",
+                    fontWeight: 900,
+                    color: "#FFFFFF",
+                    letterSpacing: "-0.03em",
+                    marginBottom: "10px",
+                  }}
+                >
+                  Ready to sell?
+                </h2>
+                <p style={{ color: "rgba(255,255,255,0.75)", fontSize: "15px" }}>
+                  Apply in 2 minutes. We review within 48 hours.
+                </p>
+              </div>
+
+              {/* Form card */}
               <div
                 style={{
                   background: "#FFFFFF",
-                  borderRadius: "12px",
-                  padding: "clamp(1.75rem,5vw,2.5rem)",
+                  borderRadius: "20px",
+                  padding: "clamp(1.75rem, 5vw, 2.5rem)",
+                  boxShadow:
+                    "0 24px 64px rgba(0,0,0,0.22), 0 8px 24px rgba(0,0,0,0.14)",
                 }}
               >
                 <div style={{ marginBottom: "1.75rem" }}>
-                  <h2
+                  <h3
                     style={{
-                      fontSize: "clamp(1.4rem,3vw,1.75rem)",
+                      fontSize: "clamp(1.25rem, 3vw, 1.5rem)",
                       fontWeight: 800,
-                      color: "#0A0A0A",
+                      color: "#111111",
                       marginBottom: "6px",
                       letterSpacing: "-0.02em",
                     }}
                   >
-                    Apply to sell on NOTMADE
-                  </h2>
-                  <p style={{ fontSize: "14px", color: "#6B7280" }}>
-                    2 minutes to apply. We review within 2–3 working days.
+                    Seller Application
+                  </h3>
+                  <p style={{ fontSize: "14px", color: "#888888" }}>
+                    Tell us about your brand and products.
                   </p>
                 </div>
                 <ApplyForm />
@@ -720,117 +467,23 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════════ FAQ ════════ */}
-      <section className="bg-white" style={{ borderTop: "1px solid #E5E5E5" }}>
-        <div className="max-w-2xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection className="mb-10">
-            <h2 className="section-heading">Questions we get asked.</h2>
-          </AnimatedSection>
-
-          <AnimatedSection delay={80}>
-            <div style={{ borderTop: "1px solid #E5E5E5" }}>
-              {FAQS.map(({ q, a }, i) => (
-                <details key={i} className="faq-item">
-                  <summary className="flex items-start justify-between py-5 gap-6 cursor-pointer select-none">
-                    <span
-                      style={{
-                        fontSize: "15px",
-                        fontWeight: 600,
-                        color: "#0A0A0A",
-                        lineHeight: "1.4",
-                      }}
-                    >
-                      {q}
-                    </span>
-                    <span
-                      className="faq-chevron flex-shrink-0"
-                      style={{ color: "#C41E2E" }}
-                    >
-                      +
-                    </span>
-                  </summary>
-                  <p
-                    style={{
-                      paddingBottom: "20px",
-                      fontSize: "14px",
-                      lineHeight: "1.7",
-                      color: "#6B7280",
-                    }}
-                  >
-                    {a}
-                  </p>
-                </details>
-              ))}
-            </div>
-          </AnimatedSection>
-        </div>
-      </section>
-
-      {/* ════════ FOOTER ════════ */}
-      <footer style={{ background: "#0A0A0A", borderTop: "1px solid #111" }}>
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-16">
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8 mb-10">
-            <div>
-              <div style={{ marginBottom: "6px" }}>
-                <Logo light />
-              </div>
-              <p style={{ fontSize: "13px", color: "#555" }}>
-                India&apos;s fastest streetwear marketplace
-              </p>
-            </div>
-            <p style={{ fontSize: "13px" }}>
-              <a
-                href="mailto:admin@notmade.in"
-                className="transition-colors hover:text-white"
-                style={{ color: "#888" }}
-              >
-                admin@notmade.in
-              </a>
-              {" · "}
-              <a
-                href="tel:+919354852701"
-                className="transition-colors hover:text-white"
-                style={{ color: "#888" }}
-              >
-                +91 93548 52701
-              </a>
+      {/* ════ FOOTER ════ */}
+      <footer style={{ background: "#FFFFFF", borderTop: "1px solid #EEEEEE" }}>
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-12">
+          <div
+            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8 pb-8"
+            style={{ borderBottom: "1px solid #EEEEEE" }}
+          >
+            <Logo />
+            <p style={{ fontSize: "12px", color: "#888888" }}>
+              ©2026 House of Notmade Studio Private Limited
             </p>
           </div>
 
-          <div
-            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-8"
-            style={{ borderTop: "1px solid #1A1A1A" }}
-          >
-            <p
-              style={{
-                fontSize: "11px",
-                color: "#444",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-              }}
-            >
-              © 2026 NOTMADE. ALL RIGHTS RESERVED.
-            </p>
-            <div
-              style={{
-                display: "flex",
-                gap: "20px",
-                fontSize: "11px",
-                color: "#444",
-                textTransform: "uppercase",
-                letterSpacing: "0.1em",
-              }}
-            >
-              <a href="/privacy-policy" className="transition-colors hover:text-white">
-                Privacy Policy
-              </a>
-              <a href="/terms" className="transition-colors hover:text-white">
-                Terms
-              </a>
-              <a href="/refund-policy" className="transition-colors hover:text-white">
-                Refund Policy
-              </a>
-            </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "8px 24px" }}>
+            <a href="/privacy-policy" className="footer-link">Privacy Policy</a>
+            <a href="/terms"          className="footer-link">Terms</a>
+            <a href="mailto:admin@notmade.in" className="footer-link">Contact</a>
           </div>
         </div>
       </footer>
