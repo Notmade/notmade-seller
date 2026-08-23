@@ -51,9 +51,14 @@ export default function LoginPage() {
         throw new Error("Your seller account has been suspended. Contact support.");
       }
 
-      // bcryptjs compare (dynamic import — runs only in browser)
-      const bcrypt = (await import('bcryptjs')).default;
-      const valid = await bcrypt.compare(password, hash);
+      // Compare password - plain text or bcrypt
+      let valid = false;
+      if (hash && hash.startsWith('$2')) {
+        const bcrypt = (await import('bcryptjs')).default;
+        valid = await bcrypt.compare(password, hash);
+      } else {
+        valid = hash === password;
+      }
       if (!valid) {
         throw new Error("Incorrect password. Please try again.");
       }
