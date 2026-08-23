@@ -29,8 +29,13 @@ const STEPS = [
   },
   {
     num:   "03",
-    title: "Start Selling",
-    desc:  "List products, we handle delivery, returns, and same-day payouts.",
+    title: "List Products",
+    desc:  "Upload your products via the seller portal. Each goes live after a quick review.",
+  },
+  {
+    num:   "04",
+    title: "Get Paid",
+    desc:  "We handle delivery, returns, and same-day payouts. You focus on creating.",
   },
 ];
 
@@ -114,13 +119,22 @@ export default function Home() {
       >
         <div className="max-w-6xl mx-auto px-6 md:px-10 h-[62px] flex items-center justify-between">
           <Logo />
-          <a
-            href="#apply"
-            className="btn-primary text-[13px] font-bold tracking-[0.04em] px-5 py-2.5"
-            style={{ borderRadius: "8px" }}
-          >
-            Start Selling →
-          </a>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <a
+              href="/login"
+              className="text-[13px] font-semibold no-underline px-3.5 py-2 rounded-lg border border-[#DDDDDD] hover:bg-[#F5F5F5] hover:text-[#111111] transition-all"
+              style={{ color: "#555555" }}
+            >
+              Login
+            </a>
+            <a
+              href="#apply"
+              className="btn-primary text-[13px] font-bold tracking-[0.04em] px-5 py-2.5"
+              style={{ borderRadius: "8px" }}
+            >
+              Start Selling →
+            </a>
+          </div>
         </div>
       </nav>
 
@@ -150,7 +164,7 @@ export default function Home() {
 
             {/* Heading */}
             <h1 className="display-heading" style={{ marginBottom: "1.5rem" }}>
-              Sell on{" "}
+              Grow Your Brand on{" "}
               <span style={{ color: "#CC0000" }}>NOTMADE</span>
             </h1>
 
@@ -287,8 +301,28 @@ export default function Home() {
             </p>
           </AnimatedSection>
 
+          {/* Stats row */}
+          <AnimatedSection delay={30} className="mb-10">
+            <div style={{ display: "flex", justifyContent: "center", gap: "0", flexWrap: "wrap" }}>
+              {[
+                { label: "17% flat commission", sub: "no other deductions" },
+                { label: "0 hidden fees", sub: "no monthly charges" },
+                { label: "7-day payouts", sub: "after delivery" },
+              ].map(({ label, sub }, i) => (
+                <div key={i} style={{
+                  padding: "18px 32px",
+                  textAlign: "center",
+                  borderRight: i < 2 ? "1px solid #EEEEEE" : undefined,
+                }}>
+                  <p style={{ fontSize: "clamp(1rem, 2.5vw, 1.2rem)", fontWeight: 800, color: "#111111", letterSpacing: "-0.02em" }}>{label}</p>
+                  <p style={{ fontSize: "12px", color: "#888888", marginTop: "4px" }}>{sub}</p>
+                </div>
+              ))}
+            </div>
+          </AnimatedSection>
+
           <AnimatedSection delay={60}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-5 md:gap-6">
               {STEPS.map(({ num, title, desc }) => (
                 <div
                   key={num}

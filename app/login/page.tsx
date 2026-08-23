@@ -2,17 +2,8 @@
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { setToken } from "../lib/auth";
-
-interface LoginResponse {
-  token: string;
-  seller?: {
-    name: string;
-    brandName: string;
-  };
-  error?: string;
-  message?: string;
-}
+import { setSession } from "../lib/auth";
+import { supabase } from "../lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,41 +17,58 @@ export default function LoginPage() {
     setLoading(true);
     setError("");
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 12000);
-
     try {
-      const res = await fetch("https://api.notmade.in/auth/seller/login", {
-        method: "POST",
-        signal: controller.signal,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
-      });
-      clearTimeout(timer);
+      const normalized = email.trim().toLowerCase();
 
-      const data = await res.json() as LoginResponse;
+      // Try seller_email first, fall back to email
+      let seller: Record<string, unknown> | null = null;
+      const { data: d1 } = await supabase
+        .from('sellers')
+        .select('*')
+        .eq('seller_email', normalized)
+        .maybeSingle();
+      if (d1) seller = d1;
 
-      if (!res.ok) {
-        throw new Error(data.error ?? data.message ?? `Login failed (${res.status})`);
+      if (!seller) {
+        const { data: d2 } = await supabase
+          .from('sellers')
+          .select('*')
+          .eq('email', normalized)
+          .maybeSingle();
+        seller = d2;
       }
 
-      if (!data.token) throw new Error("No token received from server.");
+      if (!seller) {
+        throw new Error("No account found with that email address.");
+      }
 
-      setToken(data.token);
+      const hash = (seller.seller_password ?? seller.password) as string | null;
+      if (!hash) {
+        throw new Error("Account not activated yet. Contact NOTMADE admin.");
+      }
+
+      if (seller.status === 'suspended') {
+        throw new Error("Your seller account has been suspended. Contact support.");
+      }
+
+      // bcryptjs compare (dynamic import — runs only in browser)
+      const bcrypt = (await import('bcryptjs')).default;
+      const valid = await bcrypt.compare(password, hash);
+      if (!valid) {
+        throw new Error("Incorrect password. Please try again.");
+      }
+
+      setSession({
+        id:         seller.id as string,
+        name:       (seller.name as string) ?? "",
+        brand_name: (seller.brand_name as string) ?? "",
+        email:      (seller.seller_email ?? seller.email) as string,
+        must_change_password: (seller.must_change_password as boolean) ?? false,
+      });
+
       router.push("/dashboard");
     } catch (err: unknown) {
-      clearTimeout(timer);
-      if (err instanceof Error) {
-        if (err.name === "AbortError") {
-          setError("Request timed out. Please check your connection.");
-        } else if (err.message === "Failed to fetch" || err.message === "Load failed") {
-          setError("Could not connect to server. Please check your internet.");
-        } else {
-          setError(err.message);
-        }
-      } else {
-        setError("Something went wrong. Please try again.");
-      }
+      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
       setLoading(false);
     }
   };
@@ -79,10 +87,12 @@ export default function LoginPage() {
       <div style={{ width: "100%", maxWidth: 420 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
-          <span style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "-0.02em", userSelect: "none" }}>
-            <span style={{ color: "#111111" }}>NOT</span>
-            <span style={{ color: "#CC0000" }}>MADE</span>
-          </span>
+          <a href="/" style={{ textDecoration: "none" }}>
+            <span style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "-0.02em", userSelect: "none" }}>
+              <span style={{ color: "#111111" }}>NOT</span>
+              <span style={{ color: "#CC0000" }}>MADE</span>
+            </span>
+          </a>
           <p style={{ fontSize: "12px", color: "#888888", marginTop: "6px", fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase" }}>
             Seller Portal
           </p>
@@ -117,6 +127,7 @@ export default function LoginPage() {
                 required
                 placeholder="seller@brand.com"
                 className="field-input"
+                autoComplete="email"
               />
             </div>
 
@@ -131,6 +142,7 @@ export default function LoginPage() {
                 required
                 placeholder="••••••••"
                 className="field-input"
+                autoComplete="current-password"
               />
             </div>
 

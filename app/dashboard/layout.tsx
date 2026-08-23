@@ -2,16 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { isAuthenticated, clearToken } from "../lib/auth";
-import { apiGet } from "../lib/api";
+import { isAuthenticated, clearToken, getSellerId } from "../lib/auth";
+import { supabase } from "../lib/supabase";
 import Sidebar from "../components/Sidebar";
-import type { SellerProfile } from "../lib/types";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router  = useRouter();
   const [ready,        setReady]       = useState(false);
   const [sidebarOpen,  setSidebarOpen] = useState(false);
-  const [profile,      setProfile]     = useState<SellerProfile | null>(null);
+  const [sellerName,   setSellerName]  = useState<string | undefined>();
+  const [brandName,    setBrandName]   = useState<string | undefined>();
 
   useEffect(() => {
     if (!isAuthenticated()) {
@@ -19,14 +19,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       return;
     }
     setReady(true);
-    apiGet<SellerProfile>("/seller/profile")
-      .then(setProfile)
-      .catch((err: Error) => {
-        if (err.message === "401") {
-          clearToken();
-          router.replace("/login");
-        }
-      });
+
+    const id = getSellerId();
+    if (!id) return;
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('sellers')
+        .select('name, brand_name')
+        .eq('id', id)
+        .maybeSingle();
+      if (error) {
+        clearToken();
+        router.replace("/login");
+        return;
+      }
+      if (data) {
+        setSellerName((data.name as string | null) ?? undefined);
+        setBrandName((data.brand_name as string | null) ?? undefined);
+      }
+    })();
   }, [router]);
 
   if (!ready) {
@@ -40,8 +52,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#F5F5F5" }}>
       <Sidebar
-        sellerName={profile?.name}
-        brandName={profile?.brandName}
+        sellerName={sellerName}
+        brandName={brandName}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />

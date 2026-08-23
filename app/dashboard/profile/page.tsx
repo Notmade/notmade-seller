@@ -2,35 +2,26 @@
 
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiGet, apiPut } from "../../lib/api";
-import { clearToken } from "../../lib/auth";
-import type { SellerProfile } from "../../lib/types";
+import { clearToken, getSellerId } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 
 interface ProfileForm {
-  name:              string;
-  phone:             string;
-  brandName:         string;
-  category:          string;
-  instagram:         string;
-  gstin:             string;
-  upiId:             string;
-  bankHolder:        string;
-  bankNumber:        string;
-  ifsc:              string;
-  bankName:          string;
-  warehouseAddress:  string;
-  warehouseCity:     string;
-  warehouseState:    string;
-  warehousePincode:  string;
-  warehouseContact:  string;
-  warehousePhone:    string;
+  name:               string;
+  phone:              string;
+  brand_name:         string;
+  category:           string;
+  instagram:          string;
+  gstin:              string;
+  upi_id:             string;
+  bank_account_name:  string;
+  bank_account_number:string;
+  bank_ifsc:          string;
+  bank_name:          string;
 }
 
 const EMPTY: ProfileForm = {
-  name: "", phone: "", brandName: "", category: "", instagram: "",
-  gstin: "", upiId: "", bankHolder: "", bankNumber: "", ifsc: "", bankName: "",
-  warehouseAddress: "", warehouseCity: "", warehouseState: "", warehousePincode: "",
-  warehouseContact: "", warehousePhone: "",
+  name: "", phone: "", brand_name: "", category: "", instagram: "",
+  gstin: "", upi_id: "", bank_account_name: "", bank_account_number: "", bank_ifsc: "", bank_name: "",
 };
 
 function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
@@ -55,43 +46,47 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export default function ProfilePage() {
   const router = useRouter();
-  const [loading,  setLoading]  = useState(true);
-  const [saving,   setSaving]   = useState(false);
-  const [saved,    setSaved]    = useState(false);
-  const [error,    setError]    = useState("");
-  const [form,     setForm]     = useState<ProfileForm>(EMPTY);
-  const [email,    setEmail]    = useState("");
-  const [status,   setStatus]   = useState<SellerProfile["status"]>("pending");
+  const [loading, setLoading] = useState(true);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const [error,   setError]   = useState("");
+  const [form,    setForm]    = useState<ProfileForm>(EMPTY);
+  const [email,   setEmail]   = useState("");
+  const [status,  setStatus]  = useState("pending");
 
   useEffect(() => {
-    apiGet<SellerProfile>("/seller/profile")
-      .then(p => {
-        setEmail(p.email);
-        setStatus(p.status);
-        setForm({
-          name:             p.name             ?? "",
-          phone:            p.phone            ?? "",
-          brandName:        p.brandName        ?? "",
-          category:         p.category         ?? "",
-          instagram:        p.instagram        ?? "",
-          gstin:            p.gstin            ?? "",
-          upiId:            p.upiId            ?? "",
-          bankHolder:       p.bankHolder       ?? "",
-          bankNumber:       p.bankNumber       ?? "",
-          ifsc:             p.ifsc             ?? "",
-          bankName:         p.bankName         ?? "",
-          warehouseAddress: p.warehouseAddress ?? "",
-          warehouseCity:    p.warehouseCity    ?? "",
-          warehouseState:   p.warehouseState   ?? "",
-          warehousePincode: p.warehousePincode ?? "",
-          warehouseContact: p.warehouseContact ?? "",
-          warehousePhone:   p.warehousePhone   ?? "",
-        });
-      })
-      .catch((err: Error) => {
-        if (err.message === "401") { clearToken(); router.replace("/login"); }
-      })
-      .finally(() => setLoading(false));
+    const sellerId = getSellerId();
+    if (!sellerId) { clearToken(); router.replace("/login"); return; }
+
+    void (async () => {
+      try {
+        const { data, error: err } = await supabase
+          .from('sellers')
+          .select('name, phone, brand_name, category, instagram, gstin, upi_id, bank_account_name, bank_account_number, bank_ifsc, bank_name, email, seller_email, status')
+          .eq('id', sellerId)
+          .maybeSingle();
+        if (err) { clearToken(); router.replace("/login"); return; }
+        if (data) {
+          setEmail(((data.seller_email ?? data.email) as string | null) ?? "");
+          setStatus((data.status as string | null) ?? "pending");
+          setForm({
+            name:                (data.name as string | null)                ?? "",
+            phone:               (data.phone as string | null)               ?? "",
+            brand_name:          (data.brand_name as string | null)          ?? "",
+            category:            (data.category as string | null)            ?? "",
+            instagram:           (data.instagram as string | null)           ?? "",
+            gstin:               (data.gstin as string | null)               ?? "",
+            upi_id:              (data.upi_id as string | null)              ?? "",
+            bank_account_name:   (data.bank_account_name as string | null)   ?? "",
+            bank_account_number: (data.bank_account_number as string | null) ?? "",
+            bank_ifsc:           (data.bank_ifsc as string | null)           ?? "",
+            bank_name:           (data.bank_name as string | null)           ?? "",
+          });
+        }
+      } finally {
+        setLoading(false);
+      }
+    })();
   }, [router]);
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -100,44 +95,43 @@ export default function ProfilePage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    const sellerId = getSellerId();
+    if (!sellerId) return;
     setSaving(true);
     setSaved(false);
     setError("");
-    try {
-      await apiPut("/seller/profile", {
-        name:              form.name,
-        phone:             form.phone,
-        brand_name:        form.brandName,
-        category:          form.category,
-        instagram:         form.instagram  || undefined,
-        gstin:             form.gstin      || undefined,
-        upi_id:            form.upiId      || undefined,
-        bank_holder:       form.bankHolder || undefined,
-        bank_number:       form.bankNumber || undefined,
-        ifsc:              form.ifsc       || undefined,
-        bank_name:         form.bankName   || undefined,
-        warehouse_address: form.warehouseAddress || undefined,
-        warehouse_city:    form.warehouseCity    || undefined,
-        warehouse_state:   form.warehouseState   || undefined,
-        warehouse_pincode: form.warehousePincode || undefined,
-        warehouse_contact: form.warehouseContact || undefined,
-        warehouse_phone:   form.warehousePhone   || undefined,
-      });
+
+    const { error: err } = await supabase
+      .from('sellers')
+      .update({
+        name:                form.name               || null,
+        phone:               form.phone              || null,
+        brand_name:          form.brand_name         || null,
+        instagram:           form.instagram          || null,
+        gstin:               form.gstin              || null,
+        upi_id:              form.upi_id             || null,
+        bank_account_name:   form.bank_account_name  || null,
+        bank_account_number: form.bank_account_number || null,
+        bank_ifsc:           form.bank_ifsc          || null,
+        bank_name:           form.bank_name          || null,
+      })
+      .eq('id', sellerId);
+
+    setSaving(false);
+    if (err) {
+      setError(err.message);
+    } else {
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to save changes.");
-    } finally {
-      setSaving(false);
     }
   };
 
-  const statusColors = {
+  const statusStyles: Record<string, { bg: string; color: string; label: string }> = {
     pending:   { bg: "#FFFBEB", color: "#B45309", label: "Pending Approval" },
     active:    { bg: "#F0FDF4", color: "#166534", label: "Active" },
     suspended: { bg: "#FFF5F5", color: "#CC0000", label: "Suspended" },
   };
-  const sc = statusColors[status];
+  const sc = statusStyles[status] ?? statusStyles.pending;
 
   if (loading) {
     return (
@@ -169,14 +163,14 @@ export default function ProfilePage() {
             <Field label="Email">
               <input value={email} disabled className="field-input" style={{ background: "#F9F9F9", color: "#888888", cursor: "not-allowed" }} />
             </Field>
-            <Field label="Phone *">
-              <input name="phone" value={form.phone} onChange={handleChange} required placeholder="+91 98765 43210" className="field-input" />
+            <Field label="Phone">
+              <input name="phone" value={form.phone} onChange={handleChange} placeholder="+91 98765 43210" className="field-input" />
             </Field>
             <Field label="Instagram">
               <input name="instagram" value={form.instagram} onChange={handleChange} placeholder="@yourbrand" className="field-input" />
             </Field>
-            <Field label="Brand Name *">
-              <input name="brandName" value={form.brandName} onChange={handleChange} required placeholder="Brand name" className="field-input" />
+            <Field label="Brand Name">
+              <input name="brand_name" value={form.brand_name} onChange={handleChange} placeholder="Brand name" className="field-input" />
             </Field>
             <Field label="Category">
               <input name="category" value={form.category} disabled className="field-input" style={{ background: "#F9F9F9", color: "#888888", cursor: "not-allowed" }} />
@@ -188,60 +182,29 @@ export default function ProfilePage() {
         <SectionCard title="Bank Account">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Account Holder Name">
-              <input name="bankHolder" value={form.bankHolder} onChange={handleChange} placeholder="As per bank records" className="field-input" />
+              <input name="bank_account_name" value={form.bank_account_name} onChange={handleChange} placeholder="As per bank records" className="field-input" />
             </Field>
             <Field label="Bank Name">
-              <input name="bankName" value={form.bankName} onChange={handleChange} placeholder="e.g. HDFC Bank" className="field-input" />
+              <input name="bank_name" value={form.bank_name} onChange={handleChange} placeholder="e.g. HDFC Bank" className="field-input" />
             </Field>
             <Field label="Account Number">
-              <input name="bankNumber" value={form.bankNumber} onChange={handleChange} placeholder="Account number" className="field-input" />
+              <input name="bank_account_number" value={form.bank_account_number} onChange={handleChange} placeholder="Account number" className="field-input" />
             </Field>
             <Field label="IFSC Code">
-              <input name="ifsc" value={form.ifsc} onChange={handleChange} placeholder="e.g. HDFC0001234" className="field-input" style={{ textTransform: "uppercase" }} />
+              <input name="bank_ifsc" value={form.bank_ifsc} onChange={handleChange} placeholder="e.g. HDFC0001234" className="field-input" style={{ textTransform: "uppercase" }} />
             </Field>
           </div>
         </SectionCard>
 
-        {/* Financial */}
+        {/* Tax & UPI */}
         <SectionCard title="Tax & UPI">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="GSTIN">
               <input name="gstin" value={form.gstin} onChange={handleChange} placeholder="22AAAAA0000A1Z5" className="field-input" style={{ textTransform: "uppercase" }} />
             </Field>
             <Field label="UPI ID">
-              <input name="upiId" value={form.upiId} onChange={handleChange} placeholder="yourname@upi" className="field-input" />
+              <input name="upi_id" value={form.upi_id} onChange={handleChange} placeholder="yourname@upi" className="field-input" />
             </Field>
-          </div>
-        </SectionCard>
-
-        {/* Warehouse */}
-        <SectionCard title="Pickup Warehouse">
-          <p style={{ fontSize: 13, color: "#888888", marginBottom: 16 }}>
-            NOTMADE will arrange pickup from this address for your orders.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div style={{ gridColumn: "1 / -1" }}>
-              <Field label="Address">
-                <textarea name="warehouseAddress" value={form.warehouseAddress} onChange={handleChange} rows={2} placeholder="Street address, building, floor" className="field-input resize-none" />
-              </Field>
-            </div>
-            <Field label="City">
-              <input name="warehouseCity" value={form.warehouseCity} onChange={handleChange} placeholder="New Delhi" className="field-input" />
-            </Field>
-            <Field label="State">
-              <input name="warehouseState" value={form.warehouseState} onChange={handleChange} placeholder="Delhi" className="field-input" />
-            </Field>
-            <Field label="Pincode">
-              <input name="warehousePincode" value={form.warehousePincode} onChange={handleChange} placeholder="110001" maxLength={6} className="field-input" />
-            </Field>
-            <Field label="Contact Person">
-              <input name="warehouseContact" value={form.warehouseContact} onChange={handleChange} placeholder="Name of person at warehouse" className="field-input" />
-            </Field>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <Field label="Contact Phone">
-                <input name="warehousePhone" value={form.warehousePhone} onChange={handleChange} placeholder="+91 98765 43210" className="field-input" />
-              </Field>
-            </div>
           </div>
         </SectionCard>
 

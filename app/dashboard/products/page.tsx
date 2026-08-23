@@ -2,17 +2,31 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiGet, apiFetch } from "../../lib/api";
-import { clearToken } from "../../lib/auth";
-import type { Product } from "../../lib/types";
+import { clearToken, getSellerId } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 
-function Badge({ status, reason }: { status: Product["status"]; reason?: string }) {
-  const map = {
-    pending:  { bg: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A", label: "Pending Review" },
-    approved: { bg: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0", label: "Approved" },
-    rejected: { bg: "#FFF5F5", color: "#CC0000", border: "1px solid #FECACA", label: "Rejected" },
+const COMMISSION_RATE = 0.17;
+
+interface ProductRow {
+  id: string;
+  name: string;
+  description: string;
+  price_inr: number;
+  stock: number;
+  category: string;
+  images: string[] | null;
+  review_status: string;
+  rejection_reason: string | null;
+  created_at: string;
+}
+
+function Badge({ status, reason }: { status: string; reason?: string | null }) {
+  const map: Record<string, { bg: string; color: string; border: string; label: string }> = {
+    pending_review: { bg: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A", label: "Pending Review" },
+    approved:       { bg: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0", label: "Approved" },
+    rejected:       { bg: "#FFF5F5", color: "#CC0000", border: "1px solid #FECACA", label: "Rejected" },
   };
-  const s = map[status];
+  const s = map[status] ?? { bg: "#F5F5F5", color: "#555", border: "1px solid #EEE", label: status };
   return (
     <div>
       <span style={{ display: "inline-block", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 100, background: s.bg, color: s.color, border: s.border }}>
@@ -31,33 +45,52 @@ interface ProductForm {
   price: string;
   stock: string;
   category: string;
+  dispatch_days: string;
 }
 
-const EMPTY_FORM: ProductForm = { name: "", description: "", price: "", stock: "", category: "" };
-
+const EMPTY: ProductForm = { name: "", description: "", price: "", stock: "", category: "", dispatch_days: "2" };
 const CATEGORIES = ["Streetwear", "Jewellery", "Rugs", "Accessories", "Other"];
 
 export default function ProductsPage() {
   const router = useRouter();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [showModal, setShowModal] = useState(false);
-  const [form,     setForm]     = useState<ProductForm>(EMPTY_FORM);
-  const [images,   setImages]   = useState<File[]>([]);
-  const [saving,   setSaving]   = useState(false);
-  const [formErr,  setFormErr]  = useState("");
+  const [products,   setProducts]   = useState<ProductRow[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [showModal,  setShowModal]  = useState(false);
+  const [form,       setForm]       = useState<ProductForm>(EMPTY);
+  const [images,     setImages]     = useState<File[]>([]);
+  const [saving,     setSaving]     = useState(false);
+  const [formErr,    setFormErr]    = useState("");
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const load = () => {
+  const sellerId = getSellerId();
+
+  const load = async () => {
+    if (!sellerId) { clearToken(); router.replace("/login"); return; }
     setLoading(true);
-    apiGet<Product[]>("/seller/products")
-      .then(setProducts)
-      .catch((err: Error) => {
-        if (err.message === "401") { clearToken(); router.replace("/login"); }
-      })
-      .finally(() => setLoading(false));
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, name, description, price_inr, stock, category, images, review_status, rejection_reason, created_at')
+      .eq('seller_id', sellerId)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      if (error.code === '42703') {
+        // deleted_at column may not exist yet — retry without filter
+        const { data: d2 } = await supabase
+          .from('products')
+          .select('id, name, description, price_inr, stock, category, images, review_status, rejection_reason, created_at')
+          .eq('seller_id', sellerId)
+          .order('created_at', { ascending: false });
+        setProducts((d2 ?? []) as ProductRow[]);
+      }
+    } else {
+      setProducts((data ?? []) as ProductRow[]);
+    }
+    setLoading(false);
   };
 
-  useEffect(() => { load(); }, [router]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { load(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(p => ({ ...p, [e.target.name]: e.target.value }));
@@ -65,26 +98,45 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!sellerId) return;
     setSaving(true);
     setFormErr("");
-    try {
-      const fd = new FormData();
-      fd.append("name",        form.name);
-      fd.append("description", form.description);
-      fd.append("price",       form.price);
-      fd.append("stock",       form.stock);
-      fd.append("category",    form.category);
-      images.forEach(img => fd.append("images", img));
 
-      const res = await apiFetch("/seller/products", { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string; message?: string };
-        throw new Error(err.error ?? err.message ?? `Error ${res.status}`);
+    try {
+      // Upload images to Supabase Storage
+      const imageUrls: string[] = [];
+      for (const file of images) {
+        const ext = file.name.split('.').pop() ?? 'jpg';
+        const path = `${sellerId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from('product-images')
+          .upload(path, file, { upsert: true });
+        if (!upErr) {
+          const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(path);
+          imageUrls.push(urlData.publicUrl);
+        }
       }
+
+      const { error } = await supabase.from('products').insert({
+        name:                form.name.trim(),
+        description:         form.description.trim(),
+        price_inr:           Number(form.price),
+        stock:               Number(form.stock),
+        category:            form.category,
+        dispatch_timeline_days: Number(form.dispatch_days) || 2,
+        seller_id:           sellerId,
+        review_status:       'pending_review',
+        is_live:             false,
+        images:              imageUrls.length > 0 ? imageUrls : null,
+        created_at:          new Date().toISOString(),
+      });
+
+      if (error) throw new Error(error.message);
+
       setShowModal(false);
-      setForm(EMPTY_FORM);
+      setForm(EMPTY);
       setImages([]);
-      load();
+      await load();
     } catch (err: unknown) {
       setFormErr(err instanceof Error ? err.message : "Something went wrong.");
     } finally {
@@ -93,13 +145,11 @@ export default function ProductsPage() {
   };
 
   const updateStock = async (id: string, newStock: number) => {
-    try {
-      await apiFetch(`/seller/products/${id}/stock`, {
-        method: "PUT",
-        body: JSON.stringify({ stock: newStock }),
-      });
-      setProducts(prev => prev.map(p => p.id === id ? { ...p, stock: newStock } : p));
-    } catch { /* silent */ }
+    if (!sellerId) return;
+    setUpdatingId(id);
+    await supabase.from('products').update({ stock: newStock }).eq('id', id).eq('seller_id', sellerId);
+    setProducts(prev => prev.map(p => p.id === id ? { ...p, stock: newStock } : p));
+    setUpdatingId(null);
   };
 
   if (loading) {
@@ -139,54 +189,61 @@ export default function ProductsPage() {
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {products.map(p => (
-            <div key={p.id} style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", borderRadius: 14, padding: "18px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                {/* Image placeholder */}
-                <div style={{ width: 64, height: 64, borderRadius: 10, background: "#F5F5F5", flexShrink: 0, overflow: "hidden" }}>
-                  {p.images?.[0] ? (
-                    // eslint-disable-next-line jsx-a11y/alt-text, @next/next/no-img-element
-                    <img src={p.images[0]} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                  ) : (
-                    <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#CCCCCC" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9l5-5 4 4 3-3 6 6" /></svg>
-                    </div>
-                  )}
-                </div>
-
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                    <div>
-                      <h3 style={{ fontSize: 15, fontWeight: 700, color: "#111111", marginBottom: 4 }}>{p.name}</h3>
-                      <p style={{ fontSize: 13, color: "#888888" }}>{p.category} · ₹{p.price.toLocaleString("en-IN")}</p>
-                    </div>
-                    <Badge status={p.status} reason={p.rejectionReason} />
+          {products.map(p => {
+            const payout = Number(p.price_inr) * (1 - COMMISSION_RATE);
+            return (
+              <div key={p.id} style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", borderRadius: 14, padding: "18px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                  {/* Image */}
+                  <div style={{ width: 64, height: 64, borderRadius: 10, background: "#F5F5F5", flexShrink: 0, overflow: "hidden" }}>
+                    {p.images?.[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.images[0]} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    ) : (
+                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#CCCCCC" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9l5-5 4 4 3-3 6 6" /></svg>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Stock */}
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-                    <span style={{ fontSize: 12, color: "#888888" }}>Stock:</span>
-                    {p.status === "approved" ? (
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <button
-                          onClick={() => updateStock(p.id, Math.max(0, p.stock - 1))}
-                          style={{ width: 26, height: 26, border: "1px solid #EEEEEE", borderRadius: 6, background: "#FAFAFA", cursor: "pointer", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
-                        >−</button>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#111111", minWidth: 28, textAlign: "center" }}>{p.stock}</span>
-                        <button
-                          onClick={() => updateStock(p.id, p.stock + 1)}
-                          style={{ width: 26, height: 26, border: "1px solid #EEEEEE", borderRadius: 6, background: "#FAFAFA", cursor: "pointer", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
-                        >+</button>
+                  {/* Info */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                      <div>
+                        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#111111", marginBottom: 4 }}>{p.name}</h3>
+                        <p style={{ fontSize: 13, color: "#888888" }}>
+                          {p.category} · MRP ₹{Number(p.price_inr).toLocaleString("en-IN")} · Your payout ₹{Math.round(payout).toLocaleString("en-IN")}
+                        </p>
                       </div>
-                    ) : (
-                      <span style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>{p.stock}</span>
-                    )}
+                      <Badge status={p.review_status} reason={p.rejection_reason} />
+                    </div>
+
+                    {/* Stock control */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
+                      <span style={{ fontSize: 12, color: "#888888" }}>Stock:</span>
+                      {p.review_status === "approved" ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, opacity: updatingId === p.id ? 0.5 : 1 }}>
+                          <button
+                            onClick={() => updateStock(p.id, Math.max(0, p.stock - 1))}
+                            disabled={updatingId === p.id}
+                            style={{ width: 26, height: 26, border: "1px solid #EEEEEE", borderRadius: 6, background: "#FAFAFA", cursor: "pointer", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >−</button>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: "#111111", minWidth: 28, textAlign: "center" }}>{p.stock}</span>
+                          <button
+                            onClick={() => updateStock(p.id, p.stock + 1)}
+                            disabled={updatingId === p.id}
+                            style={{ width: 26, height: 26, border: "1px solid #EEEEEE", borderRadius: 6, background: "#FAFAFA", cursor: "pointer", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
+                          >+</button>
+                        </div>
+                      ) : (
+                        <span style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>{p.stock}</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -194,12 +251,12 @@ export default function ProductsPage() {
       {showModal && (
         <div
           style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={e => { if (e.target === e.currentTarget) setShowModal(false); }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setFormErr(""); } }}
         >
           <div style={{ background: "#FFFFFF", borderRadius: 16, padding: "28px 24px", maxWidth: 520, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>Add Product</h2>
-              <button onClick={() => setShowModal(false)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+              <button onClick={() => { setShowModal(false); setFormErr(""); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
@@ -226,16 +283,22 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Category *</label>
-                <div style={{ position: "relative" }}>
-                  <select name="category" value={form.category} onChange={handleChange} required className="field-input appearance-none cursor-pointer">
-                    <option value="" disabled>Select category</option>
-                    {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                  <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#999" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Category *</label>
+                  <div style={{ position: "relative" }}>
+                    <select name="category" value={form.category} onChange={handleChange} required className="field-input appearance-none cursor-pointer">
+                      <option value="" disabled>Select category</option>
+                      {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                    <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#999" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                    </div>
                   </div>
+                </div>
+                <div>
+                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Dispatch Days</label>
+                  <input type="number" name="dispatch_days" value={form.dispatch_days} onChange={handleChange} min="1" max="14" placeholder="2" className="field-input" />
                 </div>
               </div>
 
@@ -263,7 +326,7 @@ export default function ProductsPage() {
               )}
 
               <p style={{ fontSize: 12, color: "#AAAAAA" }}>
-                Product will go to admin for approval before being listed publicly.
+                Products go to admin review before going live. Images are uploaded to Supabase Storage (bucket: product-images).
               </p>
 
               <button
