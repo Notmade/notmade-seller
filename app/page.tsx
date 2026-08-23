@@ -3,19 +3,6 @@ import ApplyForm from "./components/ApplyForm";
 
 /* ── Static data ── */
 
-const WHY_ITEMS = [
-  "17% flat commission — nothing else",
-  "No monthly fees",
-  "No hidden charges",
-  "No ads required",
-  "No initial deposit",
-  "Pay only when you sell",
-  "Sell across all NOTMADE platforms — website, app, voice",
-  "3-hour delivery handled by us in Delhi NCR",
-  "Video verified delivery — zero fraud",
-  "Same day payouts after delivery",
-];
-
 const STEPS = [
   {
     num:   "01",
@@ -25,39 +12,52 @@ const STEPS = [
   {
     num:   "02",
     title: "Get Approved",
-    desc:  "We verify your products and brand identity. Hear back within 48 hours.",
+    desc:  "Admin reviews your application within 48 hours.",
   },
   {
     num:   "03",
     title: "List Products",
-    desc:  "Upload your products via the seller portal. Each goes live after a quick review.",
+    desc:  "Add your products via the seller portal. Admin approves each listing.",
   },
   {
     num:   "04",
     title: "Get Paid",
-    desc:  "We handle delivery, returns, and same-day payouts. You focus on creating.",
+    desc:  "7-day payouts after delivery. You focus on creating.",
   },
 ];
 
-const TESTIMONIALS = [
+const FEATURES = [
   {
-    initials: "TT",
-    brand:    "THREAD THEORY",
-    quote:
-      "NOTMADE changed the game for us. We focus on making — they handle everything else.",
+    title: "Zero Hidden Fees",
+    desc:  "17% flat commission. That's it. No listing fees, no monthly charges, no surprises.",
   },
   {
-    initials: "KS",
-    brand:    "KLASH STUDIOS",
-    quote:
-      "Same day payouts after delivery. No other marketplace even comes close to that.",
+    title: "Video Verified Delivery",
+    desc:  "Every delivery is video verified. Zero fraud, full protection for sellers.",
   },
   {
-    initials: "UF",
-    brand:    "URBAN FORM",
-    quote:
-      "17% flat commission, zero hidden fees. Exactly as advertised. Our margins finally make sense.",
+    title: "Pan India Reach",
+    desc:  "Sell across India via the NOTMADE website, app, and voice platform.",
   },
+  {
+    title: "Same Day Payouts (Delhi NCR)",
+    desc:  "Delhi NCR orders pay out the same day after delivery confirmation.",
+  },
+  {
+    title: "Dedicated Seller Dashboard",
+    desc:  "Track orders, payouts, and products in real time from one place.",
+  },
+  {
+    title: "Real-Time Order Tracking",
+    desc:  "Live order status updates for you and your customers.",
+  },
+];
+
+const STATS = [
+  { label: "17% Flat Commission", sub: "no other deductions" },
+  { label: "₹0 Monthly Fees",     sub: "no hidden charges" },
+  { label: "7-Day Payouts",       sub: "after delivery" },
+  { label: "3-Hour Delivery",     sub: "Delhi NCR orders" },
 ];
 
 /* ── Sub-components ── */
@@ -91,18 +91,6 @@ function CheckIcon({ size = 16 }: { size?: number }) {
         strokeLinejoin="round"
       />
     </svg>
-  );
-}
-
-function Stars() {
-  return (
-    <div style={{ display: "flex", gap: "3px" }}>
-      {[0, 1, 2, 3, 4].map(i => (
-        <svg key={i} width="14" height="14" viewBox="0 0 24 24" fill="#CC0000">
-          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-      ))}
-    </div>
   );
 }
 
@@ -164,8 +152,8 @@ export default function Home() {
 
             {/* Heading */}
             <h1 className="display-heading" style={{ marginBottom: "1.5rem" }}>
-              Grow Your Brand on{" "}
-              <span style={{ color: "#CC0000" }}>NOTMADE</span>
+              Sell on <span style={{ color: "#CC0000" }}>NOTMADE</span> —<br />
+              India&apos;s fastest growing culture marketplace
             </h1>
 
             {/* Subtext */}
@@ -178,7 +166,7 @@ export default function Home() {
                 margin: "0 auto 2.5rem",
               }}
             >
-              No hidden fees. No ads. No initial deposit.
+              17% flat commission. No monthly fees. No hidden charges.
               <br />
               Pay only when you sell.
             </p>
@@ -240,81 +228,43 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════ WHY NOTMADE ════ */}
-      <section
-        style={{ background: "#F7F7F7", borderTop: "1px solid #EEEEEE", borderBottom: "1px solid #EEEEEE" }}
-      >
-        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection className="mb-12 text-center">
-            <h2 className="section-heading">Why NOTMADE?</h2>
-            <p style={{ color: "#888888", fontSize: "15px", marginTop: "10px" }}>
-              Built for sellers who are tired of the usual BS.
-            </p>
-          </AnimatedSection>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-            {WHY_ITEMS.map((item, i) => (
-              <AnimatedSection key={i} delay={i * 40} className="h-full">
-                <div className="card-3d h-full">
-                  <div
-                    style={{
-                      width: 36,
-                      height: 36,
-                      borderRadius: "50%",
-                      background: "rgba(204,0,0,0.08)",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      marginBottom: "14px",
-                      flexShrink: 0,
-                    }}
-                  >
-                    <CheckIcon size={16} />
-                  </div>
-                  <p
-                    style={{
-                      fontSize: "13px",
-                      fontWeight: 600,
-                      color: "#111111",
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {item}
-                  </p>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ════ HOW IT WORKS ════ */}
       <section
         id="how"
-        style={{ background: "#FFFFFF", borderBottom: "1px solid #EEEEEE" }}
+        style={{ background: "#F7F7F7", borderTop: "1px solid #EEEEEE", borderBottom: "1px solid #EEEEEE" }}
       >
         <div className="max-w-5xl mx-auto px-6 md:px-10 py-20 md:py-24">
-          <AnimatedSection className="mb-14 text-center">
+          <AnimatedSection className="mb-12 text-center">
             <h2 className="section-heading">How it works</h2>
             <p style={{ color: "#888888", fontSize: "15px", marginTop: "10px" }}>
-              Three steps from application to your first sale.
+              Four steps from application to your first sale.
             </p>
           </AnimatedSection>
 
           {/* Stats row */}
-          <AnimatedSection delay={30} className="mb-10">
-            <div style={{ display: "flex", justifyContent: "center", gap: "0", flexWrap: "wrap" }}>
-              {[
-                { label: "17% flat commission", sub: "no other deductions" },
-                { label: "0 hidden fees", sub: "no monthly charges" },
-                { label: "7-day payouts", sub: "after delivery" },
-              ].map(({ label, sub }, i) => (
-                <div key={i} style={{
-                  padding: "18px 32px",
-                  textAlign: "center",
-                  borderRight: i < 2 ? "1px solid #EEEEEE" : undefined,
-                }}>
-                  <p style={{ fontSize: "clamp(1rem, 2.5vw, 1.2rem)", fontWeight: 800, color: "#111111", letterSpacing: "-0.02em" }}>{label}</p>
+          <AnimatedSection delay={30} className="mb-12">
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "center",
+                flexWrap: "wrap",
+                background: "#FFFFFF",
+                border: "1px solid #EEEEEE",
+                borderRadius: "16px",
+                overflow: "hidden",
+              }}
+            >
+              {STATS.map(({ label, sub }, i) => (
+                <div
+                  key={i}
+                  style={{
+                    padding: "20px 28px",
+                    textAlign: "center",
+                    flex: "1 1 140px",
+                    borderRight: i < STATS.length - 1 ? "1px solid #EEEEEE" : undefined,
+                  }}
+                >
+                  <p style={{ fontSize: "clamp(0.9rem, 2vw, 1.1rem)", fontWeight: 800, color: "#111111", letterSpacing: "-0.02em" }}>{label}</p>
                   <p style={{ fontSize: "12px", color: "#888888", marginTop: "4px" }}>{sub}</p>
                 </div>
               ))}
@@ -367,78 +317,118 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════ TESTIMONIALS ════ */}
+      {/* ════ FEATURES ════ */}
       <section
-        style={{ background: "#F7F7F7", borderBottom: "1px solid #EEEEEE" }}
+        style={{ background: "#FFFFFF", borderBottom: "1px solid #EEEEEE" }}
       >
-        <div className="max-w-5xl mx-auto px-6 md:px-10 py-20 md:py-24">
+        <div className="max-w-6xl mx-auto px-6 md:px-10 py-20 md:py-24">
           <AnimatedSection className="mb-12 text-center">
-            <h2 className="section-heading">What sellers say</h2>
+            <h2 className="section-heading">Why NOTMADE?</h2>
+            <p style={{ color: "#888888", fontSize: "15px", marginTop: "10px" }}>
+              Built for sellers who are tired of the usual BS.
+            </p>
           </AnimatedSection>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {TESTIMONIALS.map(({ initials, brand, quote }, i) => (
-              <AnimatedSection key={i} delay={i * 60}>
-                <div
-                  style={{
-                    background: "#FFFFFF",
-                    border: "1px solid #EEEEEE",
-                    borderRadius: "16px",
-                    padding: "28px 24px",
-                    boxShadow:
-                      "0 2px 8px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.06)",
-                  }}
-                >
-                  <Stars />
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
+            {FEATURES.map((feature, i) => (
+              <AnimatedSection key={i} delay={i * 50} className="h-full">
+                <div className="card-3d h-full">
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: "50%",
+                      background: "rgba(204,0,0,0.08)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      marginBottom: "14px",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <CheckIcon size={16} />
+                  </div>
                   <p
                     style={{
                       fontSize: "14px",
-                      lineHeight: 1.75,
-                      color: "#333333",
-                      marginTop: "16px",
-                      marginBottom: "20px",
+                      fontWeight: 700,
+                      color: "#111111",
+                      marginBottom: "8px",
                     }}
                   >
-                    &ldquo;{quote}&rdquo;
+                    {feature.title}
                   </p>
-                  <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                    <div
-                      style={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: "50%",
-                        background: "rgba(204,0,0,0.08)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        fontSize: "11px",
-                        fontWeight: 700,
-                        color: "#CC0000",
-                        flexShrink: 0,
-                      }}
-                    >
-                      {initials}
-                    </div>
-                    <div>
-                      <p
-                        style={{
-                          fontSize: "12px",
-                          fontWeight: 700,
-                          color: "#111111",
-                          letterSpacing: "0.05em",
-                        }}
-                      >
-                        {brand}
-                      </p>
-                      <p style={{ fontSize: "11px", color: "#888888" }}>
-                        NOTMADE Seller
-                      </p>
-                    </div>
-                  </div>
+                  <p
+                    style={{
+                      fontSize: "13px",
+                      color: "#666666",
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    {feature.desc}
+                  </p>
                 </div>
               </AnimatedSection>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ════ FIRST SELLERS CTA ════ */}
+      <section
+        style={{ background: "#F7F7F7", borderBottom: "1px solid #EEEEEE" }}
+      >
+        <div className="max-w-3xl mx-auto px-6 md:px-10 py-20 md:py-24 text-center">
+          <AnimatedSection>
+            <div style={{ marginBottom: "1rem" }}>
+              <span
+                style={{
+                  display: "inline-block",
+                  background: "rgba(204,0,0,0.06)",
+                  color: "#CC0000",
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.2em",
+                  padding: "6px 18px",
+                  borderRadius: "100px",
+                  border: "1px solid rgba(204,0,0,0.15)",
+                }}
+              >
+                Early Access
+              </span>
+            </div>
+            <h2
+              style={{
+                fontSize: "clamp(1.75rem, 4vw, 2.75rem)",
+                fontWeight: 900,
+                color: "#111111",
+                letterSpacing: "-0.03em",
+                marginBottom: "16px",
+              }}
+            >
+              Be among the first sellers on{" "}
+              <span style={{ color: "#CC0000" }}>NOTMADE</span>
+            </h2>
+            <p
+              style={{
+                fontSize: "clamp(0.95rem, 2vw, 1.1rem)",
+                color: "#555555",
+                lineHeight: 1.8,
+                maxWidth: "480px",
+                margin: "0 auto 2rem",
+              }}
+            >
+              We&apos;re onboarding our founding sellers now. Early sellers get dedicated support, priority placement, and the best terms we&apos;ll ever offer.
+            </p>
+            <a
+              href="#apply"
+              className="btn-primary font-bold text-[15px] px-10 py-4"
+              style={{ borderRadius: "12px" }}
+            >
+              Apply Now →
+            </a>
+          </AnimatedSection>
         </div>
       </section>
 

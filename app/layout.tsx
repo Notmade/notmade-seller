@@ -25,11 +25,11 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   title: "Sell on NOTMADE — Apply for Seller Programme",
   description:
-    "List your streetwear brand on NOTMADE marketplace. 12% commission, same-day Delhi NCR delivery, zero setup fees.",
+    "List your brand on NOTMADE marketplace. 17% flat commission, same-day Delhi NCR delivery, zero hidden fees.",
   robots: { index: true, follow: true },
   openGraph: {
     title: "Sell on NOTMADE",
-    description: "12% commission. ₹0 fees. Same day Delhi NCR delivery.",
+    description: "17% flat commission. ₹0 monthly fees. Same day Delhi NCR delivery.",
     url: "https://seller.notmade.in",
     siteName: "NOTMADE Seller Portal",
   },

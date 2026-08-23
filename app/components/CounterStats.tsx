@@ -1,5 +1,5 @@
 const STATS = [
-  { value: "12–14%", label: "Commission" },
+  { value: "17%", label: "Commission" },
   { value: "₹0",     label: "Hidden fees" },
   { value: "2 hrs",  label: "Delhi delivery" },
   { value: "24 hrs", label: "Support response" },

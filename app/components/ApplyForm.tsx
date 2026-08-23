@@ -1,37 +1,23 @@
 "use client";
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
+import { supabase } from "../lib/supabase";
 
 const CATEGORIES = ["Streetwear", "Jewellery", "Rugs", "Accessories", "Other"];
 
-const CAPACITIES = [
-  { value: "under-50",  label: "Under 50 units / month" },
-  { value: "50-200",    label: "50 – 200 units / month" },
-  { value: "200-500",   label: "200 – 500 units / month" },
-  { value: "500+",      label: "500+ units / month" },
-];
-
-const PRICE_RANGES = [
-  { value: "500-1000",  label: "₹500 – ₹1,000" },
-  { value: "1000-3000", label: "₹1,000 – ₹3,000" },
-  { value: "3000+",     label: "₹3,000+" },
-];
-
 interface FormFields {
-  brandName:  string;
-  name:       string;
-  email:      string;
-  phone:      string;
-  instagram:  string;
-  category:   string;
-  capacity:   string;
-  priceRange: string;
-  about:      string;
+  brand_name:  string;
+  name:        string;
+  email:       string;
+  phone:       string;
+  instagram:   string;
+  category:    string;
+  about_brand: string;
 }
 
 const EMPTY: FormFields = {
-  brandName: "", name: "", email: "", phone: "", instagram: "",
-  category: "", capacity: "", priceRange: "", about: "",
+  brand_name: "", name: "", email: "", phone: "",
+  instagram: "", category: "", about_brand: "",
 };
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -58,21 +44,16 @@ function Chevron() {
 }
 
 export default function ApplyForm() {
-  const [form, setForm]           = useState<FormFields>(EMPTY);
-  const [portfolio, setPortfolio] = useState<File | null>(null);
-  const [status, setStatus]       = useState<Status>("idle");
-  const [errMsg, setErrMsg]       = useState("");
+  const [form, setForm] = useState<FormFields>(EMPTY);
+  const [status, setStatus] = useState<Status>("idle");
+  const [errMsg, setErrMsg] = useState("");
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    if (name === "about" && value.length > 400) return;
+    if (name === "about_brand" && value.length > 400) return;
     setForm(p => ({ ...p, [name]: value }));
-  };
-
-  const handleFile = (e: ChangeEvent<HTMLInputElement>) => {
-    setPortfolio(e.target.files?.[0] ?? null);
   };
 
   const handleSubmit = async (e: FormEvent) => {
@@ -80,54 +61,23 @@ export default function ApplyForm() {
     setStatus("loading");
     setErrMsg("");
 
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 15000);
-
     try {
-      const data = new FormData();
-      data.append("brand_name",       form.brandName);
-      data.append("name",             form.name);
-      data.append("email",            form.email);
-      data.append("phone",            `+91${form.phone}`);
-      data.append("category",         form.category);
-      data.append("monthly_capacity", form.capacity);
-      data.append("price_range",      form.priceRange);
-      data.append("about",            form.about);
-      if (form.instagram) data.append("instagram", form.instagram);
-      if (portfolio)      data.append("portfolio",  portfolio);
-
-      const res = await fetch("https://api.notmade.in/sellers/apply", {
-        method: "POST",
-        signal: controller.signal,
-        body:   data,
+      const { error } = await supabase.from("sellers").insert({
+        brand_name:  form.brand_name,
+        name:        form.name,
+        email:       form.email,
+        phone:       `+91${form.phone}`,
+        instagram:   form.instagram || null,
+        category:    form.category,
+        about_brand: form.about_brand,
+        status:      "pending",
       });
-      clearTimeout(timer);
 
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        throw new Error(
-          json?.error || json?.message || `Server error (${res.status}). Please try again.`
-        );
-      }
+      if (error) throw new Error(error.message);
       setStatus("success");
     } catch (err: unknown) {
-      clearTimeout(timer);
       setStatus("error");
-      if (err instanceof Error) {
-        if (err.name === "AbortError") {
-          setErrMsg("Request timed out. Please check your connection and try again.");
-        } else if (
-          err.message === "Load failed" ||
-          err.message === "Failed to fetch" ||
-          err.message.toLowerCase().includes("network")
-        ) {
-          setErrMsg("Could not connect. Please check your internet connection and try again.");
-        } else {
-          setErrMsg(err.message);
-        }
-      } else {
-        setErrMsg("Something went wrong. Please try again.");
-      }
+      setErrMsg(err instanceof Error ? err.message : "Something went wrong. Please try again.");
     }
   };
 
@@ -178,7 +128,7 @@ export default function ApplyForm() {
         </p>
 
         <button
-          onClick={() => { setStatus("idle"); setForm(EMPTY); setPortfolio(null); }}
+          onClick={() => { setStatus("idle"); setForm(EMPTY); }}
           style={{
             fontSize: "12px",
             color: "#999999",
@@ -201,7 +151,7 @@ export default function ApplyForm() {
         <div>
           <Label>Brand Name *</Label>
           <input
-            type="text" name="brandName" value={form.brandName}
+            type="text" name="brand_name" value={form.brand_name}
             onChange={handleChange} required placeholder="Your brand name"
             className="field-input"
           />
@@ -270,42 +220,6 @@ export default function ApplyForm() {
         </div>
       </div>
 
-      {/* Capacity + Price range */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <Label>Monthly Production *</Label>
-          <div className="relative">
-            <select
-              name="capacity" value={form.capacity}
-              onChange={handleChange} required
-              className="field-input appearance-none cursor-pointer"
-            >
-              <option value="" disabled>Select capacity</option>
-              {CAPACITIES.map(c => (
-                <option key={c.value} value={c.value}>{c.label}</option>
-              ))}
-            </select>
-            <Chevron />
-          </div>
-        </div>
-        <div>
-          <Label>Price Range *</Label>
-          <div className="relative">
-            <select
-              name="priceRange" value={form.priceRange}
-              onChange={handleChange} required
-              className="field-input appearance-none cursor-pointer"
-            >
-              <option value="" disabled>Select price range</option>
-              {PRICE_RANGES.map(p => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
-            <Chevron />
-          </div>
-        </div>
-      </div>
-
       {/* About */}
       <div>
         <div className="flex items-center justify-between mb-2">
@@ -317,75 +231,16 @@ export default function ApplyForm() {
           </span>
           <span
             className="text-[10px] tabular-nums"
-            style={{ color: form.about.length >= 380 ? "#CC0000" : "#AAAAAA" }}
+            style={{ color: form.about_brand.length >= 380 ? "#CC0000" : "#AAAAAA" }}
           >
-            {form.about.length}/400
+            {form.about_brand.length}/400
           </span>
         </div>
         <textarea
-          name="about" value={form.about} onChange={handleChange}
+          name="about_brand" value={form.about_brand} onChange={handleChange}
           required rows={4} maxLength={400}
           placeholder="Tell us about your brand — what you make, who it's for, what sets you apart."
           className="field-input resize-none"
-        />
-      </div>
-
-      {/* Portfolio upload */}
-      <div>
-        <Label>
-          Portfolio / Lookbook{" "}
-          <span style={{ textTransform: "none", letterSpacing: 0, fontSize: "10px", color: "#BBBBBB", fontWeight: 400 }}>
-            (optional)
-          </span>
-        </Label>
-        <label
-          htmlFor="portfolio-file"
-          className={`file-drop${portfolio ? " selected" : ""}`}
-        >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              borderRadius: "50%",
-              flexShrink: 0,
-              background: portfolio ? "rgba(204,0,0,0.08)" : "#F0F0F0",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <svg
-              width="18" height="18" viewBox="0 0 24 24" fill="none"
-              stroke={portfolio ? "#CC0000" : "#888"} strokeWidth={2}
-              strokeLinecap="round" strokeLinejoin="round"
-            >
-              {portfolio
-                ? <path d="M20 6L9 17l-5-5" />
-                : <>
-                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
-                    <polyline points="17 8 12 3 7 8" />
-                    <line x1="12" y1="3" x2="12" y2="15" />
-                  </>
-              }
-            </svg>
-          </div>
-          <div>
-            <p style={{ fontSize: "14px", fontWeight: 600, color: portfolio ? "#CC0000" : "#111111" }}>
-              {portfolio ? portfolio.name : "Click to upload"}
-            </p>
-            <p style={{ fontSize: "12px", color: "#888888", marginTop: "2px" }}>
-              {portfolio
-                ? `${(portfolio.size / 1024 / 1024).toFixed(1)} MB`
-                : "PDF, JPG, PNG — up to 10MB"}
-            </p>
-          </div>
-        </label>
-        <input
-          id="portfolio-file"
-          type="file"
-          accept=".pdf,.jpg,.jpeg,.png"
-          className="sr-only"
-          onChange={handleFile}
         />
       </div>
 
