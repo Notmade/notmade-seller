@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import bcrypt from 'bcryptjs'
 import { getSession, setSession } from '@/app/lib/auth'
 import { supabase } from '@/app/lib/supabase'
 
@@ -19,9 +20,10 @@ export default function ProfilePage() {
     if (newPassword !== confirm) { setMsgType('error'); return setMsg('Passwords do not match') }
     if (newPassword.length < 6)  { setMsgType('error'); return setMsg('Minimum 6 characters') }
     setLoading(true)
+    const hashed = await bcrypt.hash(newPassword, 10)
     const { error } = await supabase
       .from('sellers')
-      .update({ seller_password: newPassword, must_change_password: false })
+      .update({ seller_password: hashed, must_change_password: false })
       .eq('id', session?.id)
     setLoading(false)
     if (error) {
