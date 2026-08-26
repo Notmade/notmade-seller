@@ -48,7 +48,14 @@ interface ProductForm {
   dispatch_days: string;
 }
 
+interface VariantForm {
+  name: string;
+  price: string;
+  stock: string;
+}
+
 const EMPTY: ProductForm = { name: "", description: "", price: "", stock: "", category: "", dispatch_days: "2" };
+const EMPTY_VARIANT: VariantForm = { name: "", price: "", stock: "" };
 const CATEGORIES = ["Streetwear", "Jewellery", "Rugs", "Accessories", "Other"];
 
 export default function ProductsPage() {
@@ -58,6 +65,7 @@ export default function ProductsPage() {
   const [showModal,  setShowModal]  = useState(false);
   const [form,       setForm]       = useState<ProductForm>(EMPTY);
   const [images,     setImages]     = useState<File[]>([]);
+  const [variants,   setVariants]   = useState<VariantForm[]>([]);
   const [saving,     setSaving]     = useState(false);
   const [formErr,    setFormErr]    = useState("");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
@@ -117,7 +125,7 @@ export default function ProductsPage() {
         }
       }
 
-      const { error } = await supabase.from('products').insert({
+      const { data: newProduct, error } = await supabase.from('products').insert({
         name:                form.name.trim(),
         description:         form.description.trim(),
         price_inr:           Number(form.price),
@@ -129,13 +137,31 @@ export default function ProductsPage() {
         is_live:             false,
         images:              imageUrls.length > 0 ? imageUrls : null,
         created_at:          new Date().toISOString(),
-      });
+      }).select('id').single();
 
       if (error) throw new Error(error.message);
+
+      // Insert variants
+      if (newProduct?.id && variants.length > 0) {
+        const validVariants = variants
+          .filter(v => v.name.trim())
+          .map((v, i) => ({
+            product_id: newProduct.id,
+            name:       v.name.trim(),
+            price_inr:  v.price ? Number(v.price) : null,
+            stock:      Number(v.stock) || 0,
+            is_active:  true,
+            sort_order: i,
+          }));
+        if (validVariants.length > 0) {
+          await supabase.from('product_variants').insert(validVariants);
+        }
+      }
 
       setShowModal(false);
       setForm(EMPTY);
       setImages([]);
+      setVariants([]);
       await load();
     } catch (err: unknown) {
       setFormErr(err instanceof Error ? err.message : "Something went wrong.");
@@ -251,12 +277,12 @@ export default function ProductsPage() {
       {showModal && (
         <div
           style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
-          onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setFormErr(""); } }}
+          onClick={e => { if (e.target === e.currentTarget) { setShowModal(false); setFormErr(""); setVariants([]); } }}
         >
           <div style={{ background: "#FFFFFF", borderRadius: 16, padding: "28px 24px", maxWidth: 520, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
               <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>Add Product</h2>
-              <button onClick={() => { setShowModal(false); setFormErr(""); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
+              <button onClick={() => { setShowModal(false); setFormErr(""); setVariants([]); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
               </button>
             </div>
@@ -300,6 +326,64 @@ export default function ProductsPage() {
                   <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Dispatch Days</label>
                   <input type="number" name="dispatch_days" value={form.dispatch_days} onChange={handleChange} min="1" max="14" placeholder="2" className="field-input" />
                 </div>
+              </div>
+
+              {/* Variants */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <label style={{ fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em" }}>
+                    Variants <span style={{ textTransform: "none", letterSpacing: 0, fontSize: 10, color: "#BBBBBB", fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setVariants(v => [...v, { ...EMPTY_VARIANT }])}
+                    style={{ fontSize: 11, fontWeight: 600, color: "#CC0000", background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                  >
+                    + Add Variant
+                  </button>
+                </div>
+                {variants.length === 0 ? (
+                  <p style={{ fontSize: 12, color: "#CCCCCC" }}>No variants — add one if your product has sizes, colors, or dimensions.</p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {variants.map((v, i) => (
+                      <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 70px 28px", gap: 6, alignItems: "center" }}>
+                        <input
+                          type="text"
+                          placeholder="Variant name (e.g. 4FT × 4FT)"
+                          value={v.name}
+                          onChange={e => setVariants(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
+                          className="field-input"
+                          style={{ fontSize: 12 }}
+                        />
+                        <input
+                          type="number"
+                          placeholder="Price ₹"
+                          value={v.price}
+                          min="0"
+                          onChange={e => setVariants(prev => prev.map((x, j) => j === i ? { ...x, price: e.target.value } : x))}
+                          className="field-input"
+                          style={{ fontSize: 12 }}
+                        />
+                        <input
+                          type="number"
+                          placeholder="Stock"
+                          value={v.stock}
+                          min="0"
+                          onChange={e => setVariants(prev => prev.map((x, j) => j === i ? { ...x, stock: e.target.value } : x))}
+                          className="field-input"
+                          style={{ fontSize: 12 }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setVariants(prev => prev.filter((_, j) => j !== i))}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "#CCC", fontSize: 16, lineHeight: 1, padding: 0 }}
+                          title="Remove"
+                        >×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
