@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { isAuthenticated, clearToken, getSellerId } from "../lib/auth";
+import { useRouter, usePathname } from "next/navigation";
+import { isAuthenticated, clearToken, getSellerId, getSession } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import Sidebar from "../components/Sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router  = useRouter();
+  const router   = useRouter();
+  const pathname = usePathname();
   const [ready,        setReady]       = useState(false);
   const [sidebarOpen,  setSidebarOpen] = useState(false);
   const [sellerName,   setSellerName]  = useState<string | undefined>();
@@ -18,6 +19,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       router.replace("/login");
       return;
     }
+
+    const session = getSession();
+    if (session?.must_change_password && pathname !== '/dashboard/profile') {
+      router.replace('/dashboard/profile');
+      return;
+    }
+
     setReady(true);
 
     const id = getSellerId();
