@@ -2,24 +2,32 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { apiGet, apiFetch } from "../../lib/api";
-import { clearToken } from "../../lib/auth";
-import type { ContractInfo, SellerProfile } from "../../lib/types";
+import { clearToken, getSellerId } from "../../lib/auth";
+import { supabase } from "../../lib/supabase";
 
 const COMPANY = {
-  name:      "House of Notmade Studio Private Limited",
-  cin:       "U62099UW2026PTC256850",
-  gstin:     "09ABAFH8658N",
-  address:   "GK-II/41/C-2, Second Floor, Gyan Khand-2, Shipra Sun City, Indirapuram, Ghaziabad, Uttar Pradesh 201014",
+  name:    "House of Notmade Studio Private Limited",
+  cin:     "U62099UW2026PTC256850",
+  gstin:   "09ABAFH8658N",
+  address: "GK-II/41/C-2, Second Floor, Gyan Khand-2, Shipra Sun City, Indirapuram, Ghaziabad, Uttar Pradesh 201014",
 };
 
-function Badge({ status }: { status: ContractInfo["status"] }) {
-  const map = {
+interface SellerInfo {
+  name: string;
+  brand_name: string;
+  email: string;
+  phone: string;
+  contract_status: string | null;
+  signed_contract_url: string | null;
+}
+
+function StatusBadge({ status }: { status: string | null }) {
+  const map: Record<string, { bg: string; color: string; label: string }> = {
     pending_signature: { bg: "#FFFBEB", color: "#B45309", label: "Pending Your Signature" },
     signed:            { bg: "#EFF6FF", color: "#1E40AF", label: "Signed — Under Review" },
     active:            { bg: "#F0FDF4", color: "#166534", label: "Active" },
   };
-  const s = map[status];
+  const s = map[status ?? "pending_signature"] ?? map["pending_signature"];
   return (
     <span style={{ display: "inline-block", fontSize: 12, fontWeight: 600, padding: "5px 14px", borderRadius: 100, background: s.bg, color: s.color }}>
       {s.label}
@@ -28,41 +36,70 @@ function Badge({ status }: { status: ContractInfo["status"] }) {
 }
 
 export default function ContractPage() {
-  const router   = useRouter();
-  const [contract,  setContract]  = useState<ContractInfo | null>(null);
-  const [profile,   setProfile]   = useState<SellerProfile | null>(null);
+  const router = useRouter();
+  const [seller,    setSeller]    = useState<SellerInfo | null>(null);
+  const [template,  setTemplate]  = useState<string>("");
   const [loading,   setLoading]   = useState(true);
   const [file,      setFile]      = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadOk,  setUploadOk]  = useState(false);
   const [uploadErr, setUploadErr] = useState("");
 
+  const sellerId = getSellerId();
+  const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+
   useEffect(() => {
-    Promise.allSettled([
-      apiGet<ContractInfo>("/seller/contract"),
-      apiGet<SellerProfile>("/seller/profile"),
-    ]).then(([cr, pr]) => {
-      if (cr.status === "fulfilled") setContract(cr.value);
-      if (pr.status === "fulfilled") setProfile(pr.value);
-      if (cr.status === "rejected" && (cr.reason as Error).message === "401") {
-        clearToken(); router.replace("/login");
+    if (!sellerId) { clearToken(); router.replace("/login"); return; }
+
+    void (async () => {
+      const [sellerRes, settingsRes] = await Promise.allSettled([
+        supabase
+          .from("sellers")
+          .select("name, brand_name, email, phone, contract_status, signed_contract_url")
+          .eq("id", sellerId)
+          .single(),
+        supabase
+          .from("settings")
+          .select("value")
+          .eq("key", "seller_contract_template")
+          .maybeSingle(),
+      ]);
+
+      if (sellerRes.status === "fulfilled" && sellerRes.value.data) {
+        const d = sellerRes.value.data as Record<string, unknown>;
+        setSeller({
+          name:                (d.name as string) ?? "",
+          brand_name:          (d.brand_name as string) ?? "",
+          email:               (d.email as string) ?? "",
+          phone:               (d.phone as string) ?? "",
+          contract_status:     (d.contract_status as string | null) ?? null,
+          signed_contract_url: (d.signed_contract_url as string | null) ?? null,
+        });
       }
-    }).finally(() => setLoading(false));
-  }, [router]);
+
+      if (settingsRes.status === "fulfilled" && settingsRes.value.data) {
+        setTemplate((settingsRes.value.data as Record<string, unknown>).value as string ?? "");
+      }
+
+      setLoading(false);
+    })();
+  }, [router, sellerId]);
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || !sellerId) return;
     setUploading(true);
     setUploadErr("");
     try {
-      const fd = new FormData();
-      fd.append("signed_contract", file);
-      const res = await apiFetch("/seller/contract/sign", { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? `Error ${res.status}`);
-      }
-      setContract(prev => prev ? { ...prev, status: "signed" } : prev);
+      const path = `${sellerId}/signed_contract_${Date.now()}.pdf`;
+      const { error: upErr } = await supabase.storage.from("contracts").upload(path, file, { upsert: true });
+      if (upErr) throw new Error(upErr.message);
+      const { data: urlData } = supabase.storage.from("contracts").getPublicUrl(path);
+      const { error: updateErr } = await supabase
+        .from("sellers")
+        .update({ signed_contract_url: urlData.publicUrl, contract_status: "signed" })
+        .eq("id", sellerId);
+      if (updateErr) throw new Error(updateErr.message);
+      setSeller(prev => prev ? { ...prev, contract_status: "signed", signed_contract_url: urlData.publicUrl } : prev);
       setUploadOk(true);
       setFile(null);
     } catch (err: unknown) {
@@ -72,7 +109,16 @@ export default function ContractPage() {
     }
   };
 
-  const today = new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" });
+  const contractStatus = seller?.contract_status ?? "pending_signature";
+
+  const renderTemplate = () => {
+    const html = template
+      .replace(/\{\{BRAND_NAME\}\}/g, seller?.brand_name ?? "[Brand Name]")
+      .replace(/\{\{SELLER_NAME\}\}/g, seller?.name ?? "[Seller Name]")
+      .replace(/\{\{COMMISSION\}\}/g, "17")
+      .replace(/\{\{DATE\}\}/g, today);
+    return <div dangerouslySetInnerHTML={{ __html: html }} style={{ fontSize: 13, lineHeight: 1.8, color: "#444444" }} />;
+  };
 
   if (loading) {
     return (
@@ -84,16 +130,14 @@ export default function ContractPage() {
 
   return (
     <>
-      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: "#111111", letterSpacing: "-0.02em" }}>Seller Contract</h1>
           <p style={{ fontSize: 14, color: "#888888", marginTop: 4 }}>Your agreement with NOTMADE</p>
         </div>
-        {contract && <Badge status={contract.status} />}
+        <StatusBadge status={contractStatus} />
       </div>
 
-      {/* Contract document */}
       <div
         style={{
           background: "#FFFFFF",
@@ -111,7 +155,7 @@ export default function ContractPage() {
             Seller Agreement
           </h2>
           <p style={{ fontSize: 13, color: "#888888", fontFamily: "var(--font-inter), Inter, sans-serif" }}>
-            Effective Date: {contract?.generatedAt ? new Date(contract.generatedAt).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }) : today}
+            Effective Date: {today}
           </p>
         </div>
 
@@ -120,7 +164,6 @@ export default function ContractPage() {
           <p style={{ fontSize: 14, lineHeight: 1.8, color: "#333333" }}>
             This Seller Agreement (&ldquo;Agreement&rdquo;) is entered into between:
           </p>
-
           <div style={{ background: "#F7F7F7", borderRadius: 10, padding: "16px 20px", margin: "16px 0", borderLeft: "3px solid #CC0000" }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#111111", marginBottom: 6, fontFamily: "var(--font-inter), Inter, sans-serif", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Party A — Company
@@ -133,84 +176,81 @@ export default function ContractPage() {
               (hereinafter &ldquo;<strong>NOTMADE</strong>&rdquo; or &ldquo;<strong>Company</strong>&rdquo;)
             </p>
           </div>
-
           <div style={{ background: "#F7F7F7", borderRadius: 10, padding: "16px 20px", borderLeft: "3px solid #111111" }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: "#111111", marginBottom: 6, fontFamily: "var(--font-inter), Inter, sans-serif", textTransform: "uppercase", letterSpacing: "0.05em" }}>
               Party B — Seller
             </p>
             <p style={{ fontSize: 13, lineHeight: 1.7, color: "#333333" }}>
-              <strong>{profile?.name ?? "[Seller Name]"}</strong><br />
-              Trading as: <strong>{profile?.brandName ?? "[Brand Name]"}</strong><br />
-              Email: {profile?.email ?? "[Email]"}<br />
-              Phone: {profile?.phone ?? "[Phone]"}<br />
+              <strong>{seller?.name ?? "[Seller Name]"}</strong><br />
+              Trading as: <strong>{seller?.brand_name ?? "[Brand Name]"}</strong><br />
+              Email: {seller?.email ?? "[Email]"}<br />
+              Phone: {seller?.phone ?? "[Phone]"}<br />
               (hereinafter &ldquo;<strong>Seller</strong>&rdquo;)
             </p>
           </div>
         </div>
 
-        {/* Clauses */}
-        {[
-          {
-            num: "1",
-            title: "Commission",
-            body: [
-              "The Seller agrees to pay the Company a commission of 17% (seventeen percent) of the final selling price of each product sold through the NOTMADE platform.",
-              "This commission covers all platform services including marketing, delivery, customer support, returns management, and payment collection.",
-              "No monthly fees, subscription charges, listing fees, or any other charges are applicable under this Agreement.",
-            ],
-          },
-          {
-            num: "2",
-            title: "Payment Terms",
-            body: [
-              "The Company shall transfer the Seller's earnings (final selling price minus 17% commission) within 7 (seven) business days of successful delivery confirmation.",
-              "Payments shall be transferred to the bank account registered in the Seller's profile on the NOTMADE Seller Portal.",
-            ],
-          },
-          {
-            num: "3",
-            title: "Delivery Policy",
-            body: [
-              "All deliveries facilitated by NOTMADE are video-verified. The Seller acknowledges and agrees to this video-verified delivery policy.",
-              "The Seller shall ensure products are ready for pickup from their registered warehouse address within 24 hours of receiving a pickup notification.",
-            ],
-          },
-          {
-            num: "4",
-            title: "Product Quality & Compliance",
-            body: [
-              "The Seller represents that all products listed are accurately described, authentic, and comply with applicable laws.",
-              "Product listings are subject to approval by the Company. The Company reserves the right to remove any listing that does not meet quality standards.",
-            ],
-          },
-          {
-            num: "5",
-            title: "Term and Termination",
-            body: [
-              "This Agreement commences on the effective date and continues until terminated by either party.",
-              "Either party may terminate this Agreement with 30 (thirty) days' written notice.",
-              "Upon termination, the Company shall settle all outstanding payments within 14 (fourteen) days.",
-            ],
-          },
-          {
-            num: "6",
-            title: "Governing Law",
-            body: [
-              "This Agreement shall be governed by and construed in accordance with the laws of India. Any disputes shall be subject to the exclusive jurisdiction of courts in Ghaziabad, Uttar Pradesh.",
-            ],
-          },
-        ].map(({ num, title, body }) => (
-          <div key={num} style={{ marginBottom: 22 }}>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: "#111111", marginBottom: 10, fontFamily: "var(--font-inter), Inter, sans-serif" }}>
-              {num}. {title.toUpperCase()}
-            </h3>
-            {body.map((clause, i) => (
-              <p key={i} style={{ fontSize: 13, lineHeight: 1.8, color: "#444444", marginBottom: 8 }}>
-                {num}.{i + 1} {clause}
-              </p>
+        {/* Contract body: template from settings if available, else hardcoded */}
+        {template ? renderTemplate() : (
+          <>
+            {[
+              {
+                num: "1", title: "Commission",
+                body: [
+                  "The Seller agrees to pay the Company a commission of 17% (seventeen percent) of the final selling price of each product sold through the NOTMADE platform.",
+                  "This commission covers all platform services including marketing, delivery, customer support, returns management, and payment collection.",
+                  "No monthly fees, subscription charges, listing fees, or any other charges are applicable under this Agreement.",
+                ],
+              },
+              {
+                num: "2", title: "Payment Terms",
+                body: [
+                  "The Company shall transfer the Seller's earnings (final selling price minus 17% commission) within 7 (seven) business days of successful delivery confirmation.",
+                  "Payments shall be transferred to the bank account registered in the Seller's profile on the NOTMADE Seller Portal.",
+                ],
+              },
+              {
+                num: "3", title: "Delivery Policy",
+                body: [
+                  "All deliveries facilitated by NOTMADE are video-verified. The Seller acknowledges and agrees to this video-verified delivery policy.",
+                  "The Seller shall ensure products are ready for pickup from their registered warehouse address within 24 hours of receiving a pickup notification.",
+                ],
+              },
+              {
+                num: "4", title: "Product Quality & Compliance",
+                body: [
+                  "The Seller represents that all products listed are accurately described, authentic, and comply with applicable laws.",
+                  "Product listings are subject to approval by the Company. The Company reserves the right to remove any listing that does not meet quality standards.",
+                ],
+              },
+              {
+                num: "5", title: "Term and Termination",
+                body: [
+                  "This Agreement commences on the effective date and continues until terminated by either party.",
+                  "Either party may terminate this Agreement with 30 (thirty) days' written notice.",
+                  "Upon termination, the Company shall settle all outstanding payments within 14 (fourteen) days.",
+                ],
+              },
+              {
+                num: "6", title: "Governing Law",
+                body: [
+                  "This Agreement shall be governed by and construed in accordance with the laws of India. Any disputes shall be subject to the exclusive jurisdiction of courts in Ghaziabad, Uttar Pradesh.",
+                ],
+              },
+            ].map(({ num, title, body }) => (
+              <div key={num} style={{ marginBottom: 22 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, color: "#111111", marginBottom: 10, fontFamily: "var(--font-inter), Inter, sans-serif" }}>
+                  {num}. {title.toUpperCase()}
+                </h3>
+                {body.map((clause, i) => (
+                  <p key={i} style={{ fontSize: 13, lineHeight: 1.8, color: "#444444", marginBottom: 8 }}>
+                    {num}.{i + 1} {clause}
+                  </p>
+                ))}
+              </div>
             ))}
-          </div>
-        ))}
+          </>
+        )}
 
         {/* Signatures */}
         <div style={{ borderTop: "1px solid #DDDDDD", paddingTop: 24, marginTop: 24 }}>
@@ -228,8 +268,8 @@ export default function ContractPage() {
                 For Seller
               </p>
               <div style={{ borderBottom: "1px solid #DDDDDD", marginBottom: 8, height: 32 }} />
-              <p style={{ fontSize: 12, color: "#888888" }}>{profile?.name ?? "Seller Name"}</p>
-              <p style={{ fontSize: 12, color: "#888888" }}>{profile?.brandName ?? "Brand Name"}</p>
+              <p style={{ fontSize: 12, color: "#888888" }}>{seller?.name ?? "Seller Name"}</p>
+              <p style={{ fontSize: 12, color: "#888888" }}>{seller?.brand_name ?? "Brand Name"}</p>
             </div>
           </div>
         </div>
@@ -238,54 +278,39 @@ export default function ContractPage() {
       {/* Actions */}
       <div style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", borderRadius: 14, padding: "22px 22px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
         <h2 style={{ fontSize: 15, fontWeight: 700, color: "#111111", marginBottom: 6 }}>
-          {contract?.status === "active" ? "Contract Active" : "Sign & Return"}
+          {contractStatus === "active" ? "Contract Active" : "Sign & Return"}
         </h2>
         <p style={{ fontSize: 13, color: "#888888", marginBottom: 18 }}>
-          {contract?.status === "active"
-            ? "Your contract is active. Download your signed copy below."
-            : contract?.status === "signed"
+          {contractStatus === "active"
+            ? "Your contract is active."
+            : contractStatus === "signed"
             ? "Your signed copy has been received. NOTMADE is reviewing it."
-            : "Download the contract, sign it, and upload the signed copy below."}
+            : "Print or save the contract, sign it, and upload the signed copy below."}
         </p>
 
-        {/* Download */}
-        {contract?.contractUrl && (
-          <a
-            href={contract.contractUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "10px 18px",
-              borderRadius: 8,
-              fontSize: 13,
-              fontWeight: 600,
-              color: "#111111",
-              border: "1.5px solid #E0E0E0",
-              textDecoration: "none",
-              marginRight: 10,
-              marginBottom: 12,
-              background: "#FAFAFA",
-            }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="7 10 12 15 17 10" /><line x1="12" y1="15" x2="12" y2="3" /></svg>
-            Download Contract PDF
-          </a>
-        )}
-
-        {/* Upload signed */}
-        {(contract?.status === "pending_signature" || !contract) && !uploadOk && (
-          <div style={{ marginTop: 4 }}>
+        {/* Upload signed copy */}
+        {(contractStatus === "pending_signature" || contractStatus === null) && !uploadOk && (
+          <div>
             <label
               htmlFor="signed-contract"
-              className={`file-drop${file ? " selected" : ""}`}
-              style={{ display: "inline-flex", maxWidth: 400 }}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 12,
+                padding: "14px 18px",
+                border: `1.5px dashed ${file ? "#CC0000" : "#DDDDDD"}`,
+                borderRadius: 10,
+                cursor: "pointer",
+                background: file ? "rgba(204,0,0,0.03)" : "#FAFAFA",
+                maxWidth: 400,
+              }}
             >
               <div style={{ width: 36, height: 36, borderRadius: "50%", flexShrink: 0, background: file ? "rgba(204,0,0,0.08)" : "#F0F0F0", display: "flex", alignItems: "center", justifyContent: "center" }}>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={file ? "#CC0000" : "#888"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  {file ? <path d="M20 6L9 17l-5-5" /> : <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></>}
+                  {file
+                    ? <path d="M20 6L9 17l-5-5" />
+                    : <><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></>
+                  }
                 </svg>
               </div>
               <div>
@@ -297,7 +322,13 @@ export default function ContractPage() {
                 </p>
               </div>
             </label>
-            <input id="signed-contract" type="file" accept=".pdf" className="sr-only" onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)} />
+            <input
+              id="signed-contract"
+              type="file"
+              accept=".pdf"
+              style={{ display: "none" }}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setFile(e.target.files?.[0] ?? null)}
+            />
 
             {file && (
               <div style={{ marginTop: 12 }}>
@@ -324,12 +355,12 @@ export default function ContractPage() {
           </p>
         )}
 
-        {contract?.signedUrl && (
+        {seller?.signed_contract_url && (
           <a
-            href={contract.signedUrl}
+            href={seller.signed_contract_url}
             target="_blank"
             rel="noopener noreferrer"
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#888888", textDecoration: "underline", textUnderlineOffset: "3px" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, color: "#888888", textDecoration: "underline", textUnderlineOffset: "3px", marginTop: 12 }}
           >
             View your signed copy
           </a>

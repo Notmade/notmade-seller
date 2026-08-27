@@ -63,6 +63,28 @@ const NAV = [
       </svg>
     ),
   },
+  {
+    href: "/dashboard/contract",
+    label: "Contract",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/returns",
+    label: "Returns",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="1 4 1 10 7 10" />
+        <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
+      </svg>
+    ),
+  },
 ] as const;
 
 interface Props {
@@ -79,14 +101,14 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose }: Prop
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     clearToken();
+    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => null);
     router.push("/login");
   };
 
   return (
     <>
-      {/* Mobile backdrop */}
       {isOpen && (
         <div
           className="fixed inset-0 z-30 lg:hidden"
@@ -95,14 +117,12 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose }: Prop
         />
       )}
 
-      {/* Sidebar panel */}
       <div
         className={`fixed top-0 left-0 h-full z-40 flex flex-col transition-transform duration-300 ease-in-out lg:translate-x-0 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
         style={{ width: 240, background: "#FFFFFF", borderRight: "1px solid #EEEEEE" }}
       >
-        {/* Logo */}
         <div style={{ padding: "20px 20px 16px", borderBottom: "1px solid #EEEEEE" }}>
           <span style={{ fontSize: "1.125rem", fontWeight: 900, letterSpacing: "-0.02em", userSelect: "none" }}>
             <span style={{ color: "#111111" }}>NOT</span>
@@ -113,7 +133,6 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose }: Prop
           </p>
         </div>
 
-        {/* Nav */}
         <nav style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
           {NAV.map(({ href, label, icon }) => {
             const active = isActive(href);
@@ -146,7 +165,6 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose }: Prop
           })}
         </nav>
 
-        {/* Bottom */}
         <div style={{ padding: "12px 16px", borderTop: "1px solid #EEEEEE" }}>
           {(brandName || sellerName) && (
             <div style={{ marginBottom: 10, padding: "0 4px" }}>

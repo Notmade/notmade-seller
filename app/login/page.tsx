@@ -3,77 +3,65 @@
 import { useState, type FormEvent, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
 import { setSession } from "../lib/auth";
-import { supabase } from "../lib/supabase";
+
+type Step = "email" | "otp";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [error,    setError]    = useState("");
+  const [step,    setStep]    = useState<Step>("email");
+  const [email,   setEmail]   = useState("");
+  const [code,    setCode]    = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg,     setMsg]     = useState("");
+  const [isErr,   setIsErr]   = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const showMsg = (text: string, error = false) => {
+    setMsg(text);
+    setIsErr(error);
+  };
+
+  const sendOtp = async (e: FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError("");
-
+    showMsg("");
     try {
-      const normalized = email.trim().toLowerCase();
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      if (!res.ok) throw new Error("Request failed");
+      setStep("otp");
+      showMsg("A 6-digit code has been sent if this email is registered.");
+    } catch {
+      showMsg("Something went wrong. Please try again.", true);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-      // Try seller_email first, fall back to email
-      let seller: Record<string, unknown> | null = null;
-      const { data: d1 } = await supabase
-        .from('sellers')
-        .select('*')
-        .eq('seller_email', normalized)
-        .maybeSingle();
-      if (d1) seller = d1;
-
-      if (!seller) {
-        const { data: d2 } = await supabase
-          .from('sellers')
-          .select('*')
-          .eq('email', normalized)
-          .maybeSingle();
-        seller = d2;
-      }
-
-      if (!seller) {
-        throw new Error("No account found with that email address.");
-      }
-
-      const hash = (seller.seller_password ?? seller.password) as string | null;
-      if (!hash) {
-        throw new Error("Account not activated yet. Contact NOTMADE admin.");
-      }
-
-      if (seller.status === 'suspended') {
-        throw new Error("Your seller account has been suspended. Contact support.");
-      }
-
-      // Compare password - plain text or bcrypt
-      let valid = false;
-      if (hash && hash.startsWith('$2')) {
-        const bcrypt = (await import('bcryptjs')).default;
-        valid = await bcrypt.compare(password, hash);
-      } else {
-        valid = hash === password;
-      }
-      if (!valid) {
-        throw new Error("Incorrect password. Please try again.");
-      }
+  const verifyOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    showMsg("");
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), code: code.trim() }),
+      });
+      const data = await res.json() as { id?: string; name?: string; brand_name?: string; email?: string; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Invalid or expired code");
 
       setSession({
-        id:         seller.id as string,
-        name:       (seller.name as string) ?? "",
-        brand_name: (seller.brand_name as string) ?? "",
-        email:      (seller.seller_email ?? seller.email) as string,
-        must_change_password: (seller.must_change_password as boolean) ?? false,
+        id:         data.id!,
+        name:       data.name ?? "",
+        brand_name: data.brand_name ?? "",
+        email:      data.email ?? email,
       });
-
       router.push("/dashboard");
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      showMsg(err instanceof Error ? err.message : "Invalid or expired code.", true);
       setLoading(false);
     }
   };
@@ -93,7 +81,7 @@ export default function LoginPage() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: "32px" }}>
           <a href="/" style={{ textDecoration: "none" }}>
-            <span style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "-0.02em", userSelect: "none" }}>
+            <span style={{ fontSize: "1.5rem", fontWeight: 900, letterSpacing: "-0.02em" }}>
               <span style={{ color: "#111111" }}>NOT</span>
               <span style={{ color: "#CC0000" }}>MADE</span>
             </span>
@@ -113,81 +101,114 @@ export default function LoginPage() {
             border: "1px solid #EEEEEE",
           }}
         >
-          <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#111111", marginBottom: "6px", letterSpacing: "-0.02em" }}>
-            Sign in
-          </h1>
-          <p style={{ fontSize: "14px", color: "#888888", marginBottom: "24px" }}>
-            Use the credentials provided by NOTMADE.
-          </p>
-
-          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
-            <div>
-              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#555555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "8px" }}>
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
-                required
-                placeholder="seller@brand.com"
-                className="field-input"
-                autoComplete="email"
-              />
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#555555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "8px" }}>
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
-                required
-                placeholder="••••••••"
-                className="field-input"
-                autoComplete="current-password"
-              />
-            </div>
-
-            {error && (
-              <p
-                style={{
-                  fontSize: "13px",
-                  color: "#CC0000",
-                  padding: "10px 14px",
-                  background: "rgba(204,0,0,0.04)",
-                  border: "1px solid rgba(204,0,0,0.2)",
-                  borderRadius: "8px",
-                }}
-              >
-                {error}
+          {step === "email" ? (
+            <>
+              <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#111111", marginBottom: "6px", letterSpacing: "-0.02em" }}>
+                Sign in
+              </h1>
+              <p style={{ fontSize: "14px", color: "#888888", marginBottom: "24px" }}>
+                Enter your email and we&apos;ll send a one-time code.
               </p>
-            )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary"
-              style={{
-                borderRadius: "10px",
-                padding: "14px",
-                fontSize: "14px",
-                fontWeight: 700,
-                letterSpacing: "0.04em",
-                marginTop: "4px",
-                opacity: loading ? 0.6 : 1,
-                cursor: loading ? "not-allowed" : "pointer",
-              }}
-            >
-              {loading ? "Signing in…" : "Sign In →"}
-            </button>
-          </form>
+              <form onSubmit={sendOtp} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#555555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "8px" }}>
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
+                    required
+                    placeholder="seller@brand.com"
+                    className="field-input"
+                    autoComplete="email"
+                  />
+                </div>
+
+                {msg && (
+                  <p style={{ fontSize: "13px", color: isErr ? "#CC0000" : "#166534", padding: "10px 14px", background: isErr ? "rgba(204,0,0,0.04)" : "rgba(22,101,52,0.04)", border: `1px solid ${isErr ? "rgba(204,0,0,0.2)" : "rgba(22,101,52,0.2)"}`, borderRadius: "8px" }}>
+                    {msg}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary"
+                  style={{ borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, letterSpacing: "0.04em", marginTop: "4px", opacity: loading ? 0.6 : 1, cursor: loading ? "not-allowed" : "pointer" }}
+                >
+                  {loading ? "Sending code…" : "Send Code →"}
+                </button>
+              </form>
+            </>
+          ) : (
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "6px" }}>
+                <button
+                  onClick={() => { setStep("email"); setCode(""); showMsg(""); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", color: "#888888", display: "flex" }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M15 18l-6-6 6-6" /></svg>
+                </button>
+                <h1 style={{ fontSize: "20px", fontWeight: 800, color: "#111111", letterSpacing: "-0.02em" }}>
+                  Enter code
+                </h1>
+              </div>
+              <p style={{ fontSize: "14px", color: "#888888", marginBottom: "24px" }}>
+                Check your inbox at <strong>{email}</strong>
+              </p>
+
+              <form onSubmit={verifyOtp} style={{ display: "flex", flexDirection: "column", gap: "16px" }}>
+                <div>
+                  <label style={{ display: "block", fontSize: "11px", fontWeight: 600, color: "#555555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: "8px" }}>
+                    6-digit code
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    value={code}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setCode(e.target.value.replace(/\D/g, ""))}
+                    required
+                    placeholder="123456"
+                    className="field-input"
+                    autoComplete="one-time-code"
+                    style={{ fontSize: "24px", letterSpacing: "0.3em", textAlign: "center" }}
+                  />
+                </div>
+
+                {msg && (
+                  <p style={{ fontSize: "13px", color: isErr ? "#CC0000" : "#166534", padding: "10px 14px", background: isErr ? "rgba(204,0,0,0.04)" : "rgba(22,101,52,0.04)", border: `1px solid ${isErr ? "rgba(204,0,0,0.2)" : "rgba(22,101,52,0.2)"}`, borderRadius: "8px" }}>
+                    {msg}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || code.length < 6}
+                  className="btn-primary"
+                  style={{ borderRadius: "10px", padding: "14px", fontSize: "14px", fontWeight: 700, letterSpacing: "0.04em", marginTop: "4px", opacity: (loading || code.length < 6) ? 0.6 : 1, cursor: (loading || code.length < 6) ? "not-allowed" : "pointer" }}
+                >
+                  {loading ? "Verifying…" : "Sign In →"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={sendOtp}
+                  disabled={loading}
+                  style={{ fontSize: "13px", color: "#888888", background: "none", border: "none", cursor: "pointer", padding: "4px 0" }}
+                >
+                  Didn&apos;t receive it? Resend code
+                </button>
+              </form>
+            </>
+          )}
         </div>
 
         <p style={{ textAlign: "center", fontSize: "12px", color: "#AAAAAA", marginTop: "20px" }}>
-          Credentials are provided by NOTMADE admin only.
+          Access is provided by NOTMADE admin only.
         </p>
       </div>
     </main>

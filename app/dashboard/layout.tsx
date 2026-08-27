@@ -1,28 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, usePathname } from "next/navigation";
-import { isAuthenticated, clearToken, getSellerId, getSession } from "../lib/auth";
+import { useRouter } from "next/navigation";
+import { isAuthenticated, getSellerId, logout } from "../lib/auth";
 import { supabase } from "../lib/supabase";
 import Sidebar from "../components/Sidebar";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const router   = useRouter();
-  const pathname = usePathname();
-  const [ready,        setReady]       = useState(false);
-  const [sidebarOpen,  setSidebarOpen] = useState(false);
-  const [sellerName,   setSellerName]  = useState<string | undefined>();
-  const [brandName,    setBrandName]   = useState<string | undefined>();
+  const router = useRouter();
+  const [ready,       setReady]       = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sellerName,  setSellerName]  = useState<string | undefined>();
+  const [brandName,   setBrandName]   = useState<string | undefined>();
 
   useEffect(() => {
     if (!isAuthenticated()) {
       router.replace("/login");
-      return;
-    }
-
-    const session = getSession();
-    if (session?.must_change_password && pathname !== '/dashboard/profile') {
-      router.replace('/dashboard/profile');
       return;
     }
 
@@ -38,7 +31,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         .eq('id', id)
         .maybeSingle();
       if (error) {
-        clearToken();
+        await logout();
         router.replace("/login");
         return;
       }
