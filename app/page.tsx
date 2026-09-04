@@ -713,7 +713,7 @@ export default function Home() {
               style={{
                 background: "#111113",
                 border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: 20,
+                borderRadius: 0,
                 padding: "clamp(1.75rem, 5vw, 2.75rem)",
               }}
             >

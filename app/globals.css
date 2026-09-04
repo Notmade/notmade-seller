@@ -311,3 +311,24 @@ body {
   animation: ticker 28s linear infinite;
 }
 .ticker-track:hover { animation-play-state: paused; }
+
+/* ── ApplyForm dark inputs ── */
+.apply-input::placeholder { color: #8E8E93; }
+.apply-input:focus {
+  border-color: #FF3B30 !important;
+  box-shadow: 0 0 0 1px #FF3B30 !important;
+}
+.apply-input option { background: #1A1A1A; color: #E8E4DC; }
+
+.apply-phone-wrap:focus-within {
+  border-color: #FF3B30 !important;
+  box-shadow: 0 0 0 1px #FF3B30 !important;
+}
+.apply-phone-input::placeholder { color: #8E8E93; }
+
+.apply-submit:hover:not(:disabled) { background: #cc2a20 !important; }
+
+/* Responsive stacked grid for ApplyForm */
+@media (max-width: 600px) {
+  .apply-form-grid { grid-template-columns: 1fr !important; }
+}
