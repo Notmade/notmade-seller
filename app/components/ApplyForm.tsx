@@ -1,23 +1,24 @@
 "use client";
 
 import { useState, type FormEvent, type ChangeEvent } from "react";
-import { supabase } from "../lib/supabase";
 
-const CATEGORIES = ["Streetwear", "Jewellery", "Rugs", "Accessories", "Other"];
+const CATEGORIES = ["Apparel", "Accessories", "Footwear", "Lifestyle", "Other"];
+const CAPACITIES = ["<50 units", "50–200", "200–500", "500+"];
 
 interface FormFields {
-  brand_name:  string;
-  name:        string;
-  email:       string;
-  phone:       string;
-  instagram:   string;
-  category:    string;
-  about_brand: string;
+  brand_name:    string;
+  contact_name:  string;
+  phone:         string;
+  email:         string;
+  instagram:     string;
+  category:      string;
+  capacity:      string;
+  message:       string;
 }
 
 const EMPTY: FormFields = {
-  brand_name: "", name: "", email: "", phone: "",
-  instagram: "", category: "", about_brand: "",
+  brand_name: "", contact_name: "", phone: "", email: "",
+  instagram: "", category: "", capacity: "", message: "",
 };
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -25,8 +26,16 @@ type Status = "idle" | "loading" | "success" | "error";
 function Label({ children }: { children: React.ReactNode }) {
   return (
     <label
-      className="block text-[11px] uppercase tracking-[0.14em] mb-2 font-semibold"
-      style={{ color: "#555555" }}
+      style={{
+        display: "block",
+        fontFamily: "var(--font-archivo), Archivo, sans-serif",
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: "0.16em",
+        textTransform: "uppercase",
+        color: "rgba(232,228,220,0.5)",
+        marginBottom: 8,
+      }}
     >
       {children}
     </label>
@@ -36,7 +45,7 @@ function Label({ children }: { children: React.ReactNode }) {
 function Chevron() {
   return (
     <div className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2">
-      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#999" strokeWidth={2}>
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="rgba(232,228,220,0.35)" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
       </svg>
     </div>
@@ -52,7 +61,7 @@ export default function ApplyForm() {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    if (name === "about_brand" && value.length > 400) return;
+    if (name === "message" && value.length > 400) return;
     setForm(p => ({ ...p, [name]: value }));
   };
 
@@ -62,18 +71,24 @@ export default function ApplyForm() {
     setErrMsg("");
 
     try {
-      const { error } = await supabase.from("sellers").insert({
-        brand_name:  form.brand_name,
-        name:        form.name,
-        email:       form.email,
-        phone:       `+91${form.phone}`,
-        instagram:   form.instagram || null,
-        category:    form.category,
-        about_brand: form.about_brand,
-        status:      "pending",
+      const res = await fetch("/api/seller-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_name:   form.brand_name,
+          contact_name: form.contact_name,
+          phone:        form.phone,
+          email:        form.email,
+          instagram:    form.instagram || null,
+          category:     form.category || null,
+          capacity:     form.capacity || null,
+          message:      form.message || null,
+        }),
       });
 
-      if (error) throw new Error(error.message);
+      const data = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Submission failed");
+
       setStatus("success");
     } catch (err: unknown) {
       setStatus("error");
@@ -84,17 +99,35 @@ export default function ApplyForm() {
   /* ── Success state ── */
   if (status === "success") {
     return (
-      <div className="flex flex-col items-center py-14 text-center gap-6">
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          padding: "48px 24px",
+          textAlign: "center",
+          gap: 20,
+        }}
+      >
         <div className="success-ring">
           <div
-            className="w-20 h-20 rounded-full flex items-center justify-center"
-            style={{ background: "rgba(204,0,0,0.06)", border: "2px solid #CC0000" }}
+            style={{
+              width: 80,
+              height: 80,
+              borderRadius: "50%",
+              background: "rgba(200,245,66,0.08)",
+              border: "2px solid #C8F542",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
           >
             <svg
-              className="w-10 h-10"
+              width="40"
+              height="40"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="#CC0000"
+              stroke="#C8F542"
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -105,35 +138,40 @@ export default function ApplyForm() {
         </div>
 
         <div>
-          <h3 className="font-bold mb-1" style={{ fontSize: "22px", color: "#111111" }}>
-            Application Submitted!
+          <h3
+            style={{
+              fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
+              fontSize: 32,
+              letterSpacing: "0.04em",
+              color: "#E8E4DC",
+              marginBottom: 8,
+            }}
+          >
+            WE'VE GOT YOUR DETAILS.
           </h3>
           <p
             style={{
-              fontSize: "11px",
-              fontWeight: 700,
-              color: "#CC0000",
-              letterSpacing: "0.15em",
-              textTransform: "uppercase",
+              fontFamily: "var(--font-archivo), Archivo, sans-serif",
+              fontSize: 15,
+              color: "rgba(232,228,220,0.55)",
+              lineHeight: 1.65,
             }}
           >
-            Under Review
+            Expect a call within 48 hours. 🤝
           </p>
         </div>
-
-        <p style={{ fontSize: "15px", lineHeight: 1.7, color: "#555555", maxWidth: "300px" }}>
-          We&apos;ll contact you at{" "}
-          <strong style={{ color: "#111111" }}>{form.email}</strong>{" "}
-          within 48 hours.
-        </p>
 
         <button
           onClick={() => { setStatus("idle"); setForm(EMPTY); }}
           style={{
-            fontSize: "12px",
-            color: "#999999",
+            fontFamily: "var(--font-archivo), Archivo, sans-serif",
+            fontSize: 12,
+            color: "rgba(232,228,220,0.35)",
+            background: "none",
+            border: "none",
+            cursor: "pointer",
             textDecoration: "underline",
-            textUnderlineOffset: "3px",
+            textUnderlineOffset: 3,
           }}
         >
           Submit another application
@@ -144,75 +182,75 @@ export default function ApplyForm() {
 
   /* ── Form ── */
   return (
-    <form onSubmit={handleSubmit} className="space-y-5">
+    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
       {/* Brand + Name */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
         <div>
           <Label>Brand Name *</Label>
           <input
             type="text" name="brand_name" value={form.brand_name}
             onChange={handleChange} required placeholder="Your brand name"
-            className="field-input"
+            className="field-input-dark"
           />
         </div>
         <div>
           <Label>Your Name *</Label>
           <input
-            type="text" name="name" value={form.name}
+            type="text" name="contact_name" value={form.contact_name}
             onChange={handleChange} required placeholder="Full name"
-            className="field-input"
+            className="field-input-dark"
           />
         </div>
       </div>
 
-      {/* Email + Phone */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Phone + Email */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
+        <div>
+          <Label>Phone *</Label>
+          <div className="phone-field-dark">
+            <span className="phone-prefix-dark">+91</span>
+            <input
+              type="tel" name="phone" value={form.phone}
+              onChange={handleChange} required placeholder="98765 43210"
+              className="phone-input-dark" maxLength={10}
+            />
+          </div>
+        </div>
         <div>
           <Label>Email *</Label>
           <input
             type="email" name="email" value={form.email}
             onChange={handleChange} required placeholder="you@brand.com"
-            className="field-input"
+            className="field-input-dark"
           />
-        </div>
-        <div>
-          <Label>Phone *</Label>
-          <div className="phone-field">
-            <span className="phone-prefix">+91</span>
-            <input
-              type="tel" name="phone" value={form.phone}
-              onChange={handleChange} required placeholder="98765 43210"
-              className="phone-input" maxLength={10}
-            />
-          </div>
         </div>
       </div>
 
       {/* Instagram + Category */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16 }}>
         <div>
           <Label>
-            Instagram Handle{" "}
-            <span style={{ textTransform: "none", letterSpacing: 0, fontSize: "10px", color: "#BBBBBB", fontWeight: 400 }}>
+            Instagram{" "}
+            <span style={{ textTransform: "none", letterSpacing: 0, fontSize: 10, color: "rgba(232,228,220,0.25)", fontWeight: 400 }}>
               (optional)
             </span>
           </Label>
           <input
             type="text" name="instagram" value={form.instagram}
             onChange={handleChange} placeholder="@yourbrand"
-            className="field-input"
+            className="field-input-dark"
           />
         </div>
         <div>
-          <Label>Product Category *</Label>
+          <Label>Product Category</Label>
           <div className="relative">
             <select
               name="category" value={form.category}
-              onChange={handleChange} required
-              className="field-input appearance-none cursor-pointer"
+              onChange={handleChange}
+              className="field-input-dark appearance-none cursor-pointer"
             >
-              <option value="" disabled>Select category</option>
+              <option value="">Select category</option>
               {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
             <Chevron />
@@ -220,38 +258,61 @@ export default function ApplyForm() {
         </div>
       </div>
 
-      {/* About */}
+      {/* Capacity */}
       <div>
-        <div className="flex items-center justify-between mb-2">
-          <span
-            className="text-[11px] uppercase tracking-[0.14em] font-semibold"
-            style={{ color: "#555555" }}
+        <Label>Monthly Production Capacity</Label>
+        <div className="relative">
+          <select
+            name="capacity" value={form.capacity}
+            onChange={handleChange}
+            className="field-input-dark appearance-none cursor-pointer"
           >
-            About Your Brand *
-          </span>
+            <option value="">Select range</option>
+            {CAPACITIES.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <Chevron />
+        </div>
+      </div>
+
+      {/* Message */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <Label>
+            Anything else?{" "}
+            <span style={{ textTransform: "none", letterSpacing: 0, fontSize: 10, color: "rgba(232,228,220,0.25)", fontWeight: 400 }}>
+              (optional)
+            </span>
+          </Label>
           <span
-            className="text-[10px] tabular-nums"
-            style={{ color: form.about_brand.length >= 380 ? "#CC0000" : "#AAAAAA" }}
+            style={{
+              fontFamily: "var(--font-archivo), Archivo, sans-serif",
+              fontSize: 10,
+              color: form.message.length >= 380 ? "#FF3B30" : "rgba(232,228,220,0.2)",
+            }}
           >
-            {form.about_brand.length}/400
+            {form.message.length}/400
           </span>
         </div>
         <textarea
-          name="about_brand" value={form.about_brand} onChange={handleChange}
-          required rows={4} maxLength={400}
-          placeholder="Tell us about your brand — what you make, who it's for, what sets you apart."
-          className="field-input resize-none"
+          name="message" value={form.message} onChange={handleChange}
+          rows={4} maxLength={400}
+          placeholder="Anything else you'd like us to know about your brand."
+          className="field-input-dark"
+          style={{ resize: "none" }}
         />
       </div>
 
       {/* Error */}
       {status === "error" && (
         <p
-          className="text-sm px-4 py-3 rounded-xl"
           style={{
-            color: "#CC0000",
-            border: "1px solid rgba(204,0,0,0.25)",
-            background: "rgba(204,0,0,0.04)",
+            fontFamily: "var(--font-archivo), Archivo, sans-serif",
+            fontSize: 13,
+            color: "#FF3B30",
+            background: "rgba(255,59,48,0.06)",
+            border: "1px solid rgba(255,59,48,0.2)",
+            borderRadius: 10,
+            padding: "12px 16px",
           }}
         >
           {errMsg}
@@ -262,14 +323,32 @@ export default function ApplyForm() {
       <button
         type="submit"
         disabled={status === "loading"}
-        className="btn-primary w-full font-bold text-sm tracking-widest uppercase py-4 disabled:opacity-50 disabled:cursor-not-allowed"
-        style={{ borderRadius: "12px" }}
+        className="btn-primary"
+        style={{
+          width: "100%",
+          fontSize: 17,
+          padding: "16px 24px",
+          borderRadius: 12,
+          border: "none",
+          cursor: status === "loading" ? "not-allowed" : "pointer",
+          opacity: status === "loading" ? 0.6 : 1,
+        }}
       >
-        {status === "loading" ? "Submitting…" : "Submit Application →"}
+        {status === "loading" ? "SUBMITTING…" : "SUBMIT APPLICATION →"}
       </button>
 
-      <p className="text-center text-[11px] leading-relaxed" style={{ color: "#AAAAAA" }}>
-        17% flat commission · Same day payouts · No hidden fees
+      <p
+        style={{
+          fontFamily: "var(--font-archivo), Archivo, sans-serif",
+          textAlign: "center",
+          fontSize: 12,
+          color: "rgba(232,228,220,0.25)",
+          lineHeight: 1.6,
+        }}
+      >
+        Our team reviews every application personally.
+        <br />
+        We'll be in touch within 48 hours.
       </p>
     </form>
   );

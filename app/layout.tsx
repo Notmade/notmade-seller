@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, Inter, Space_Mono } from "next/font/google";
+import { Bebas_Neue, Archivo, Space_Mono } from "next/font/google";
 import "./globals.css";
 
 const bebasNeue = Bebas_Neue({
@@ -9,9 +9,9 @@ const bebasNeue = Bebas_Neue({
   display: "swap",
 });
 
-const inter = Inter({
+const archivo = Archivo({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-archivo",
   display: "swap",
 });
 
@@ -23,13 +23,13 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sell on NOTMADE — Apply for Seller Programme",
+  title: "Sell on NOTMADE — Built For Sellers Who Mean Business",
   description:
-    "List your brand on NOTMADE marketplace. 17% flat commission, same-day Delhi NCR delivery, zero hidden fees.",
+    "Not another marketplace. A platform that actually gives a damn about your cash flow, your customers, and your growth. Apply to sell on NOTMADE.",
   robots: { index: true, follow: true },
   openGraph: {
-    title: "Sell on NOTMADE",
-    description: "17% flat commission. ₹0 monthly fees. Same day Delhi NCR delivery.",
+    title: "Sell on NOTMADE — Built For Sellers Who Mean Business",
+    description: "7-day payouts. Better commissions. No BS. Apply to sell.",
     url: "https://seller.notmade.in",
     siteName: "NOTMADE Seller Portal",
   },
@@ -45,8 +45,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${bebasNeue.variable} ${inter.variable} ${spaceMono.variable}`}>
-      <body className="antialiased bg-white text-[#111111]">{children}</body>
+    <html
+      lang="en"
+      className={`${bebasNeue.variable} ${archivo.variable} ${spaceMono.variable}`}
+    >
+      <body className="antialiased">{children}</body>
     </html>
   );
 }
