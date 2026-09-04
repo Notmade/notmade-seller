@@ -230,6 +230,23 @@ body {
 }
 .footer-link:hover { color: #FF3B30; }
 
+/* ── Footer pill links (legal) ── */
+.footer-pill {
+  font-family: var(--font-archivo), Archivo, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #E8E4DC;
+  text-decoration: none;
+  padding: 8px 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.footer-pill:hover {
+  border-color: #C8F542;
+  color: #C8F542;
+}
+
 /* ── Legacy footer links (dashboard pages) ── */
 .footer-link-light {
   font-size: 13px;

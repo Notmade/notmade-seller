@@ -8,31 +8,31 @@ const REASONS = [
     num: "01",
     title: "BETTER COMMISSION, ALWAYS",
     desc: "We built this from scratch — no legacy overhead, no VC pressure. Better margins for you, period.",
+    accent: "#FF3B30",
   },
   {
     num: "02",
     title: "7-DAY PAYOUTS. NO DRAMA.",
     desc: "Cash flow kills brands. We pay out within 7 days of delivery. Not 30. Not 45. Seven.",
+    accent: "#C8F542",
   },
   {
     num: "03",
     title: "YOUR CUSTOMERS, YOUR DATA",
     desc: "Get access to your buyer database at nominal cost. Know who bought, when, and what they loved.",
+    accent: "#FF3B30",
   },
   {
     num: "04",
-    title: "SHIPPING? COVERED.",
-    desc: "We handle last-mile logistics across Delhi NCR. You focus on making product, we'll get it there.",
+    title: "VISIBILITY THAT CONVERTS",
+    desc: "Curated placement, not a crowded marketplace. Your product gets seen by the right people.",
+    accent: "#C8F542",
   },
   {
     num: "05",
-    title: "VISIBILITY THAT CONVERTS",
-    desc: "Curated placement, not a crowded marketplace. Your product gets seen by the right people.",
-  },
-  {
-    num: "06",
     title: "GOING INTERNATIONAL",
     desc: "We're building toward GCC and Southeast Asia. Your brand travels with us.",
+    accent: "#FF3B30",
   },
 ];
 
@@ -57,13 +57,13 @@ const STEPS = [
 const TICKER_ITEMS = [
   "7-DAY PAYOUTS",
   "BETTER MARGINS",
-  "DELHI NCR DELIVERY",
+  "PAN INDIA DELIVERY",
   "CURATED PLACEMENT",
   "YOUR CUSTOMER DATA",
   "GOING INTERNATIONAL",
   "7-DAY PAYOUTS",
   "BETTER MARGINS",
-  "DELHI NCR DELIVERY",
+  "PAN INDIA DELIVERY",
   "CURATED PLACEMENT",
   "YOUR CUSTOMER DATA",
   "GOING INTERNATIONAL",
@@ -309,13 +309,14 @@ export default function Home() {
                 style={{
                   fontFamily: "var(--font-archivo), Archivo, sans-serif",
                   fontSize: "14px",
-                  color: "rgba(232,228,220,0.5)",
+                  color: "#C8F542",
                   textDecoration: "none",
                   letterSpacing: "0.04em",
                   display: "flex",
                   alignItems: "center",
                   gap: 6,
-                  transition: "color 0.15s",
+                  opacity: 0.8,
+                  transition: "opacity 0.15s",
                 }}
               >
                 See why sellers choose us ↓
@@ -345,7 +346,7 @@ export default function Home() {
                   fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
                   fontSize: "15px",
                   letterSpacing: "0.14em",
-                  color: i % 2 === 0 ? "rgba(232,228,220,0.4)" : "#FF3B30",
+                  color: i % 2 === 0 ? "#C8F542" : "rgba(232,228,220,0.35)",
                   paddingRight: 0,
                 }}
               >
@@ -411,7 +412,7 @@ export default function Home() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
               gap: 2,
             }}
           >
@@ -422,7 +423,8 @@ export default function Home() {
                   style={{
                     padding: "36px 32px",
                     height: "100%",
-                    borderRadius: i === 0 ? "16px 0 0 0" : i === 1 ? "0 16px 0 0" : 0,
+                    borderTop: `2px solid ${r.accent}`,
+                    borderRadius: 0,
                   }}
                 >
                   <div
@@ -430,7 +432,7 @@ export default function Home() {
                       fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
                       fontSize: 13,
                       letterSpacing: "0.1em",
-                      color: "#FF3B30",
+                      color: r.accent,
                       marginBottom: 20,
                     }}
                   >
@@ -632,7 +634,7 @@ export default function Home() {
       <footer
         style={{
           borderTop: "1px solid rgba(255,255,255,0.06)",
-          padding: "40px 28px",
+          padding: "48px 28px",
         }}
       >
         <div
@@ -641,43 +643,59 @@ export default function Home() {
             margin: "0 auto",
             display: "flex",
             flexDirection: "column",
-            gap: 12,
+            gap: 24,
           }}
         >
+          {/* Top row: logo + legal links */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
               justifyContent: "space-between",
               flexWrap: "wrap",
-              gap: 16,
+              gap: 20,
+            }}
+          >
+            <Logo />
+
+            <nav style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <a href="/privacy-policy" className="footer-pill">Privacy Policy</a>
+              <a href="/terms" className="footer-pill">Terms &amp; Conditions</a>
+              <a href="mailto:admin@notmade.in" className="footer-pill">Contact</a>
+            </nav>
+          </div>
+
+          {/* Bottom row: copyright */}
+          <div
+            style={{
+              borderTop: "1px solid rgba(255,255,255,0.05)",
+              paddingTop: 20,
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              justifyContent: "space-between",
+              alignItems: "center",
             }}
           >
             <p
               style={{
-                fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                fontSize: 15,
-                letterSpacing: "0.1em",
-                color: "rgba(232,228,220,0.4)",
+                fontFamily: "var(--font-archivo), Archivo, sans-serif",
+                fontSize: 12,
+                color: "rgba(232,228,220,0.25)",
               }}
             >
-              seller.notmade.in — A NOTMADE PLATFORM
+              © 2026 House of Notmade Studio Pvt Ltd · Delhi NCR
             </p>
-            <div style={{ display: "flex", gap: 24 }}>
-              <a href="/privacy-policy" className="footer-link">Privacy</a>
-              <a href="/terms" className="footer-link">Terms</a>
-              <a href="mailto:admin@notmade.in" className="footer-link">Contact</a>
-            </div>
+            <p
+              style={{
+                fontFamily: "var(--font-archivo), Archivo, sans-serif",
+                fontSize: 12,
+                color: "rgba(232,228,220,0.15)",
+              }}
+            >
+              Pan India · GCC · Southeast Asia
+            </p>
           </div>
-          <p
-            style={{
-              fontFamily: "var(--font-archivo), Archivo, sans-serif",
-              fontSize: 12,
-              color: "rgba(232,228,220,0.2)",
-            }}
-          >
-            Delhi NCR · Built by House of Notmade Studio Pvt Ltd
-          </p>
         </div>
       </footer>
 
