@@ -7,32 +7,38 @@ const REASONS = [
   {
     num: "01",
     title: "BETTER COMMISSION, ALWAYS",
-    desc: "We built this from scratch — no legacy overhead, no VC pressure. Better margins for you, period.",
-    accent: "#FF3B30",
+    desc: "We built this from scratch — no legacy tech, no VC pressure, no middlemen taking a cut. Every percentage point we don't spend on overhead goes back to you as better margins. That's not a pitch, that's the structure.",
+    stat: "17% flat. Industry average sits at 25–40%.",
   },
   {
     num: "02",
     title: "7-DAY PAYOUTS. NO DRAMA.",
-    desc: "Cash flow kills brands. We pay out within 7 days of delivery. Not 30. Not 45. Seven.",
-    accent: "#C8F542",
+    desc: "Cash flow is what kills independent brands, not competition. We pay within 7 days of delivery confirmation — every time, no manual requests, no chasing anyone down. You made the product. You should have the money.",
+    stat: "7 days. Not monthly. Not after dispute resolution.",
   },
   {
     num: "03",
-    title: "YOUR CUSTOMERS, YOUR DATA",
-    desc: "Get access to your buyer database at nominal cost. Know who bought, when, and what they loved.",
-    accent: "#FF3B30",
+    title: "VIDEO VERIFIED DELIVERY",
+    desc: "Every order we dispatch is video-recorded during packing and at the point of delivery. If a customer claims non-receipt or damage, there's footage. Zero fraud on your end, zero disputes you can't win. This is the standard, not an add-on.",
+    stat: "Every delivery documented. No he-said-she-said.",
   },
   {
     num: "04",
-    title: "VISIBILITY THAT CONVERTS",
-    desc: "Curated placement, not a crowded marketplace. Your product gets seen by the right people.",
-    accent: "#C8F542",
+    title: "YOUR CUSTOMERS, YOUR DATA",
+    desc: "On most platforms, your buyers are their buyers. Not here. You get access to your complete buyer database — names, orders, preferences — at nominal cost. Use it for re-marketing, CRM, product research, or building direct relationships.",
+    stat: "Full buyer database access. Your data, your call.",
   },
   {
     num: "05",
+    title: "VISIBILITY THAT CONVERTS",
+    desc: "We curate, we don't just list. Your product isn't buried under 50,000 SKUs competing on price. We place you in front of buyers who are already looking for what you make — people who understand craft, quality, and independent brands.",
+    stat: "Curated placement. Not a race to the bottom.",
+  },
+  {
+    num: "06",
     title: "GOING INTERNATIONAL",
-    desc: "We're building toward GCC and Southeast Asia. Your brand travels with us.",
-    accent: "#FF3B30",
+    desc: "We're building the infrastructure to take Indian independent brands to GCC and Southeast Asia — two markets that are hungry for premium, authentic product. When we get there, your brand comes with us. Not as an afterthought. As a priority.",
+    stat: "GCC & Southeast Asia. Already in the pipeline.",
   },
 ];
 
@@ -57,16 +63,18 @@ const STEPS = [
 const TICKER_ITEMS = [
   "7-DAY PAYOUTS",
   "BETTER MARGINS",
-  "PAN INDIA DELIVERY",
+  "VIDEO VERIFIED DELIVERY",
   "CURATED PLACEMENT",
   "YOUR CUSTOMER DATA",
   "GOING INTERNATIONAL",
+  "PAN INDIA COVERAGE",
   "7-DAY PAYOUTS",
   "BETTER MARGINS",
-  "PAN INDIA DELIVERY",
+  "VIDEO VERIFIED DELIVERY",
   "CURATED PLACEMENT",
   "YOUR CUSTOMER DATA",
   "GOING INTERNATIONAL",
+  "PAN INDIA COVERAGE",
 ];
 
 /* ── Sub-components ── */
@@ -362,49 +370,77 @@ export default function Home() {
       <section id="why" style={{ padding: "100px 0 120px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 28px" }}>
 
-          {/* Section label */}
+          {/* Section header */}
           <AnimatedSection>
-            <div style={{ marginBottom: "1rem" }}>
-              <span
-                style={{
-                  fontFamily: "var(--font-archivo), Archivo, sans-serif",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  letterSpacing: "0.2em",
-                  textTransform: "uppercase",
-                  color: "#FF3B30",
-                }}
-              >
-                THE PITCH
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24, flexWrap: "wrap", marginBottom: "60px" }}>
-              <h2
-                style={{
-                  fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                  fontSize: "clamp(3rem, 7vw, 80px)",
-                  fontWeight: 400,
-                  lineHeight: 1,
-                  letterSpacing: "0.02em",
-                  color: "#E8E4DC",
-                  margin: 0,
-                }}
-              >
-                WHY NOTMADE
-              </h2>
-              <p
-                style={{
-                  fontFamily: "var(--font-archivo), Archivo, sans-serif",
-                  fontSize: 15,
-                  color: "rgba(232,228,220,0.45)",
-                  maxWidth: 320,
-                  lineHeight: 1.6,
-                  margin: 0,
-                  paddingBottom: 6,
-                }}
-              >
-                Six reasons you should be selling with us and not anyone else.
-              </p>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "flex-start",
+                justifyContent: "space-between",
+                gap: 32,
+                flexWrap: "wrap",
+                marginBottom: 64,
+                paddingBottom: 40,
+                borderBottom: "1px solid rgba(255,255,255,0.07)",
+              }}
+            >
+              <div>
+                <p
+                  style={{
+                    fontFamily: "var(--font-archivo), Archivo, sans-serif",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                    color: "#FF3B30",
+                    marginBottom: 14,
+                  }}
+                >
+                  THE PITCH
+                </p>
+                <h2
+                  style={{
+                    fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
+                    fontSize: "clamp(3.5rem, 7.5vw, 88px)",
+                    fontWeight: 400,
+                    lineHeight: 0.95,
+                    letterSpacing: "0.02em",
+                    color: "#E8E4DC",
+                    margin: 0,
+                  }}
+                >
+                  WHY<br />
+                  <span style={{ color: "#FF3B30" }}>NOT</span>MADE
+                </h2>
+              </div>
+              <div style={{ maxWidth: 380, paddingTop: 8 }}>
+                <p
+                  style={{
+                    fontFamily: "var(--font-archivo), Archivo, sans-serif",
+                    fontSize: 16,
+                    color: "rgba(232,228,220,0.55)",
+                    lineHeight: 1.75,
+                    marginBottom: 20,
+                  }}
+                >
+                  Six honest reasons you should be selling with us and not
+                  anywhere else. No stock photography, no vague promises.
+                </p>
+                <a
+                  href="#apply"
+                  style={{
+                    fontFamily: "var(--font-archivo), Archivo, sans-serif",
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "#C8F542",
+                    textDecoration: "none",
+                    letterSpacing: "0.06em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Apply to sell →
+                </a>
+              </div>
             </div>
           </AnimatedSection>
 
@@ -412,55 +448,112 @@ export default function Home() {
           <div
             style={{
               display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
-              gap: 2,
+              gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))",
+              gap: 16,
             }}
           >
             {REASONS.map((r, i) => (
-              <AnimatedSection key={r.num} delay={i * 40}>
+              <AnimatedSection key={r.num} delay={i * 50}>
                 <div
-                  className="dark-card"
                   style={{
+                    background: "#111113",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                    borderRadius: 16,
                     padding: "36px 32px",
                     height: "100%",
-                    borderTop: `2px solid ${r.accent}`,
-                    borderRadius: 0,
+                    display: "flex",
+                    flexDirection: "column",
+                    transition: "border-color 0.25s ease, transform 0.25s cubic-bezier(0.16,1,0.3,1)",
                   }}
+                  className="dark-card"
                 >
+                  {/* Number */}
                   <div
                     style={{
-                      fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                      fontSize: 13,
-                      letterSpacing: "0.1em",
-                      color: r.accent,
-                      marginBottom: 20,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      marginBottom: 24,
                     }}
                   >
-                    {r.num}
+                    <span
+                      style={{
+                        fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
+                        fontSize: 12,
+                        letterSpacing: "0.14em",
+                        color: "#FF3B30",
+                        background: "rgba(255,59,48,0.1)",
+                        border: "1px solid rgba(255,59,48,0.2)",
+                        borderRadius: 4,
+                        padding: "3px 10px",
+                      }}
+                    >
+                      {r.num}
+                    </span>
                   </div>
+
+                  {/* Title */}
                   <h3
                     style={{
                       fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                      fontSize: "clamp(1.4rem, 2.5vw, 28px)",
+                      fontSize: "clamp(1.5rem, 2.8vw, 30px)",
                       fontWeight: 400,
                       letterSpacing: "0.03em",
                       color: "#E8E4DC",
-                      marginBottom: 14,
+                      marginBottom: 16,
                       lineHeight: 1.05,
                     }}
                   >
                     {r.title}
                   </h3>
+
+                  {/* Description */}
                   <p
                     style={{
                       fontFamily: "var(--font-archivo), Archivo, sans-serif",
                       fontSize: 14,
-                      color: "rgba(232,228,220,0.5)",
-                      lineHeight: 1.7,
+                      color: "rgba(232,228,220,0.52)",
+                      lineHeight: 1.78,
+                      flex: 1,
+                      marginBottom: 28,
                     }}
                   >
                     {r.desc}
                   </p>
+
+                  {/* Stat callout */}
+                  <div
+                    style={{
+                      borderTop: "1px solid rgba(255,255,255,0.06)",
+                      paddingTop: 20,
+                      display: "flex",
+                      alignItems: "flex-start",
+                      gap: 10,
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 3,
+                        height: 16,
+                        background: "#C8F542",
+                        borderRadius: 2,
+                        flexShrink: 0,
+                        marginTop: 2,
+                      }}
+                    />
+                    <p
+                      style={{
+                        fontFamily: "var(--font-archivo), Archivo, sans-serif",
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "#C8F542",
+                        lineHeight: 1.5,
+                        margin: 0,
+                      }}
+                    >
+                      {r.stat}
+                    </p>
+                  </div>
                 </div>
               </AnimatedSection>
             ))}
