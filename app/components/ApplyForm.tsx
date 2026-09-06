@@ -3,21 +3,23 @@
 import { useState, type FormEvent, type ChangeEvent } from "react";
 import { supabase } from "../lib/supabase";
 
-const CATEGORIES = ["Streetwear", "Jewellery", "Rugs", "Accessories", "Other"];
+const CATEGORIES = ["Apparel", "Accessories", "Footwear", "Lifestyle", "Jewellery", "Home Decor", "Other"];
+const CAPACITIES = ["Less than 50", "50-200", "200-500", "500+"];
 
 interface FormFields {
-  brand_name:  string;
-  name:        string;
-  email:       string;
-  phone:       string;
-  instagram:   string;
-  category:    string;
-  about_brand: string;
+  brand_name:        string;
+  name:              string;
+  phone:             string;
+  email:             string;
+  instagram:         string;
+  category:          string;
+  monthly_capacity:  string;
+  message:           string;
 }
 
 const EMPTY: FormFields = {
-  brand_name: "", name: "", email: "", phone: "",
-  instagram: "", category: "", about_brand: "",
+  brand_name: "", name: "", phone: "", email: "",
+  instagram: "", category: "", monthly_capacity: "", message: "",
 };
 
 type Status = "idle" | "loading" | "success" | "error";
@@ -38,7 +40,7 @@ const INPUT: React.CSSProperties = {
 };
 
 const LABEL: React.CSSProperties = {
-  color: "#8E8E93",
+  color: "#999999",
   fontSize: 11,
   textTransform: "uppercase" as const,
   letterSpacing: "0.1em",
@@ -47,7 +49,6 @@ const LABEL: React.CSSProperties = {
   fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
 };
 
-/* white chevron for select */
 const CHEVRON_URI = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M19 9l-7 7-7-7'/%3E%3C/svg%3E")`;
 
 export default function ApplyForm() {
@@ -59,7 +60,7 @@ export default function ApplyForm() {
     e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
-    if (name === "about_brand" && value.length > 400) return;
+    if (name === "message" && value.length > 400) return;
     setForm(p => ({ ...p, [name]: value }));
   };
 
@@ -69,6 +70,11 @@ export default function ApplyForm() {
     setErrMsg("");
 
     try {
+      const about_brand = [
+        form.monthly_capacity ? `Monthly Capacity: ${form.monthly_capacity} orders/month` : "",
+        form.message,
+      ].filter(Boolean).join("\n\n");
+
       const { error } = await supabase.from("sellers").insert({
         brand_name:  form.brand_name,
         name:        form.name,
@@ -76,7 +82,7 @@ export default function ApplyForm() {
         phone:       `+91${form.phone}`,
         instagram:   form.instagram || null,
         category:    form.category,
-        about_brand: form.about_brand,
+        about_brand: about_brand || null,
         status:      "pending",
       });
 
@@ -91,63 +97,37 @@ export default function ApplyForm() {
   /* ── Success ── */
   if (status === "success") {
     return (
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          padding: "56px 0",
-          textAlign: "center",
-          gap: 24,
-        }}
-      >
+      <div style={{
+        display: "flex", flexDirection: "column", alignItems: "center",
+        padding: "56px 0", textAlign: "center", gap: 24,
+      }}>
         <div
           style={{
-            width: 80,
-            height: 80,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            border: "2px solid #C8F542",
-            background: "rgba(200,245,66,0.06)",
+            width: 80, height: 80,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            border: "2px solid #22c55e",
+            background: "rgba(34,197,94,0.06)",
           }}
           className="success-ring"
         >
-          <svg
-            width={40}
-            height={40}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="#C8F542"
-            strokeWidth={2.5}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width={40} height={40} viewBox="0 0 24 24" fill="none"
+            stroke="#22c55e" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
             <path className="check-path" d="M5 13l4 4L19 7" />
           </svg>
         </div>
 
         <div>
-          <h3
-            style={{
-              fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-              fontSize: 28,
-              fontWeight: 400,
-              letterSpacing: "0.08em",
-              color: "#E8E4DC",
-              marginBottom: 8,
-            }}
-          >
+          <h3 style={{
+            fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
+            fontSize: 28, fontWeight: 400, letterSpacing: "0.08em",
+            color: "#FFFFFF", marginBottom: 8,
+          }}>
             APPLICATION RECEIVED
           </h3>
-          <p
-            style={{
-              fontFamily: "var(--font-archivo), Archivo, sans-serif",
-              fontSize: 15,
-              color: "#8E8E93",
-              lineHeight: 1.6,
-            }}
-          >
+          <p style={{
+            fontFamily: "var(--font-archivo), Archivo, sans-serif",
+            fontSize: 15, color: "#999999", lineHeight: 1.6,
+          }}>
             Expect a call within 48 hours. 🤝
           </p>
         </div>
@@ -155,13 +135,9 @@ export default function ApplyForm() {
         <button
           onClick={() => { setStatus("idle"); setForm(EMPTY); }}
           style={{
-            fontSize: 12,
-            color: "#8E8E93",
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            textDecoration: "underline",
-            textUnderlineOffset: 3,
+            fontSize: 12, color: "#666666",
+            background: "none", border: "none", cursor: "pointer",
+            textDecoration: "underline", textUnderlineOffset: 3,
             fontFamily: "var(--font-archivo), Archivo, sans-serif",
           }}
         >
@@ -175,174 +151,141 @@ export default function ApplyForm() {
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* Brand + Name */}
-      <div
-        className="apply-form-grid"
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
-      >
+      {/* Brand Name + Your Name */}
+      <div className="apply-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
           <label style={LABEL}>Brand Name *</label>
-          <input
-            type="text" name="brand_name" value={form.brand_name}
+          <input type="text" name="brand_name" value={form.brand_name}
             onChange={handleChange} required placeholder="Your brand name"
-            className="apply-input"
-            style={INPUT}
-          />
+            className="apply-input" style={INPUT} />
         </div>
         <div>
           <label style={LABEL}>Your Name *</label>
-          <input
-            type="text" name="name" value={form.name}
+          <input type="text" name="name" value={form.name}
             onChange={handleChange} required placeholder="Full name"
-            className="apply-input"
-            style={INPUT}
-          />
+            className="apply-input" style={INPUT} />
         </div>
       </div>
 
-      {/* Email + Phone */}
-      <div
-        className="apply-form-grid"
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
-      >
-        <div>
-          <label style={LABEL}>Email *</label>
-          <input
-            type="email" name="email" value={form.email}
-            onChange={handleChange} required placeholder="you@brand.com"
-            className="apply-input"
-            style={INPUT}
-          />
-        </div>
+      {/* Phone + Email */}
+      <div className="apply-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
           <label style={LABEL}>Phone *</label>
-          <div
-            className="apply-phone-wrap"
-            style={{
-              display: "flex",
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "#1A1A1A",
-              minHeight: 48,
-              transition: "border-color 0.2s, box-shadow 0.2s",
-            }}
-          >
-            <span
-              style={{
-                padding: "0 14px",
-                fontSize: 16,
-                color: "rgba(232,228,220,0.5)",
-                borderRight: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.03)",
-                flexShrink: 0,
-                userSelect: "none",
-                fontFamily: "var(--font-archivo), Archivo, sans-serif",
-                display: "flex",
-                alignItems: "center",
-              }}
-            >
-              +91
-            </span>
-            <input
-              type="tel" name="phone" value={form.phone}
+          <div className="apply-phone-wrap" style={{
+            display: "flex",
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "#1A1A1A",
+            minHeight: 48,
+            transition: "border-color 0.2s, box-shadow 0.2s",
+          }}>
+            <span style={{
+              padding: "0 14px", fontSize: 16,
+              color: "rgba(232,228,220,0.5)",
+              borderRight: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.03)",
+              flexShrink: 0, userSelect: "none",
+              fontFamily: "var(--font-archivo), Archivo, sans-serif",
+              display: "flex", alignItems: "center",
+            }}>+91</span>
+            <input type="tel" name="phone" value={form.phone}
               onChange={handleChange} required placeholder="98765 43210"
               maxLength={10}
               className="apply-phone-input"
               style={{
-                flex: 1,
-                border: "none",
-                outline: "none",
-                padding: "14px 16px",
-                fontSize: 16,
-                background: "transparent",
-                color: "#E8E4DC",
+                flex: 1, border: "none", outline: "none",
+                padding: "14px 16px", fontSize: 16,
+                background: "transparent", color: "#E8E4DC",
                 fontFamily: "var(--font-archivo), Archivo, sans-serif",
                 minWidth: 0,
-              }}
-            />
+              }} />
           </div>
+        </div>
+        <div>
+          <label style={LABEL}>Email *</label>
+          <input type="email" name="email" value={form.email}
+            onChange={handleChange} required placeholder="you@brand.com"
+            className="apply-input" style={INPUT} />
         </div>
       </div>
 
       {/* Instagram + Category */}
-      <div
-        className="apply-form-grid"
-        style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}
-      >
+      <div className="apply-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         <div>
           <label style={LABEL}>
             Instagram Handle{" "}
-            <span
-              style={{
-                textTransform: "none",
-                letterSpacing: 0,
-                fontSize: 10,
-                color: "#555",
-                fontWeight: 400,
-              }}
-            >
+            <span style={{ textTransform: "none", letterSpacing: 0, fontSize: 10, color: "#555", fontWeight: 400 }}>
               (optional)
             </span>
           </label>
-          <input
-            type="text" name="instagram" value={form.instagram}
+          <input type="text" name="instagram" value={form.instagram}
             onChange={handleChange} placeholder="@yourbrand"
-            className="apply-input"
-            style={INPUT}
-          />
+            className="apply-input" style={INPUT} />
         </div>
         <div>
           <label style={LABEL}>Product Category *</label>
-          <select
-            name="category" value={form.category}
+          <select name="category" value={form.category}
             onChange={handleChange} required
             className="apply-input"
             style={{
-              ...INPUT,
-              appearance: "none",
-              cursor: "pointer",
+              ...INPUT, appearance: "none", cursor: "pointer",
               backgroundImage: CHEVRON_URI,
               backgroundRepeat: "no-repeat",
               backgroundPosition: "right 14px center",
               paddingRight: 40,
-            }}
-          >
+            }}>
             <option value="" disabled style={{ background: "#1A1A1A", color: "#E8E4DC" }}>
               Select category
             </option>
             {CATEGORIES.map(c => (
-              <option key={c} value={c} style={{ background: "#1A1A1A", color: "#E8E4DC" }}>
-                {c}
-              </option>
+              <option key={c} value={c} style={{ background: "#1A1A1A", color: "#E8E4DC" }}>{c}</option>
             ))}
           </select>
         </div>
       </div>
 
-      {/* About */}
+      {/* Monthly Capacity */}
       <div>
-        <div
+        <label style={LABEL}>Monthly Capacity *</label>
+        <select name="monthly_capacity" value={form.monthly_capacity}
+          onChange={handleChange} required
+          className="apply-input"
           style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            marginBottom: 6,
-          }}
-        >
-          <span style={LABEL}>About Your Brand *</span>
-          <span
-            style={{
-              fontSize: 10,
-              color: form.about_brand.length >= 380 ? "#FF3B30" : "#555",
-              fontFamily: "var(--font-archivo), Archivo, sans-serif",
-              fontVariantNumeric: "tabular-nums",
-            }}
-          >
-            {form.about_brand.length}/400
+            ...INPUT, appearance: "none", cursor: "pointer",
+            backgroundImage: CHEVRON_URI,
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "right 14px center",
+            paddingRight: 40,
+          }}>
+          <option value="" disabled style={{ background: "#1A1A1A", color: "#E8E4DC" }}>
+            How many orders/month?
+          </option>
+          {CAPACITIES.map(c => (
+            <option key={c} value={c} style={{ background: "#1A1A1A", color: "#E8E4DC" }}>{c}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Message */}
+      <div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+          <span style={LABEL}>
+            Message{" "}
+            <span style={{ textTransform: "none", letterSpacing: 0, fontSize: 10, color: "#555", fontWeight: 400 }}>
+              (optional)
+            </span>
+          </span>
+          <span style={{
+            fontSize: 10,
+            color: form.message.length >= 380 ? "#CC0000" : "#555",
+            fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
+            fontVariantNumeric: "tabular-nums",
+          }}>
+            {form.message.length}/400
           </span>
         </div>
         <textarea
-          name="about_brand" value={form.about_brand}
-          onChange={handleChange} required rows={4} maxLength={400}
+          name="message" value={form.message}
+          onChange={handleChange} rows={4} maxLength={400}
           placeholder="Tell us about your brand — what you make, who it's for, what sets you apart."
           className="apply-input"
           style={{ ...INPUT, resize: "none" }}
@@ -351,16 +294,13 @@ export default function ApplyForm() {
 
       {/* Error */}
       {status === "error" && (
-        <p
-          style={{
-            color: "#FF3B30",
-            fontSize: 14,
-            padding: "12px 16px",
-            border: "1px solid rgba(255,59,48,0.3)",
-            background: "rgba(255,59,48,0.05)",
-            fontFamily: "var(--font-archivo), Archivo, sans-serif",
-          }}
-        >
+        <p style={{
+          color: "#CC0000", fontSize: 14,
+          padding: "12px 16px",
+          border: "1px solid rgba(204,0,0,0.3)",
+          background: "rgba(204,0,0,0.05)",
+          fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
+        }}>
           {errMsg}
         </p>
       )}
@@ -371,15 +311,13 @@ export default function ApplyForm() {
         disabled={status === "loading"}
         className="apply-submit"
         style={{
-          background: "#FF3B30",
+          background: "#CC0000",
           color: "#FFFFFF",
           fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-          fontSize: 18,
-          letterSpacing: "0.1em",
+          fontSize: 18, letterSpacing: "0.1em",
           padding: "16px 40px",
           width: "100%",
-          border: "none",
-          borderRadius: 0,
+          border: "none", borderRadius: 0,
           cursor: status === "loading" ? "not-allowed" : "pointer",
           marginTop: 4,
           opacity: status === "loading" ? 0.7 : 1,
@@ -389,16 +327,12 @@ export default function ApplyForm() {
         {status === "loading" ? "SUBMITTING..." : "START SELLING →"}
       </button>
 
-      <p
-        style={{
-          textAlign: "center",
-          fontSize: 11,
-          color: "#555",
-          lineHeight: 1.6,
-          fontFamily: "var(--font-archivo), Archivo, sans-serif",
-        }}
-      >
-        17% flat commission · Same day payouts · No hidden fees
+      <p style={{
+        textAlign: "center", fontSize: 11, color: "#555",
+        lineHeight: 1.6,
+        fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
+      }}>
+        17% flat commission · 7-day payouts · No hidden fees
       </p>
     </form>
   );

@@ -6,61 +6,101 @@ export default function Header() {
 
   return (
     <>
-      <nav style={{
-        position: "fixed", top: 0, left: 0, right: 0, zIndex: 100,
-        background: "#FFFFFF", borderBottom: "1px solid #E5E5E5",
-      }}>
+      {/* Fixed wrapper: announcement bar + nav */}
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 100 }}>
+
+        {/* Announcement bar */}
         <div style={{
-          maxWidth: 1200, margin: "0 auto", padding: "0 28px",
-          height: 64, display: "flex", alignItems: "center", justifyContent: "space-between",
+          background: "#CC0000", color: "#FFFFFF",
+          textAlign: "center", fontSize: 13,
+          padding: "9px 28px",
+          fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
+          letterSpacing: "0.02em", lineHeight: 1,
         }}>
-          <a href="/" style={{ textDecoration: "none" }}>
-            <span style={{
-              fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-              fontSize: 24, letterSpacing: "0.04em", color: "#1A1A1A",
-            }}>NOTMADE</span>
-          </a>
-
-          {/* Desktop */}
-          <div className="nav-desktop">
-            <a href="#why" className="nav-link">How it works</a>
-            <a href="#why" className="nav-link">Why NOTMADE</a>
-            <a href="#apply" className="nav-link">FAQ</a>
-            <a href="/login" className="nav-link" style={{ color: "#1A1A1A", fontWeight: 600 }}>LOGIN</a>
-            <a href="#apply" style={{
-              background: "#FF3B30", color: "#FFFFFF",
-              fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-              fontSize: 15, letterSpacing: "0.08em",
-              padding: "10px 22px", textDecoration: "none", display: "inline-block",
-              transition: "background 0.15s",
-            }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#cc2a20")}
-              onMouseLeave={e => (e.currentTarget.style.background = "#FF3B30")}
-            >START SELLING →</a>
-          </div>
-
-          {/* Hamburger */}
-          <button
-            className="nav-hamburger"
-            onClick={() => setOpen(o => !o)}
-            aria-label="Toggle menu"
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 8, display: "none" }}
-          >
-            <div style={{ width: 22, height: 2, background: "#1A1A1A", marginBottom: 5, transition: "transform 0.2s", transform: open ? "rotate(45deg) translateY(7px)" : "none" }} />
-            <div style={{ width: 22, height: 2, background: "#1A1A1A", marginBottom: 5, opacity: open ? 0 : 1, transition: "opacity 0.2s" }} />
-            <div style={{ width: 22, height: 2, background: "#1A1A1A", transition: "transform 0.2s", transform: open ? "rotate(-45deg) translateY(-7px)" : "none" }} />
-          </button>
+          India&apos;s culture-first marketplace for independent sellers
         </div>
-      </nav>
 
-      {/* Mobile menu */}
+        {/* Nav */}
+        <nav style={{ background: "#FFFFFF", borderBottom: "1px solid #E0E0E0" }}>
+          <div style={{
+            maxWidth: 1200, margin: "0 auto", padding: "0 28px",
+            height: 64, display: "flex", alignItems: "center", justifyContent: "space-between",
+          }}>
+
+            {/* Logo */}
+            <a href="/" style={{ textDecoration: "none", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{
+                fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
+                fontSize: 22, letterSpacing: "0.04em", color: "#1A1A1A",
+              }}>NOTMADE</span>
+              <span style={{
+                background: "#CC0000", color: "#FFFFFF",
+                fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
+                textTransform: "uppercase",
+                padding: "3px 8px", borderRadius: 100,
+                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
+                lineHeight: 1,
+              }}>SELLER</span>
+            </a>
+
+            {/* Desktop nav */}
+            <div className="nav-desktop">
+              <a href="#why" className="nav-link">Why NOTMADE</a>
+              <a href="#how" className="nav-link">How it Works</a>
+              <a href="#apply" className="nav-link">FAQ</a>
+              <a
+                href="/login"
+                className="nav-login-btn"
+                style={{
+                  fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
+                  fontSize: 13, fontWeight: 700, letterSpacing: "0.05em",
+                  color: "#1A1A1A", textDecoration: "none",
+                  padding: "9px 20px",
+                  border: "1.5px solid #1A1A1A",
+                  background: "transparent",
+                  display: "inline-block",
+                  transition: "background 0.15s, color 0.15s",
+                }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#1A1A1A"; e.currentTarget.style.color = "#FFFFFF"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#1A1A1A"; }}
+              >LOGIN</a>
+              <a
+                href="#apply"
+                style={{
+                  background: "#CC0000", color: "#FFFFFF",
+                  fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
+                  fontSize: 15, letterSpacing: "0.08em",
+                  padding: "10px 22px", textDecoration: "none", display: "inline-block",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = "#aa0000")}
+                onMouseLeave={e => (e.currentTarget.style.background = "#CC0000")}
+              >START SELLING →</a>
+            </div>
+
+            {/* Hamburger */}
+            <button
+              className="nav-hamburger"
+              onClick={() => setOpen(o => !o)}
+              aria-label="Toggle menu"
+              style={{ background: "none", border: "none", cursor: "pointer", padding: 8, display: "none" }}
+            >
+              <div style={{ width: 22, height: 2, background: "#1A1A1A", marginBottom: 5, transition: "transform 0.2s", transform: open ? "rotate(45deg) translateY(7px)" : "none" }} />
+              <div style={{ width: 22, height: 2, background: "#1A1A1A", marginBottom: 5, opacity: open ? 0 : 1, transition: "opacity 0.2s" }} />
+              <div style={{ width: 22, height: 2, background: "#1A1A1A", transition: "transform 0.2s", transform: open ? "rotate(-45deg) translateY(-7px)" : "none" }} />
+            </button>
+          </div>
+        </nav>
+      </div>
+
+      {/* Mobile menu — drops below full header (36px bar + 64px nav = 100px) */}
       {open && (
         <div style={{
-          position: "fixed", top: 64, left: 0, right: 0, zIndex: 99,
-          background: "#FFFFFF", borderBottom: "1px solid #E5E5E5",
+          position: "fixed", top: 100, left: 0, right: 0, zIndex: 99,
+          background: "#FFFFFF", borderBottom: "1px solid #E0E0E0",
           padding: "20px 28px 28px", display: "flex", flexDirection: "column", gap: 0,
         }}>
-          {["How it works|#why", "Why NOTMADE|#why", "FAQ|#apply", "LOGIN|/login"].map(item => {
+          {["Why NOTMADE|#why", "How it Works|#how", "FAQ|#apply", "LOGIN|/login"].map(item => {
             const [label, href] = item.split("|");
             return (
               <a key={label} href={href} onClick={() => setOpen(false)} style={{
@@ -71,7 +111,7 @@ export default function Header() {
             );
           })}
           <a href="#apply" onClick={() => setOpen(false)} style={{
-            background: "#FF3B30", color: "#FFFFFF",
+            background: "#CC0000", color: "#FFFFFF",
             fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
             fontSize: 16, letterSpacing: "0.08em",
             padding: "16px", textDecoration: "none", textAlign: "center",

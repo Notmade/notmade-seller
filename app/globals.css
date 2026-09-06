@@ -64,19 +64,19 @@ body {
 
 /* ── Primary button ── */
 .btn-primary {
-  background: #FF3B30;
+  background: #CC0000;
   color: #FFFFFF;
   display: inline-block;
   text-align: center;
   font-family: var(--font-bebas), "Bebas Neue", cursive;
   letter-spacing: 0.06em;
   transition: background 0.18s ease, transform 0.15s ease, box-shadow 0.18s ease;
-  box-shadow: 0 4px 20px rgba(255,59,48,0.35);
+  box-shadow: 0 4px 20px rgba(204,0,0,0.3);
 }
 .btn-primary:hover {
-  background: #e0332a;
+  background: #aa0000;
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(255,59,48,0.45);
+  box-shadow: 0 8px 28px rgba(204,0,0,0.4);
 }
 .btn-primary:active { transform: translateY(0); }
 
@@ -313,20 +313,20 @@ body {
 .ticker-track:hover { animation-play-state: paused; }
 
 /* ── ApplyForm dark inputs ── */
-.apply-input::placeholder { color: #8E8E93; }
+.apply-input::placeholder { color: #666666; }
 .apply-input:focus {
-  border-color: #FF3B30 !important;
-  box-shadow: 0 0 0 1px #FF3B30 !important;
+  border-color: #CC0000 !important;
+  box-shadow: 0 0 0 1px #CC0000 !important;
 }
 .apply-input option { background: #1A1A1A; color: #E8E4DC; }
 
 .apply-phone-wrap:focus-within {
-  border-color: #FF3B30 !important;
-  box-shadow: 0 0 0 1px #FF3B30 !important;
+  border-color: #CC0000 !important;
+  box-shadow: 0 0 0 1px #CC0000 !important;
 }
-.apply-phone-input::placeholder { color: #8E8E93; }
+.apply-phone-input::placeholder { color: #666666; }
 
-.apply-submit:hover:not(:disabled) { background: #cc2a20 !important; }
+.apply-submit:hover:not(:disabled) { background: #aa0000 !important; }
 
 /* Responsive stacked grid for ApplyForm */
 @media (max-width: 600px) {
@@ -403,21 +403,53 @@ body {
 @media (max-width: 960px) { .why-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 580px) { .why-grid { grid-template-columns: 1fr; } }
 
-/* ── Why card hover ── */
+/* ── Why card hover (dark, legacy) ── */
 .why-card {
   border: 1px solid rgba(255,255,255,0.06);
   transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s;
 }
-.why-card:hover { transform: translateY(-4px); border-color: rgba(255,59,48,0.3); }
+.why-card:hover { transform: translateY(-4px); border-color: rgba(204,0,0,0.3); }
+
+/* ── Why card hover (light/white) ── */
+.why-card-light {
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.22s;
+}
+.why-card-light:hover { transform: translateY(-4px); border-color: #CC0000 !important; }
 
 /* ── Coming soon grid ── */
 .coming-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 20px;
 }
-@media (max-width: 1024px) { .coming-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 580px) { .coming-grid { grid-template-columns: 1fr; } }
+
+/* ── Hero CTA buttons ── */
+.hero-cta-primary {
+  background: #CC0000;
+  color: #FFFFFF;
+  font-family: var(--font-bebas), "Bebas Neue", cursive;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 14px 32px;
+  display: inline-block;
+  transition: background 0.15s;
+}
+.hero-cta-primary:hover { background: #aa0000; }
+
+.hero-cta-secondary {
+  background: transparent;
+  color: #1A1A1A;
+  font-family: var(--font-bebas), "Bebas Neue", cursive;
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  padding: 13px 31px;
+  display: inline-block;
+  border: 1.5px solid #1A1A1A;
+  transition: background 0.15s, color 0.15s;
+}
+.hero-cta-secondary:hover { background: #1A1A1A; color: #FFFFFF; }
 
 /* ── Steps grid ── */
 .steps-grid {
