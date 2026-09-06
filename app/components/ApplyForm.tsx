@@ -175,32 +175,6 @@ export default function ApplyForm() {
   return (
     <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
-      {/* Heading */}
-      <div style={{ marginBottom: 4 }}>
-        <h2
-          style={{
-            fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-            fontSize: 32,
-            fontWeight: 400,
-            letterSpacing: "0.04em",
-            color: "#E8E4DC",
-            marginBottom: 6,
-          }}
-        >
-          APPLY TO SELL ON NOTMADE
-        </h2>
-        <p
-          style={{
-            fontFamily: "var(--font-archivo), Archivo, sans-serif",
-            fontSize: 14,
-            color: "#8E8E93",
-            lineHeight: 1.5,
-          }}
-        >
-          Fill this out. We&apos;ll call within 48 hours.
-        </p>
-      </div>
-
       {/* Brand + Name */}
       <div
         className="apply-form-grid"
@@ -412,7 +386,7 @@ export default function ApplyForm() {
           transition: "background 0.2s, opacity 0.2s",
         }}
       >
-        {status === "loading" ? "SUBMITTING..." : "SUBMIT APPLICATION"}
+        {status === "loading" ? "SUBMITTING..." : "START SELLING →"}
       </button>
 
       <p
