@@ -1,5 +1,4 @@
 import AnimatedSection from "./components/AnimatedSection";
-import ApplyForm from "./components/ApplyForm";
 import Header from "./components/Header";
 
 /* ─── SVG Icons ─── */
@@ -183,7 +182,7 @@ export default function Home() {
 
               {/* CTAs */}
               <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 52 }}>
-                <a href="#apply" className="hero-cta-primary" style={{ textDecoration: "none" }}>
+                <a href="/login" className="hero-cta-primary" style={{ textDecoration: "none" }}>
                   START SELLING →
                 </a>
                 <a href="mailto:admin@notmade.in" className="hero-cta-secondary" style={{ textDecoration: "none" }}>
@@ -408,7 +407,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ════ APPLY FORM ════ */}
+      {/* ════ CREATE ACCOUNT ════ */}
       <section id="apply" style={{ background: "#0B0B0C", padding: "100px 0 120px" }}>
         <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 28px" }}>
           <AnimatedSection>
@@ -422,11 +421,23 @@ export default function Home() {
               fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
               fontSize: 16, color: "#999999", textAlign: "center",
               marginBottom: 48, lineHeight: 1.6,
-            }}>Fill this out. Our team connects within 48 hours.</p>
+            }}>Create your account with just your email, add your business details and KYC, and sign the agreement online. Our team reviews within 48 hours.</p>
           </AnimatedSection>
 
           <AnimatedSection delay={60}>
-            <ApplyForm />
+            <div style={{ textAlign: "center" }}>
+              <a href="/login" className="btn-primary" style={{
+                textDecoration: "none", fontSize: 18, padding: "18px 40px",
+              }}>
+                CREATE YOUR SELLER ACCOUNT →
+              </a>
+              <p style={{
+                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
+                fontSize: 13, color: "#777777", marginTop: 20,
+              }}>
+                Already selling with us? <a href="/login" style={{ color: "#E8E4DC" }}>Log in</a>
+              </p>
+            </div>
           </AnimatedSection>
         </div>
       </section>

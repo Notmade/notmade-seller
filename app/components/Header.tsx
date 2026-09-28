@@ -65,7 +65,7 @@ export default function Header() {
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "#1A1A1A"; }}
               >LOGIN</a>
               <a
-                href="#apply"
+                href="/login"
                 style={{
                   background: "#CC0000", color: "#FFFFFF",
                   fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
@@ -110,7 +110,7 @@ export default function Header() {
               }}>{label}</a>
             );
           })}
-          <a href="#apply" onClick={() => setOpen(false)} style={{
+          <a href="/login" onClick={() => setOpen(false)} style={{
             background: "#CC0000", color: "#FFFFFF",
             fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
             fontSize: 16, letterSpacing: "0.08em",

@@ -1,8 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { clearToken } from "../lib/auth";
+import { usePathname } from "next/navigation";
 
 const NAV = [
   {
@@ -36,52 +35,11 @@ const NAV = [
     ),
   },
   {
-    href: "/dashboard/payouts",
-    label: "Payouts",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="1" y="4" width="22" height="16" rx="2" ry="2" /><line x1="1" y1="10" x2="23" y2="10" />
-      </svg>
-    ),
-  },
-  {
     href: "/dashboard/profile",
     label: "Profile",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" /><circle cx="12" cy="7" r="4" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/warehouse",
-    label: "Warehouse",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
-        <polyline points="9 22 9 12 15 12 15 22" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/contract",
-    label: "Contract",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
-        <polyline points="14 2 14 8 20 8" />
-        <line x1="16" y1="13" x2="8" y2="13" />
-        <line x1="16" y1="17" x2="8" y2="17" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/returns",
-    label: "Returns",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="1 4 1 10 7 10" />
-        <path d="M3.51 15a9 9 0 102.13-9.36L1 10" />
       </svg>
     ),
   },
@@ -92,20 +50,14 @@ interface Props {
   brandName?: string;
   isOpen: boolean;
   onClose: () => void;
+  onLogout: () => void;
 }
 
-export default function Sidebar({ sellerName, brandName, isOpen, onClose }: Props) {
+export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogout }: Props) {
   const pathname = usePathname();
-  const router   = useRouter();
 
   const isActive = (href: string) =>
     href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
-
-  const handleLogout = async () => {
-    clearToken();
-    await fetch('/api/auth/logout', { method: 'POST' }).catch(() => null);
-    router.push("/login");
-  };
 
   return (
     <>
@@ -181,7 +133,7 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose }: Prop
             </div>
           )}
           <button
-            onClick={handleLogout}
+            onClick={onLogout}
             style={{
               display: "flex",
               alignItems: "center",

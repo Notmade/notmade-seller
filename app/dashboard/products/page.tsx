@@ -1,596 +1,382 @@
 "use client";
 
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
-import { clearToken, getSellerId } from "../../lib/auth";
-import { supabase } from "../../lib/supabase";
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { api, ApiError, inr, fmtDate, type Category, type Product } from "../../lib/seller-api";
+import { useDashboardSeller } from "../seller-context";
+import { Alert, Badge, Button, Card, EmptyState, Field, FullPageSpinner, Modal, PageHeader, RED } from "../../components/portal-ui";
 
-const COMMISSION_RATE = 0.17;
+const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
+const MAX_IMAGES = 10;      // per product (backend)
+const MAX_UPLOAD = 8;       // per request (backend)
+const MAX_BYTES = 8 * 1024 * 1024;
 
-interface ProductRow {
-  id: string;
-  name: string;
-  description: string;
-  price_inr: number;
-  stock: number;
-  category: string;
-  images: string[] | null;
-  review_status: string;
-  rejection_reason: string | null;
-  created_at: string;
+type Filter = "all" | "live" | "pending" | "rejected";
+
+function productStatus(p: Product): { key: string; label: string } {
+  if (p.approval_status === "rejected") return { key: "rejected", label: "Rejected" };
+  if (p.approval_status === "pending") return { key: "pending", label: "In review" };
+  if (p.is_live) return { key: "live", label: "Live" };
+  return { key: "approved", label: "Approved · not live" };
 }
 
-interface CategoryRow {
-  id: string;
-  name: string;
-}
+export default function ProductsPage() {
+  const [products, setProducts] = useState<Product[] | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [error, setError] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [editing, setEditing] = useState<Product | "new" | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-interface ProductForm {
-  name: string;
-  description: string;
-  price: string;
-  stock: string;
-  category: string;
-  category_name: string;
-  dispatch_days: string;
-}
+  const load = useCallback(async () => {
+    try {
+      setProducts((await api.products()).products);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not load products");
+    }
+  }, []);
 
-interface VariantForm {
-  name: string;
-  price: string;
-  stock: string;
-}
+  useEffect(() => {
+    void load();
+    api.categories().then(r => setCategories(r.categories)).catch(() => { /* form shows empty dropdown */ });
+  }, [load]);
 
-interface SizeEntry {
-  size: string;
-  chest: string;
-  length: string;
-}
+  const shown = useMemo(() => (products ?? []).filter(p => {
+    const k = productStatus(p).key;
+    return filter === "all" || (filter === "pending" ? k === "pending" : filter === "live" ? k === "live" : k === "rejected");
+  }), [products, filter]);
 
-const EMPTY: ProductForm = { name: "", description: "", price: "", stock: "", category: "", category_name: "", dispatch_days: "2" };
-const EMPTY_VARIANT: VariantForm = { name: "", price: "", stock: "" };
-const DEFAULT_SIZES: SizeEntry[] = [
-  { size: "XS", chest: "", length: "" },
-  { size: "S",  chest: "", length: "" },
-  { size: "M",  chest: "", length: "" },
-  { size: "L",  chest: "", length: "" },
-  { size: "XL", chest: "", length: "" },
-  { size: "XXL",chest: "", length: "" },
-];
-
-function Badge({ status, reason }: { status: string; reason?: string | null }) {
-  const map: Record<string, { bg: string; color: string; border: string; label: string }> = {
-    pending_review: { bg: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A", label: "Pending Review" },
-    approved:       { bg: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0", label: "Approved" },
-    rejected:       { bg: "#FFF5F5", color: "#CC0000", border: "1px solid #FECACA", label: "Rejected" },
+  const remove = async (id: string) => {
+    setDeleting(true);
+    try {
+      await api.deleteProduct(id);
+      setProducts(ps => (ps ?? []).filter(p => p.id !== id));
+      setConfirmDelete(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete product");
+    } finally {
+      setDeleting(false);
+    }
   };
-  const s = map[status] ?? { bg: "#F5F5F5", color: "#555", border: "1px solid #EEE", label: status };
+
   return (
     <div>
-      <span style={{ display: "inline-block", fontSize: 11, fontWeight: 600, padding: "3px 9px", borderRadius: 100, background: s.bg, color: s.color, border: s.border }}>
-        {s.label}
-      </span>
-      {status === "rejected" && reason && (
-        <p style={{ fontSize: 11, color: "#CC0000", marginTop: 4 }}>{reason}</p>
+      <PageHeader title="Products" sub="New products and edits go to NOTMADE for review before going live."
+        action={<Button onClick={() => setEditing("new")}>+ Add product</Button>} />
+
+      {error && <div style={{ marginBottom: 14 }}><Alert>{error}</Alert></div>}
+
+      {!products ? (!error && <FullPageSpinner />) : products.length === 0 ? (
+        <EmptyState title="No products yet" sub="Add your first product to start selling on NOTMADE."
+          action={<Button onClick={() => setEditing("new")}>+ Add product</Button>} />
+      ) : (
+        <>
+          <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
+            {(["all", "live", "pending", "rejected"] as Filter[]).map(f => (
+              <button key={f} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} style={{
+                padding: "7px 14px", borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
+                border: `1.5px solid ${filter === f ? "#111111" : "#E0E0E0"}`,
+                background: filter === f ? "#111111" : "#FFFFFF", color: filter === f ? "#FFFFFF" : "#555555",
+              }}>
+                {f === "pending" ? "In review" : f[0].toUpperCase() + f.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {shown.length === 0 && <p style={{ fontSize: 14, color: "#888888", padding: "20px 0" }}>Nothing here.</p>}
+            {shown.map(p => {
+              const st = productStatus(p);
+              return (
+                <Card key={p.id} style={{ padding: 14 }}>
+                  <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
+                    <div style={{ width: 72, height: 72, borderRadius: 10, overflow: "hidden", background: "#F3F3F3", flexShrink: 0 }}>
+                      {p.images?.[0] && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.images[0]} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      )}
+                    </div>
+                    <div style={{ flex: 1, minWidth: 180 }}>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                        <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>{p.name}</p>
+                        <Badge status={st.key} label={st.label} />
+                      </div>
+                      <p style={{ fontSize: 13, color: "#777777", marginTop: 4 }}>
+                        {inr(p.price_inr)}
+                        {p.original_price_inr && p.original_price_inr > p.price_inr && (
+                          <span style={{ textDecoration: "line-through", color: "#AAAAAA", marginLeft: 6 }}>{inr(p.original_price_inr)}</span>
+                        )}
+                        {" · "}{p.category ?? "Uncategorised"}{" · "}Stock {p.stock ?? 0}
+                        {p.sizes && p.sizes.length > 0 && ` (${p.sizes.join(", ")})`}
+                      </p>
+                      <p style={{ fontSize: 12, color: "#AAAAAA", marginTop: 2 }}>Submitted {fmtDate(p.submitted_at ?? p.created_at)}</p>
+                      {p.approval_status === "rejected" && p.rejection_reason && (
+                        <p style={{ fontSize: 13, color: RED, marginTop: 6 }}>Reason: {p.rejection_reason}</p>
+                      )}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {confirmDelete === p.id ? (
+                        <>
+                          <Button variant="ghost" onClick={() => setConfirmDelete(null)} disabled={deleting}>Cancel</Button>
+                          <Button variant="danger" onClick={() => void remove(p.id)} disabled={deleting}>{deleting ? "Deleting…" : "Confirm delete"}</Button>
+                        </>
+                      ) : (
+                        <>
+                          <Button variant="secondary" onClick={() => setEditing(p)}>Edit</Button>
+                          <Button variant="danger" onClick={() => setConfirmDelete(p.id)}>Delete</Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {editing && (
+        <ProductForm
+          product={editing === "new" ? null : editing}
+          categories={categories}
+          onClose={() => setEditing(null)}
+          onSaved={saved => {
+            setProducts(ps => {
+              const rest = (ps ?? []).filter(p => p.id !== saved.id);
+              return [saved, ...rest];
+            });
+            setEditing(null);
+          }}
+        />
       )}
     </div>
   );
 }
 
-function showSizeChartFor(categoryName: string): boolean {
-  const n = categoryName.toLowerCase();
-  return n.includes("vault") || n.includes("original");
-}
+// ─── Create / edit form ───────────────────────────────────────────────────────
 
-export default function ProductsPage() {
-  const router = useRouter();
-  const [products,    setProducts]    = useState<ProductRow[]>([]);
-  const [categories,  setCategories]  = useState<CategoryRow[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [showModal,   setShowModal]   = useState(false);
-  const [form,        setForm]        = useState<ProductForm>(EMPTY);
-  const [images,      setImages]      = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
-  const [variants,    setVariants]    = useState<VariantForm[]>([]);
-  const [sizes,       setSizes]       = useState<SizeEntry[]>(DEFAULT_SIZES);
-  const [saving,      setSaving]      = useState(false);
-  const [uploadStep,  setUploadStep]  = useState("");
-  const [formErr,     setFormErr]     = useState("");
-  const [updatingId,  setUpdatingId]  = useState<string | null>(null);
+interface SizeRow { size: string; stock: string }
 
-  const sellerId = getSellerId();
+function ProductForm({ product, categories, onClose, onSaved }: {
+  product: Product | null; categories: Category[]; onClose: () => void; onSaved: (p: Product) => void;
+}) {
+  const seller = useDashboardSeller();
+  const isEdit = !!product;
 
-  const load = async () => {
-    if (!sellerId) { clearToken(); router.replace("/login"); return; }
-    setLoading(true);
-    const { data, error } = await supabase
-      .from("products")
-      .select("id, name, description, price_inr, stock, category, images, review_status, rejection_reason, created_at")
-      .eq("seller_id", sellerId)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
+  const initialSizes: SizeRow[] = product?.sizes?.length
+    ? product.sizes.map(s => ({ size: s, stock: String(product.product_variants?.find(v => v.size === s)?.stock ?? 0) }))
+    : [];
 
-    if (error?.code === "42703") {
-      const { data: d2 } = await supabase
-        .from("products")
-        .select("id, name, description, price_inr, stock, category, images, review_status, rejection_reason, created_at")
-        .eq("seller_id", sellerId)
-        .order("created_at", { ascending: false });
-      setProducts((d2 ?? []) as ProductRow[]);
-    } else {
-      setProducts((data ?? []) as ProductRow[]);
-    }
-    setLoading(false);
-  };
+  const [name, setName] = useState(product?.name ?? "");
+  const [description, setDescription] = useState(product?.description ?? "");
+  const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
+  const [price, setPrice] = useState(product ? String(product.price_inr) : "");
+  const [mrp, setMrp] = useState(product?.original_price_inr ? String(product.original_price_inr) : "");
+  const [hasSizes, setHasSizes] = useState(initialSizes.length > 0 || !product);
+  const [sizes, setSizes] = useState<SizeRow[]>(initialSizes.length ? initialSizes : [{ size: "M", stock: "" }]);
+  const [customSize, setCustomSize] = useState("");
+  const [stock, setStock] = useState(product && !initialSizes.length ? String(product.stock ?? 0) : "");
+  const [sellInUae, setSellInUae] = useState(!!product?.sell_in_uae);
+  const [priceAed, setPriceAed] = useState(product?.price_aed ? String(product.price_aed) : "");
+  const [existingImages, setExistingImages] = useState<string[]>(product?.images ?? []);
+  const [newImages, setNewImages] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    load();
-    void (async () => {
-      const { data } = await supabase
-        .from("categories")
-        .select("id, name")
-        .eq("show_on_website", true)
-        .order("name");
-      if (data && data.length > 0) setCategories(data as CategoryRow[]);
-    })();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const urls = newImages.map(f => URL.createObjectURL(f));
+    setPreviews(urls);
+    return () => urls.forEach(u => URL.revokeObjectURL(u));
+  }, [newImages]);
 
-  const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    if (name === "category") {
-      const cat = categories.find(c => c.id === value);
-      setForm(p => ({ ...p, category: value, category_name: cat?.name ?? value }));
-    } else {
-      setForm(p => ({ ...p, [name]: value }));
-    }
+  const totalImages = existingImages.length + newImages.length;
+
+  const pickImages = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    const tooBig = files.find(f => f.size > MAX_BYTES);
+    if (tooBig) { setError(`${tooBig.name} is larger than 8 MB`); return; }
+    const room = Math.min(MAX_UPLOAD - newImages.length, MAX_IMAGES - existingImages.length - newImages.length);
+    if (files.length > room) setError(`You can add ${Math.max(room, 0)} more image(s) — max ${MAX_IMAGES} per product, ${MAX_UPLOAD} per save.`);
+    else setError("");
+    setNewImages(prev => [...prev, ...files.slice(0, Math.max(room, 0))]);
   };
 
-  const handleImagePick = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files ?? []).slice(0, 8);
-    setImages(files);
-    const urls = files.map(f => URL.createObjectURL(f));
-    setImagePreviews(urls);
+  const toggleSize = (s: string) => {
+    setSizes(prev => prev.some(r => r.size === s) ? prev.filter(r => r.size !== s) : [...prev, { size: s, stock: "" }]);
   };
 
-  const setMainImage = (idx: number) => {
-    if (idx === 0) return;
-    const newImages = [...images];
-    const [img] = newImages.splice(idx, 1);
-    newImages.unshift(img);
-    setImages(newImages);
-    const newPreviews = [...imagePreviews];
-    const [prev] = newPreviews.splice(idx, 1);
-    newPreviews.unshift(prev);
-    setImagePreviews(newPreviews);
+  const addCustomSize = () => {
+    const s = customSize.trim().slice(0, 20);
+    if (s && !sizes.some(r => r.size === s)) setSizes(prev => [...prev, { size: s, stock: "" }]);
+    setCustomSize("");
   };
 
-  const removeImage = (idx: number) => {
-    setImages(prev => prev.filter((_, i) => i !== idx));
-    setImagePreviews(prev => prev.filter((_, i) => i !== idx));
-  };
-
-  const resetModal = () => {
-    setShowModal(false);
-    setForm(EMPTY);
-    setImages([]);
-    setImagePreviews([]);
-    setVariants([]);
-    setSizes(DEFAULT_SIZES);
-    setFormErr("");
-    setUploadStep("");
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!sellerId) return;
+    setError("");
+    if (totalImages === 0) { setError("Add at least one image"); return; }
+    if (hasSizes && sizes.length === 0) { setError("Add at least one size, or switch off sizes"); return; }
+
+    const fd = new FormData();
+    fd.append("name", name.trim());
+    fd.append("description", description.trim());
+    fd.append("category_id", categoryId);
+    fd.append("price_inr", price);
+    fd.append("mrp", mrp);
+    if (hasSizes) {
+      fd.append("sizes", JSON.stringify(sizes.map(r => r.size)));
+      fd.append("stock_by_size", JSON.stringify(Object.fromEntries(sizes.map(r => [r.size, Number(r.stock || 0)]))));
+    } else {
+      fd.append("sizes", "[]");
+      fd.append("stock", stock || "0");
+    }
+    if (seller.sell_in_uae) {
+      fd.append("sell_in_uae", String(sellInUae));
+      if (sellInUae) fd.append("price_aed", priceAed);
+    }
+    // Only touch images on edit when they actually changed, so unchanged products skip re-conversion
+    const imagesChanged = !isEdit || newImages.length > 0 || existingImages.length !== (product?.images?.length ?? 0);
+    if (isEdit && imagesChanged) fd.append("existing_images", JSON.stringify(existingImages));
+    newImages.forEach(f => fd.append("images", f));
+
     setSaving(true);
-    setFormErr("");
-
     try {
-      const imageUrls: string[] = [];
-      for (let i = 0; i < images.length; i++) {
-        const file = images[i];
-        setUploadStep(`Uploading image ${i + 1} of ${images.length}…`);
-        const ext = file.name.split(".").pop() ?? "jpg";
-        const path = `${sellerId}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-        const { error: upErr } = await supabase.storage
-          .from("products")
-          .upload(path, file, { upsert: true });
-
-        if (upErr) {
-          throw new Error(`Failed to upload image "${file.name}": ${upErr.message}`);
-        }
-
-        const { data: urlData } = supabase.storage.from("products").getPublicUrl(path);
-        imageUrls.push(urlData.publicUrl);
-      }
-
-      setUploadStep("Saving product…");
-
-      const sizeChart = showSizeChartFor(form.category_name) && sizes.some(s => s.chest || s.length)
-        ? sizes.filter(s => s.chest || s.length)
-        : null;
-
-      const { data: newProduct, error } = await supabase
-        .from("products")
-        .insert({
-          name:                   form.name.trim(),
-          description:            form.description.trim(),
-          price_inr:              Number(form.price),
-          stock:                  Number(form.stock),
-          category:               form.category_name || form.category,
-          dispatch_timeline_days: Number(form.dispatch_days) || 2,
-          seller_id:              sellerId,
-          review_status:          "pending_review",
-          is_live:                false,
-          images:                 imageUrls.length > 0 ? imageUrls : null,
-          size_chart:             sizeChart,
-          created_at:             new Date().toISOString(),
-        })
-        .select("id")
-        .single();
-
-      if (error) throw new Error(error.message);
-
-      if (newProduct?.id && variants.length > 0) {
-        const validVariants = variants
-          .filter(v => v.name.trim())
-          .map((v, i) => ({
-            product_id: newProduct.id,
-            name:       v.name.trim(),
-            price_inr:  v.price ? Number(v.price) : null,
-            stock:      Number(v.stock) || 0,
-            is_active:  true,
-            sort_order: i,
-          }));
-        if (validVariants.length > 0) {
-          await supabase.from("product_variants").insert(validVariants);
-        }
-      }
-
-      resetModal();
-      await load();
-    } catch (err: unknown) {
-      setFormErr(err instanceof Error ? err.message : "Something went wrong.");
-    } finally {
+      const res = isEdit ? await api.updateProduct(product!.id, fd) : await api.createProduct(fd);
+      onSaved(res.product);
+    } catch (err) {
+      const list = err instanceof ApiError && Array.isArray(err.data.errors) ? (err.data.errors as string[]) : null;
+      setError(list && list.length > 1 ? list.join(" · ") : err instanceof Error ? err.message : "Could not save product");
       setSaving(false);
-      setUploadStep("");
     }
   };
 
-  const updateStock = async (id: string, newStock: number) => {
-    if (!sellerId) return;
-    setUpdatingId(id);
-    await supabase.from("products").update({ stock: newStock }).eq("id", id).eq("seller_id", sellerId);
-    setProducts(prev => prev.map(p => p.id === id ? { ...p, stock: newStock } : p));
-    setUpdatingId(null);
-  };
-
-  const showSizeChart = showSizeChartFor(form.category_name || "");
-
-  if (loading) {
-    return (
-      <div style={{ display: "flex", height: "50vh", alignItems: "center", justifyContent: "center" }}>
-        <div className="spin" style={{ width: 28, height: 28, border: "3px solid #EEE", borderTopColor: "#CC0000", borderRadius: "50%" }} />
-      </div>
-    );
-  }
+  const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 };
 
   return (
-    <>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: "#111111", letterSpacing: "-0.02em" }}>Products</h1>
-          <p style={{ fontSize: 14, color: "#888888", marginTop: 4 }}>{products.length} product{products.length !== 1 ? "s" : ""} listed</p>
-        </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="btn-primary"
-          style={{ borderRadius: 10, padding: "10px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", border: "none" }}
-        >
-          + Add Product
-        </button>
-      </div>
+    <Modal title={isEdit ? "Edit product" : "Add product"} onClose={saving ? () => undefined : onClose} width={720}>
+      <form onSubmit={submit}>
+        <fieldset disabled={saving} style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 16 }}>
+          {isEdit && product?.approval_status !== "pending" && (
+            <Alert kind="warn">Saving changes sends this product back for review{product?.is_live ? " and takes it offline until approved" : ""}.</Alert>
+          )}
 
-      {products.length === 0 ? (
-        <div style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", borderRadius: 14, padding: "64px 24px", textAlign: "center" }}>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ margin: "0 auto 16px", display: "block", color: "#CCCCCC" }}>
-            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-            <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
-          </svg>
-          <p style={{ fontSize: 15, color: "#888888", fontWeight: 600 }}>No products yet</p>
-          <p style={{ fontSize: 13, color: "#CCCCCC", marginTop: 6 }}>Click &ldquo;Add Product&rdquo; to list your first product.</p>
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {products.map(p => {
-            const payout = Number(p.price_inr) * (1 - COMMISSION_RATE);
-            return (
-              <div key={p.id} style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", borderRadius: 14, padding: "18px 20px", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                  <div style={{ width: 64, height: 64, borderRadius: 10, background: "#F5F5F5", flexShrink: 0, overflow: "hidden" }}>
-                    {p.images?.[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.images[0]} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                    ) : (
-                      <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#CCCCCC" strokeWidth="1.5"><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M3 9l5-5 4 4 3-3 6 6" /></svg>
-                      </div>
-                    )}
-                  </div>
+          <Field label="Product name" htmlFor="p-name">
+            <input id="p-name" className="field-input" value={name} onChange={e => setName(e.target.value)} required minLength={2} maxLength={200} />
+          </Field>
+          <Field label="Description" htmlFor="p-desc" hint="Materials, fit, care — at least 10 characters.">
+            <textarea id="p-desc" className="field-input" rows={4} value={description} onChange={e => setDescription(e.target.value)} required minLength={10} maxLength={5000} />
+          </Field>
+          <Field label="Category" htmlFor="p-cat">
+            <select id="p-cat" className="field-input" value={categoryId} onChange={e => setCategoryId(e.target.value)} required>
+              <option value="">Select category</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </Field>
 
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-                      <div>
-                        <h3 style={{ fontSize: 15, fontWeight: 700, color: "#111111", marginBottom: 4 }}>{p.name}</h3>
-                        <p style={{ fontSize: 13, color: "#888888" }}>
-                          {p.category} · MRP ₹{Number(p.price_inr).toLocaleString("en-IN")} · Payout ₹{Math.round(payout).toLocaleString("en-IN")}
-                        </p>
-                      </div>
-                      <Badge status={p.review_status} reason={p.rejection_reason} />
-                    </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 12 }}>
-                      <span style={{ fontSize: 12, color: "#888888" }}>Stock:</span>
-                      {p.review_status === "approved" ? (
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, opacity: updatingId === p.id ? 0.5 : 1 }}>
-                          <button
-                            onClick={() => updateStock(p.id, Math.max(0, p.stock - 1))}
-                            disabled={updatingId === p.id}
-                            style={{ width: 26, height: 26, border: "1px solid #EEEEEE", borderRadius: 6, background: "#FAFAFA", cursor: "pointer", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
-                          >−</button>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: "#111111", minWidth: 28, textAlign: "center" }}>{p.stock}</span>
-                          <button
-                            onClick={() => updateStock(p.id, p.stock + 1)}
-                            disabled={updatingId === p.id}
-                            style={{ width: 26, height: 26, border: "1px solid #EEEEEE", borderRadius: 6, background: "#FAFAFA", cursor: "pointer", fontWeight: 700, fontSize: 14, display: "flex", alignItems: "center", justifyContent: "center" }}
-                          >+</button>
-                        </div>
-                      ) : (
-                        <span style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>{p.stock}</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Add Product Modal */}
-      {showModal && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 50, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "20px 16px", overflowY: "auto" }}
-          onClick={e => { if (e.target === e.currentTarget) resetModal(); }}
-        >
-          <div style={{ background: "#FFFFFF", borderRadius: 16, padding: "28px 24px", maxWidth: 560, width: "100%", margin: "auto" }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>Add Product</h2>
-              <button onClick={resetModal} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {/* Name */}
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Product Name *</label>
-                <input name="name" value={form.name} onChange={handleChange} required placeholder="e.g. Oversized Tee" className="field-input" />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Description *</label>
-                <textarea name="description" value={form.description} onChange={handleChange} required rows={3} placeholder="Describe the product" className="field-input resize-none" />
-              </div>
-
-              {/* Price / Stock */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Price (₹) *</label>
-                  <input type="number" name="price" value={form.price} onChange={handleChange} required min="1" placeholder="999" className="field-input" />
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Stock Qty *</label>
-                  <input type="number" name="stock" value={form.stock} onChange={handleChange} required min="0" placeholder="10" className="field-input" />
-                </div>
-              </div>
-
-              {/* Category / Dispatch */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Category *</label>
-                  <div style={{ position: "relative" }}>
-                    <select name="category" value={form.category} onChange={handleChange} required className="field-input appearance-none cursor-pointer">
-                      <option value="" disabled>Select category</option>
-                      {categories.length > 0
-                        ? categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)
-                        : <option value="Other">Other</option>
-                      }
-                    </select>
-                    <div style={{ position: "absolute", right: 14, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-                      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#999" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>Dispatch Days</label>
-                  <input type="number" name="dispatch_days" value={form.dispatch_days} onChange={handleChange} min="1" max="14" placeholder="2" className="field-input" />
-                </div>
-              </div>
-
-              {/* Images */}
-              <div>
-                <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 6 }}>
-                  Product Images <span style={{ textTransform: "none", fontSize: 10, color: "#BBB", fontWeight: 400 }}>(up to 8 — first is main)</span>
-                </label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleImagePick}
-                  className="field-input"
-                  style={{ cursor: "pointer", padding: "10px" }}
-                />
-                {imagePreviews.length > 0 && (
-                  <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
-                    {imagePreviews.map((src, idx) => (
-                      <div key={idx} style={{ position: "relative", width: 72, height: 72 }}>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={src} alt="" style={{ width: 72, height: 72, objectFit: "cover", borderRadius: 8, border: idx === 0 ? "2px solid #CC0000" : "2px solid #EEE" }} />
-                        {idx === 0 && (
-                          <span style={{ position: "absolute", bottom: 2, left: 2, fontSize: 9, fontWeight: 700, background: "#CC0000", color: "#FFF", borderRadius: 4, padding: "1px 4px" }}>MAIN</span>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => removeImage(idx)}
-                          style={{ position: "absolute", top: -5, right: -5, width: 18, height: 18, borderRadius: "50%", background: "#555", color: "#FFF", border: "none", cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}
-                          title="Remove"
-                        >×</button>
-                        {idx !== 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setMainImage(idx)}
-                            style={{ position: "absolute", bottom: 2, left: 2, fontSize: 9, fontWeight: 700, background: "rgba(0,0,0,0.6)", color: "#FFF", border: "none", borderRadius: 4, padding: "2px 4px", cursor: "pointer" }}
-                            title="Set as main image"
-                          >Set main</button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Variants */}
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <label style={{ fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em" }}>
-                    Variants <span style={{ textTransform: "none", fontSize: 10, color: "#BBB", fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setVariants(v => [...v, { ...EMPTY_VARIANT }])}
-                    style={{ fontSize: 11, fontWeight: 600, color: "#CC0000", background: "none", border: "none", cursor: "pointer", padding: 0 }}
-                  >
-                    + Add Variant
-                  </button>
-                </div>
-                {variants.length === 0 ? (
-                  <p style={{ fontSize: 12, color: "#CCCCCC" }}>No variants — add one if your product has sizes, colors, or dimensions.</p>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {variants.map((v, i) => (
-                      <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 70px 28px", gap: 6, alignItems: "center" }}>
-                        <input
-                          type="text"
-                          placeholder="Variant name (e.g. S / Red / 4×4)"
-                          value={v.name}
-                          onChange={e => setVariants(prev => prev.map((x, j) => j === i ? { ...x, name: e.target.value } : x))}
-                          className="field-input"
-                          style={{ fontSize: 12 }}
-                        />
-                        <input
-                          type="number"
-                          placeholder="Price ₹"
-                          value={v.price}
-                          min="0"
-                          onChange={e => setVariants(prev => prev.map((x, j) => j === i ? { ...x, price: e.target.value } : x))}
-                          className="field-input"
-                          style={{ fontSize: 12 }}
-                          title="Leave blank to use base product price"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Stock"
-                          value={v.stock}
-                          min="0"
-                          onChange={e => setVariants(prev => prev.map((x, j) => j === i ? { ...x, stock: e.target.value } : x))}
-                          className="field-input"
-                          style={{ fontSize: 12 }}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setVariants(prev => prev.filter((_, j) => j !== i))}
-                          style={{ background: "none", border: "none", cursor: "pointer", color: "#CCC", fontSize: 16, padding: 0 }}
-                        >×</button>
-                      </div>
-                    ))}
-                    <p style={{ fontSize: 11, color: "#AAAAAA" }}>Leave variant price blank to use the base product price at checkout.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Size chart (apparel only) */}
-              {showSizeChart && (
-                <div>
-                  <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: "#555", textTransform: "uppercase", letterSpacing: "0.14em", marginBottom: 8 }}>
-                    Size Chart <span style={{ textTransform: "none", fontSize: 10, color: "#BBB", fontWeight: 400 }}>(optional)</span>
-                  </label>
-                  <div style={{ border: "1px solid #EEEEEE", borderRadius: 8, overflow: "hidden" }}>
-                    <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                      <thead>
-                        <tr style={{ background: "#F9F9F9", borderBottom: "1px solid #EEEEEE" }}>
-                          <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#555", fontSize: 11 }}>Size</th>
-                          <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#555", fontSize: 11 }}>Chest (in)</th>
-                          <th style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, color: "#555", fontSize: 11 }}>Length (in)</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sizes.map((s, i) => (
-                          <tr key={s.size} style={{ borderBottom: i < sizes.length - 1 ? "1px solid #F5F5F5" : undefined }}>
-                            <td style={{ padding: "6px 10px", fontWeight: 600, color: "#333" }}>{s.size}</td>
-                            <td style={{ padding: "4px 8px" }}>
-                              <input
-                                type="text"
-                                value={s.chest}
-                                onChange={e => setSizes(prev => prev.map((x, j) => j === i ? { ...x, chest: e.target.value } : x))}
-                                placeholder="e.g. 38"
-                                style={{ width: "100%", border: "1px solid #EEE", borderRadius: 6, padding: "4px 8px", fontSize: 12, outline: "none" }}
-                              />
-                            </td>
-                            <td style={{ padding: "4px 8px" }}>
-                              <input
-                                type="text"
-                                value={s.length}
-                                onChange={e => setSizes(prev => prev.map((x, j) => j === i ? { ...x, length: e.target.value } : x))}
-                                placeholder="e.g. 28"
-                                style={{ width: "100%", border: "1px solid #EEE", borderRadius: 6, padding: "4px 8px", fontSize: 12, outline: "none" }}
-                              />
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {formErr && (
-                <p style={{ fontSize: 13, color: "#CC0000", padding: "10px 14px", background: "rgba(204,0,0,0.04)", border: "1px solid rgba(204,0,0,0.2)", borderRadius: 8 }}>
-                  {formErr}
-                </p>
-              )}
-
-              {uploadStep && (
-                <p style={{ fontSize: 13, color: "#555", padding: "10px 14px", background: "#F9F9F9", border: "1px solid #EEE", borderRadius: 8 }}>
-                  {uploadStep}
-                </p>
-              )}
-
-              <button
-                type="submit"
-                disabled={saving}
-                className="btn-primary"
-                style={{ borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", border: "none", opacity: saving ? 0.6 : 1 }}
-              >
-                {saving ? "Submitting…" : "Submit for Approval →"}
-              </button>
-            </form>
+          <div style={grid2}>
+            <Field label="Selling price (₹)" htmlFor="p-price">
+              <input id="p-price" className="field-input" type="number" min="1" step="0.01" max="1000000" value={price} onChange={e => setPrice(e.target.value)} required />
+            </Field>
+            <Field label="MRP (₹, optional)" htmlFor="p-mrp" hint="Shown struck-through if higher than price">
+              <input id="p-mrp" className="field-input" type="number" min={price || "1"} step="0.01" max="1000000" value={mrp} onChange={e => setMrp(e.target.value)} />
+            </Field>
           </div>
-        </div>
-      )}
-    </>
+
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer", marginBottom: 10 }}>
+              <input type="checkbox" checked={hasSizes} onChange={e => setHasSizes(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
+              This product comes in sizes
+            </label>
+            {hasSizes ? (
+              <div style={{ border: "1px solid #EEEEEE", borderRadius: 10, padding: 14 }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+                  {PRESET_SIZES.map(s => {
+                    const on = sizes.some(r => r.size === s);
+                    return (
+                      <button key={s} type="button" onClick={() => toggleSize(s)} aria-pressed={on} style={{
+                        padding: "6px 12px", borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+                        border: `1.5px solid ${on ? RED : "#E0E0E0"}`, background: on ? "rgba(204,0,0,0.06)" : "#FFFFFF", color: on ? RED : "#555555",
+                      }}>{s}</button>
+                    );
+                  })}
+                  <input className="field-input" value={customSize} placeholder="Other (e.g. 32, Free)" maxLength={20}
+                    onChange={e => setCustomSize(e.target.value)} style={{ width: 170, padding: "6px 10px", fontSize: 13 }}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomSize(); } }} />
+                  <Button variant="secondary" onClick={addCustomSize} style={{ padding: "6px 12px" }}>Add</Button>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+                  {sizes.map(r => (
+                    <Field key={r.size} label={`Stock · ${r.size}`} htmlFor={`stock-${r.size}`}>
+                      <input id={`stock-${r.size}`} className="field-input" type="number" min="0" step="1" max="100000" required value={r.stock}
+                        onChange={e => setSizes(prev => prev.map(x => x.size === r.size ? { ...x, stock: e.target.value } : x))} />
+                    </Field>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <Field label="Stock" htmlFor="p-stock">
+                <input id="p-stock" className="field-input" type="number" min="0" step="1" max="100000" value={stock} onChange={e => setStock(e.target.value)} required style={{ maxWidth: 200 }} />
+              </Field>
+            )}
+          </div>
+
+          {seller.sell_in_uae && (
+            <div style={grid2}>
+              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer" }}>
+                <input type="checkbox" checked={sellInUae} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
+                Also sell in the UAE
+              </label>
+              {sellInUae && (
+                <Field label="UAE price (AED)" htmlFor="p-aed">
+                  <input id="p-aed" className="field-input" type="number" min="1" step="0.01" max="1000000" value={priceAed} onChange={e => setPriceAed(e.target.value)} required />
+                </Field>
+              )}
+            </div>
+          )}
+
+          <Field label={`Images (${totalImages}/${MAX_IMAGES})`} hint="JPG, PNG or WEBP, up to 8 MB each. The first image is the cover.">
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {existingImages.map(url => (
+                <Thumb key={url} src={url} onRemove={() => setExistingImages(prev => prev.filter(u => u !== url))} />
+              ))}
+              {previews.map((url, i) => (
+                <Thumb key={url} src={url} onRemove={() => setNewImages(prev => prev.filter((_, j) => j !== i))} isNew />
+              ))}
+              {totalImages < MAX_IMAGES && newImages.length < MAX_UPLOAD && (
+                <label style={{
+                  width: 84, height: 84, borderRadius: 10, border: "1.5px dashed #CCCCCC", display: "flex", alignItems: "center",
+                  justifyContent: "center", cursor: "pointer", color: "#888888", fontSize: 24,
+                }}>
+                  +
+                  <input type="file" accept="image/jpeg,image/png,image/webp" multiple hidden onChange={pickImages} />
+                </label>
+              )}
+            </div>
+          </Field>
+
+          {error && <Alert>{error}</Alert>}
+
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+            <Button variant="ghost" onClick={onClose}>Cancel</Button>
+            <Button type="submit">{saving ? "Saving…" : isEdit ? "Save & submit for review" : "Submit for review"}</Button>
+          </div>
+        </fieldset>
+      </form>
+    </Modal>
+  );
+}
+
+function Thumb({ src, onRemove, isNew = false }: { src: string; onRemove: () => void; isNew?: boolean }) {
+  return (
+    <div style={{ position: "relative", width: 84, height: 84, borderRadius: 10, overflow: "hidden", background: "#F3F3F3", border: isNew ? `1.5px solid ${RED}` : "1px solid #EEEEEE" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+      <button type="button" onClick={onRemove} aria-label="Remove image" style={{
+        position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", border: "none",
+        background: "rgba(0,0,0,0.6)", color: "#FFFFFF", cursor: "pointer", fontSize: 14, lineHeight: "22px", padding: 0,
+      }}>×</button>
+    </div>
   );
 }
