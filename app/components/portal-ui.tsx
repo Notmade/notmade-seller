@@ -85,6 +85,9 @@ export function Alert({ kind = "error", children }: { kind?: "error" | "success"
 
 const BADGE: Record<string, CSSProperties> = {
   pending:          { background: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A" },
+  awaiting:         { background: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A" },
+  pending_review:   { background: "#FFFBEB", color: "#B45309", border: "1px solid #FDE68A" },
+  accepted:         { background: "#F0FDF4", color: "#166534", border: "1px solid #BBF7D0" },
   confirmed:        { background: "#EFF6FF", color: "#1E40AF", border: "1px solid #BFDBFE" },
   processing:       { background: "#EFF6FF", color: "#1E40AF", border: "1px solid #BFDBFE" },
   packed:           { background: "#F5F3FF", color: "#6D28D9", border: "1px solid #DDD6FE" },

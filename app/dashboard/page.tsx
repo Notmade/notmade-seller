@@ -36,7 +36,7 @@ export default function DashboardPage() {
 
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const monthOrders = orders.filter(o => new Date(o.created_at) >= monthStart && o.status !== "cancelled");
-  const toAccept = orders.filter(o => !o.multi_seller && !o.seller_accepted_at && OPEN_STATUSES.includes(o.status));
+  const toAccept = orders.filter(o => !o.multi_seller && o.seller_status === "awaiting" && OPEN_STATUSES.includes(o.status));
   const live = products.filter(p => p.is_live).length;
   const inReview = products.filter(p => p.approval_status === "pending").length;
 

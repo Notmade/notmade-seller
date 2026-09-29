@@ -141,9 +141,27 @@ export interface Order {
   seller_subtotal: number;
   order_total: number | null;
   multi_seller: boolean;
+  seller_status: SellerOrderStatus | null;
   seller_accepted_at: string | null;
+  seller_rejected_at: string | null;
+  seller_reject_reason: string | null;
   waybill: string | null;
   courier_status: string | null;
+  has_unboxing_video: boolean;
+  unboxing_video_status: UnboxingVideoStatus | null;
+}
+
+export type SellerOrderStatus = "awaiting" | "accepted" | "rejected";
+export type UnboxingVideoStatus = "pending_review" | "approved" | "rejected";
+
+export const REJECT_REASONS = ["Out of stock", "Size unavailable", "Quality issue", "Other"] as const;
+export type RejectReason = (typeof REJECT_REASONS)[number];
+
+export interface UnboxingVideo {
+  url: string | null;
+  expires_in: number | null;
+  status: UnboxingVideoStatus;
+  uploaded_at: string | null;
 }
 
 // ─── Request helper ─────────────────────────────────────────────────────────
@@ -216,6 +234,10 @@ export const api = {
 
   orders: () => request<{ orders: Order[] }>("/seller/orders"),
   acceptOrder: (refNo: string) => post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/accept`),
+  rejectOrder: (refNo: string, reason: RejectReason, details?: string) =>
+    post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/reject`, { reason, details }),
+  unboxingVideo: (refNo: string) =>
+    request<{ video: UnboxingVideo | null }>(`/seller/orders/${encodeURIComponent(refNo)}/unboxing-video`),
   orderLabel: (refNo: string) =>
     post<{ waybill: string; label_url: string | null; label_pending: boolean }>(
       `/seller/orders/${encodeURIComponent(refNo)}/label`),
