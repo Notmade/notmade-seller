@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
-import { api, ApiError, inr, fmtDate, type Category, type Product } from "../../lib/seller-api";
+import Link from "next/link";
+import { api, ApiError, aed, inr, fmtDate, uaeNet, type Category, type Product } from "../../lib/seller-api";
 import { useDashboardSeller } from "../seller-context";
 import { Alert, Badge, Button, Card, EmptyState, Field, FullPageSpinner, Modal, PageHeader, RED } from "../../components/portal-ui";
 
@@ -176,7 +177,10 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   const [sizes, setSizes] = useState<SizeRow[]>(initialSizes.length ? initialSizes : [{ size: "M", stock: "" }]);
   const [customSize, setCustomSize] = useState("");
   const [stock, setStock] = useState(product && !initialSizes.length ? String(product.stock ?? 0) : "");
-  const [sellInUae, setSellInUae] = useState(!!product?.sell_in_uae);
+  // UAE listing needs the signed UAE agreement for the seller's country; until then the toggle is off and disabled
+  const uaeReady = !!seller.uae?.ready;
+  const uaePct = seller.uae?.commission_pct ?? null;
+  const [sellInUae, setSellInUae] = useState(!!product?.sell_in_uae && uaeReady);
   const [priceAed, setPriceAed] = useState(product?.price_aed ? String(product.price_aed) : "");
   const [existingImages, setExistingImages] = useState<string[]>(product?.images ?? []);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -232,10 +236,9 @@ function ProductForm({ product, categories, onClose, onSaved }: {
       fd.append("sizes", "[]");
       fd.append("stock", stock || "0");
     }
-    if (seller.sell_in_uae) {
-      fd.append("sell_in_uae", String(sellInUae));
-      if (sellInUae) fd.append("price_aed", priceAed);
-    }
+    // Always sent, so a UAE flag left over from before the UAE agreement is switched off on save
+    fd.append("sell_in_uae", String(uaeReady && sellInUae));
+    if (uaeReady && sellInUae) fd.append("price_aed", priceAed);
     // Only touch images on edit when they actually changed, so unchanged products skip re-conversion
     const imagesChanged = !isEdit || newImages.length > 0 || existingImages.length !== (product?.images?.length ?? 0);
     if (isEdit && imagesChanged) fd.append("existing_images", JSON.stringify(existingImages));
@@ -322,16 +325,30 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             )}
           </div>
 
-          {seller.sell_in_uae && (
-            <div style={grid2}>
-              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer" }}>
-                <input type="checkbox" checked={sellInUae} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
-                Also sell in the UAE
-              </label>
-              {sellInUae && (
-                <Field label="UAE price (AED)" htmlFor="p-aed">
-                  <input id="p-aed" className="field-input" type="number" min="1" step="0.01" max="1000000" value={priceAed} onChange={e => setPriceAed(e.target.value)} required />
-                </Field>
+          {(seller.sell_in_uae || seller.uae?.ready || seller.seller_country === "AE") && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={grid2}>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: uaeReady ? "#333333" : "#AAAAAA", cursor: uaeReady ? "pointer" : "not-allowed" }}>
+                  <input type="checkbox" checked={sellInUae} disabled={!uaeReady} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
+                  Also sell in the UAE
+                </label>
+                {sellInUae && uaeReady && (
+                  <Field label="UAE price (AED)" htmlFor="p-aed">
+                    <input id="p-aed" className="field-input" type="number" min="1" step="0.01" max="1000000" value={priceAed} onChange={e => setPriceAed(e.target.value)} required />
+                    {uaePct !== null && Number(priceAed) > 0 && (
+                      <p aria-live="polite" style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, marginTop: 6 }}>
+                        You receive {aed(uaeNet(Number(priceAed), uaePct))} after {uaePct}% commission
+                      </p>
+                    )}
+                  </Field>
+                )}
+              </div>
+              {!uaeReady && (
+                <p style={{ fontSize: 13, color: "#888888" }}>
+                  {seller.seller_country === "AE"
+                    ? "UAE listing unlocks once your UAE seller agreement is on file."
+                    : <>Sign the <Link href="/dashboard/uae" style={{ color: RED, fontWeight: 700 }}>UAE sales addendum</Link> to list this product in the UAE.</>}
+                </p>
               )}
             </div>
           )}

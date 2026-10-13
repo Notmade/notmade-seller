@@ -31,6 +31,18 @@ export type OnboardingStatus =
 
 export type OtpPurpose = "login" | "signup" | "agreement";
 
+export type SellerCountry = "IN" | "AE";
+
+/** UAE selling status from GET /seller/me. commission_pct is the seller's effective UAE rate (settings or override). */
+export interface UaeStatus {
+  seller_country: SellerCountry;
+  ready: boolean;
+  required_agreement_version: string;
+  signed_agreement_version: string | null;
+  signed_at: string | null;
+  commission_pct: number | null;
+}
+
 export interface Seller {
   id: string;
   email: string;
@@ -55,6 +67,17 @@ export interface Seller {
   agreement_signed_at: string | null;
   logo_url: string | null;
   created_at: string;
+  // Migration 045 — absent until it runs
+  seller_country?: SellerCountry | null;
+  uae_agreement_version?: string | null;
+  trade_licence_number?: string | null;
+  trn?: string | null;
+  uae_id_type?: "emirates_id" | "passport" | null;
+  emirates_id_last4?: string | null;
+  emirate?: string | null;
+  iban?: string | null;
+  /** Merged in from GET /seller/me */
+  uae?: UaeStatus;
 }
 
 export interface VerifyOtpResponse {
@@ -64,7 +87,9 @@ export interface VerifyOtpResponse {
   is_new: boolean;
 }
 
-export type DocType = "gst_certificate" | "aadhaar_front" | "aadhaar_back" | "pan_card" | "logo";
+export type DocType =
+  | "gst_certificate" | "aadhaar_front" | "aadhaar_back" | "pan_card"
+  | "trade_licence" | "emirates_id_front" | "emirates_id_back" | "passport" | "logo";
 
 export interface SellerDocument {
   id: string;
@@ -83,6 +108,7 @@ export interface OnboardingState {
   missing_documents: DocType[];
   agreement_signed: boolean;
   agreement_signed_at: string | null;
+  seller_country?: SellerCountry;
 }
 
 export interface Agreement {
@@ -94,6 +120,12 @@ export interface Agreement {
   includes_uae_clause: boolean;
   signed: boolean;
 }
+
+export interface UaeAgreementResponse extends UaeStatus {
+  agreement: Agreement | null;
+}
+
+export type SignBody = { code: string; signer_name: string; agreement_hash: string };
 
 export interface Category { id: string; name: string; slug: string }
 
@@ -207,7 +239,10 @@ export const api = {
   verifyOtp: (email: string, code: string, purpose: "login" | "signup") =>
     post<VerifyOtpResponse>("/seller-auth/verify-otp", { email, code, purpose }),
 
-  me: () => request<{ seller: Seller }>("/seller/me"),
+  me: async () => {
+    const r = await request<{ seller: Seller; uae?: UaeStatus }>("/seller/me");
+    return { seller: r.seller ? { ...r.seller, uae: r.uae } : r.seller };
+  },
   signup: (body: Record<string, unknown>) =>
     post<{ seller: Seller; token?: string; required_documents: DocType[] }>("/seller/signup", body),
   onboardingStatus: () => request<OnboardingState>("/seller/onboarding-status"),
@@ -221,9 +256,12 @@ export const api = {
   },
 
   agreement: () => request<Agreement>("/seller/agreement"),
-  signAgreement: (body: { code: string; signer_name: string; agreement_hash: string }) =>
+  signAgreement: (body: SignBody) =>
     post<{ agreement: { id: string; version: string; signed_at: string }; onboarding_status: OnboardingStatus }>(
       "/seller/agreement/sign", body),
+  uaeAgreement: () => request<UaeAgreementResponse>("/seller/uae-agreement"),
+  signUaeAgreement: (body: SignBody) =>
+    post<{ agreement: { id: string; version: string; signed_at: string }; uae: UaeStatus }>("/seller/uae-agreement/sign", body),
 
   categories: () => request<{ categories: Category[] }>("/seller/categories"),
   products: () => request<{ products: Product[] }>("/seller/products"),
@@ -248,8 +286,21 @@ export const DOC_LABELS: Record<DocType, string> = {
   aadhaar_front: "Aadhaar (front)",
   aadhaar_back: "Aadhaar (back)",
   pan_card: "PAN card",
+  trade_licence: "Trade licence",
+  emirates_id_front: "Emirates ID (front)",
+  emirates_id_back: "Emirates ID (back)",
+  passport: "Passport",
   logo: "Brand logo",
 };
+
+export function aed(n: number | null | undefined): string {
+  return `AED ${Number(n || 0).toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+/** What the seller keeps on a UAE sale after commission, rounded to fils. */
+export function uaeNet(priceAed: number, commissionPct: number): number {
+  return Math.round(priceAed * (1 - commissionPct / 100) * 100) / 100;
+}
 
 export function inr(n: number | null | undefined): string {
   return `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;

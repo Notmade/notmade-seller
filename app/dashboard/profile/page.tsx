@@ -16,6 +16,8 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function ProfilePage() {
   const seller = useDashboardSeller();
+  const uae = seller.uae;
+  const uaeBased = seller.seller_country === "AE";
   const [docs, setDocs] = useState<SellerDocument[] | null>(null);
   const [docsErr, setDocsErr] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -53,21 +55,34 @@ export default function ProfilePage() {
             <Row label="Legal name" value={seller.legal_name} />
             <Row label="Contact person" value={seller.contact_name} />
             <Row label="Email" value={seller.email} />
-            <Row label="Mobile" value={seller.phone && `+91 ${seller.phone}`} />
-            <Row label="Pickup address" value={[seller.address_line, seller.city, seller.state, seller.pincode].filter(Boolean).join(", ")} />
+            <Row label="Business based in" value={uaeBased ? "UAE" : "India"} />
+            <Row label="Mobile" value={seller.phone && (uaeBased ? seller.phone : `+91 ${seller.phone}`)} />
+            <Row label={uaeBased ? "Business address" : "Pickup address"} value={[seller.address_line, seller.city, uaeBased ? seller.emirate : seller.state, seller.pincode].filter(Boolean).join(", ")} />
           </dl>
         </Card>
 
         <Card>
           <h2 style={{ fontSize: 15, fontWeight: 800, marginBottom: 6 }}>Tax, pricing & agreement</h2>
           <dl style={{ margin: 0 }}>
-            {seller.gst_registered
-              ? <Row label="GSTIN" value={seller.gstin} />
-              : <Row label="Aadhaar" value={seller.aadhaar_last4 && `•••• •••• ${seller.aadhaar_last4}`} />}
-            <Row label="PAN" value={seller.pan_number} />
+            {uaeBased ? <>
+              <Row label="Trade licence" value={seller.trade_licence_number} />
+              <Row label="TRN" value={seller.trn || "Not VAT registered"} />
+              <Row label="ID document" value={seller.uae_id_type === "passport" ? "Passport" : seller.emirates_id_last4 && `Emirates ID •••• ${seller.emirates_id_last4}`} />
+              <Row label="IBAN" value={seller.iban && `${seller.iban.slice(0, 4)} •••• ${seller.iban.slice(-4)}`} />
+            </> : <>
+              {seller.gst_registered
+                ? <Row label="GSTIN" value={seller.gstin} />
+                : <Row label="Aadhaar" value={seller.aadhaar_last4 && `•••• •••• ${seller.aadhaar_last4}`} />}
+              <Row label="PAN" value={seller.pan_number} />
+            </>}
             <Row label="Pricing model" value={seller.pricing_model === "managed" ? "Managed by NOTMADE" : seller.pricing_model === "seller_controlled" ? "Seller controlled" : null} />
             <Row label="Commission" value={seller.commission_rate != null && `${seller.commission_rate}%`} />
-            {seller.sell_in_uae && <Row label="UAE commission" value={seller.uae_commission_rate != null ? `${seller.uae_commission_rate}%` : "Enabled"} />}
+            {(seller.sell_in_uae || uae?.ready) && (
+              <Row label="UAE commission" value={uae?.ready
+                ? (uae.commission_pct != null ? `${uae.commission_pct}%` : "—")
+                : "UAE agreement not signed"} />
+            )}
+            {uae?.signed_agreement_version && <Row label="UAE agreement" value={`${uae.signed_agreement_version} · ${fmtDate(uae.signed_at)}`} />}
             <Row label="Agreement signed" value={fmtDate(seller.agreement_signed_at)} />
             <Row label="Seller since" value={fmtDate(seller.created_at)} />
           </dl>

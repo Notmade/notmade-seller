@@ -4,10 +4,11 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import { useRouter } from "next/navigation";
 import {
   api, ApiError, setToken, DOC_LABELS, fmtDate,
-  type Agreement, type DocType, type OnboardingState, type Seller,
+  type DocType, type OnboardingState, type Seller, type SellerCountry,
 } from "../lib/seller-api";
 import { useSeller } from "../lib/useSeller";
 import { Alert, Button, Card, Field, FullPageSpinner, RED, Spinner } from "../components/portal-ui";
+import { AgreementSigner, Pill } from "../components/AgreementSigner";
 
 type StepKey = "details" | "documents" | "agreement" | "review";
 const STEPS: { key: StepKey; label: string }[] = [
@@ -26,6 +27,8 @@ const INDIAN_STATES = [
   "Mizoram", "Nagaland", "Odisha", "Puducherry", "Punjab", "Rajasthan", "Sikkim", "Tamil Nadu", "Telangana", "Tripura",
   "Uttar Pradesh", "Uttarakhand", "West Bengal",
 ];
+
+const EMIRATES = ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ras Al Khaimah", "Fujairah"];
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
@@ -149,20 +152,29 @@ export default function OnboardingPage() {
 // ─── Step 1: details ──────────────────────────────────────────────────────────
 
 interface DetailsForm {
+  seller_country: "" | SellerCountry;
   legal_name: string; business_name: string; contact_name: string; phone: string;
   address_line: string; city: string; state: string; pincode: string;
   pricing_model: "" | "managed" | "seller_controlled";
   gst_registered: "" | "yes" | "no"; gstin: string; pan_number: string; aadhaar_number: string;
   sell_in_uae: boolean;
+  // UAE path
+  emirate: string; trade_licence_number: string; trn: string;
+  uae_id_type: "" | "emirates_id" | "passport"; emirates_id_number: string; iban: string;
 }
 
 function fromSeller(s: Seller | null): DetailsForm {
+  const country: "" | SellerCountry = s ? (s.seller_country === "AE" ? "AE" : "IN") : "";
   return {
+    seller_country: country,
     legal_name: s?.legal_name ?? "", business_name: s?.business_name ?? "", contact_name: s?.contact_name ?? "",
-    phone: s?.phone ?? "", address_line: s?.address_line ?? "", city: s?.city ?? "", state: s?.state ?? "",
+    phone: (country === "AE" ? s?.phone?.replace(/^\+971/, "") : s?.phone) ?? "",
+    address_line: s?.address_line ?? "", city: s?.city ?? "", state: s?.state ?? "",
     pincode: s?.pincode ?? "", pricing_model: s?.pricing_model ?? "",
     gst_registered: s?.gst_registered == null ? "" : s.gst_registered ? "yes" : "no",
     gstin: s?.gstin ?? "", pan_number: s?.pan_number ?? "", aadhaar_number: "", sell_in_uae: !!s?.sell_in_uae,
+    emirate: s?.emirate ?? "", trade_licence_number: s?.trade_licence_number ?? "", trn: s?.trn ?? "",
+    uae_id_type: s?.uae_id_type ?? "", emirates_id_number: "", iban: s?.iban ?? "",
   };
 }
 
@@ -183,14 +195,27 @@ function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | n
     e.preventDefault();
     setSaving(true); setError(""); setErrors([]);
     try {
-      const gst = f.gst_registered === "yes";
-      const body: Record<string, unknown> = {
-        legal_name: f.legal_name, business_name: f.business_name, contact_name: f.contact_name, phone: f.phone,
-        address_line: f.address_line, city: f.city, state: f.state, pincode: f.pincode,
-        pricing_model: f.pricing_model, gst_registered: f.gst_registered === "" ? "" : gst,
-        gstin: gst ? f.gstin.toUpperCase() : "", pan_number: f.pan_number.toUpperCase(), sell_in_uae: f.sell_in_uae,
-      };
-      if (!gst) body.aadhaar_number = f.aadhaar_number;
+      let body: Record<string, unknown>;
+      if (f.seller_country === "AE") {
+        body = {
+          seller_country: "AE",
+          legal_name: f.legal_name, business_name: f.business_name, contact_name: f.contact_name, phone: f.phone,
+          address_line: f.address_line, city: f.city, emirate: f.emirate, pricing_model: f.pricing_model,
+          trade_licence_number: f.trade_licence_number.toUpperCase(), trn: f.trn, uae_id_type: f.uae_id_type,
+          iban: f.iban.replace(/\s+/g, "").toUpperCase(),
+        };
+        if (f.uae_id_type === "emirates_id") body.emirates_id_number = f.emirates_id_number;
+      } else {
+        const gst = f.gst_registered === "yes";
+        body = {
+          seller_country: "IN",
+          legal_name: f.legal_name, business_name: f.business_name, contact_name: f.contact_name, phone: f.phone,
+          address_line: f.address_line, city: f.city, state: f.state, pincode: f.pincode,
+          pricing_model: f.pricing_model, gst_registered: f.gst_registered === "" ? "" : gst,
+          gstin: gst ? f.gstin.toUpperCase() : "", pan_number: f.pan_number.toUpperCase(), sell_in_uae: f.sell_in_uae,
+        };
+        if (!gst) body.aadhaar_number = f.aadhaar_number;
+      }
       const res = await api.signup(body);
       if (res.token) setToken(res.token);
       await onSaved();
@@ -210,6 +235,19 @@ function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | n
         <fieldset disabled={readOnly || saving} style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 22 }}>
           {readOnly && <Alert kind="info">Your details are locked while your application is being processed.</Alert>}
 
+          <section>
+            <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Where is your business based?</h2>
+            <div style={grid2}>
+              <Choice name="seller_country" checked={f.seller_country === "IN"} onChange={() => setF(p => ({ ...p, seller_country: "IN" }))}
+                title="India" sub="GST or PAN + Aadhaar" />
+              <Choice name="seller_country" checked={f.seller_country === "AE"} onChange={() => setF(p => ({ ...p, seller_country: "AE" }))}
+                title="UAE" sub="Trade licence, Emirates ID or passport, IBAN" />
+            </div>
+          </section>
+
+          {f.seller_country === "AE" && <UaeDetailsFields f={f} setF={setF} set={set} />}
+
+          {f.seller_country === "IN" && <>
           <section>
             <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Business</h2>
             <div style={grid2}>
@@ -314,6 +352,7 @@ function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | n
               </label>
             </div>
           </section>
+          </>}
 
           {error && (
             <Alert>
@@ -324,7 +363,7 @@ function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | n
 
           {!readOnly && (
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <Button type="submit" disabled={saving || !f.gst_registered || !f.pricing_model}>
+              <Button type="submit" disabled={saving || !f.seller_country || !f.pricing_model || (f.seller_country === "IN" ? !f.gst_registered : !f.uae_id_type)}>
                 {saving ? "Saving…" : "Save & continue →"}
               </Button>
             </div>
@@ -332,6 +371,102 @@ function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | n
         </fieldset>
       </form>
     </Card>
+  );
+}
+
+function UaeDetailsFields({ f, setF, set }: {
+  f: DetailsForm;
+  setF: React.Dispatch<React.SetStateAction<DetailsForm>>;
+  set: (k: keyof DetailsForm) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+}) {
+  return (
+    <>
+      <section>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Business</h2>
+        <div style={grid2}>
+          <Field label="Legal name" hint="As on your trade licence" htmlFor="legal_name">
+            <input id="legal_name" className="field-input" value={f.legal_name} onChange={set("legal_name")} required minLength={2} maxLength={200} />
+          </Field>
+          <Field label="Business / brand name" hint="Shown to customers" htmlFor="business_name">
+            <input id="business_name" className="field-input" value={f.business_name} onChange={set("business_name")} required minLength={2} maxLength={200} />
+          </Field>
+          <Field label="Contact person" htmlFor="contact_name">
+            <input id="contact_name" className="field-input" value={f.contact_name} onChange={set("contact_name")} required minLength={2} maxLength={120} autoComplete="name" />
+          </Field>
+          <Field label="Mobile number" htmlFor="phone">
+            <div className="phone-field">
+              <span className="phone-prefix">+971</span>
+              <input id="phone" className="phone-input" value={f.phone} inputMode="numeric" maxLength={9} pattern="5[0-9]{8}"
+                required autoComplete="tel-national" placeholder="501234567"
+                onChange={e => setF(p => ({ ...p, phone: e.target.value.replace(/\D/g, "").replace(/^0/, "") }))} />
+            </div>
+          </Field>
+        </div>
+      </section>
+
+      <section>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Business address</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <Field label="Address" htmlFor="address_line">
+            <textarea id="address_line" className="field-input" rows={2} value={f.address_line} onChange={set("address_line")} required minLength={2} maxLength={400} autoComplete="street-address" />
+          </Field>
+          <div style={{ ...grid2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            <Field label="City / area" htmlFor="city">
+              <input id="city" className="field-input" value={f.city} onChange={set("city")} required minLength={2} maxLength={100} autoComplete="address-level2" />
+            </Field>
+            <Field label="Emirate" htmlFor="emirate">
+              <select id="emirate" className="field-input" value={f.emirate} onChange={set("emirate")} required>
+                <option value="">Select emirate</option>
+                {EMIRATES.map(e => <option key={e} value={e}>{e}</option>)}
+              </select>
+            </Field>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Licence & KYC</h2>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={grid2}>
+            <Field label="Trade licence number" htmlFor="trade_licence_number" hint="You'll upload the licence in the next step.">
+              <input id="trade_licence_number" className="field-input" value={f.trade_licence_number} onChange={set("trade_licence_number")} required minLength={3} maxLength={40} style={{ textTransform: "uppercase" }} />
+            </Field>
+            <Field label="TRN (optional)" htmlFor="trn" hint="Only if VAT registered — 15 digits starting 100">
+              <input id="trn" className="field-input" value={f.trn} inputMode="numeric" maxLength={15} pattern="100[0-9]{12}"
+                onChange={e => setF(p => ({ ...p, trn: e.target.value.replace(/\D/g, "") }))} />
+            </Field>
+          </div>
+          <Field label="Identity document">
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              <Choice name="uae_id_type" checked={f.uae_id_type === "emirates_id"} onChange={() => setF(p => ({ ...p, uae_id_type: "emirates_id" }))} title="Emirates ID" />
+              <Choice name="uae_id_type" checked={f.uae_id_type === "passport"} onChange={() => setF(p => ({ ...p, uae_id_type: "passport" }))} title="Passport" />
+            </div>
+          </Field>
+          {f.uae_id_type === "emirates_id" && (
+            <Field label="Emirates ID number" htmlFor="emirates_id_number" hint="15 digits starting 784. We store only the last 4 digits.">
+              <input id="emirates_id_number" className="field-input" value={f.emirates_id_number} inputMode="numeric" maxLength={15} pattern="784[0-9]{12}" required
+                autoComplete="off" onChange={e => setF(p => ({ ...p, emirates_id_number: e.target.value.replace(/\D/g, "") }))} />
+            </Field>
+          )}
+          <Field label="Bank IBAN" htmlFor="iban" hint="UAE IBAN for settlements, e.g. AE07 0331 2345 6789 0123 456">
+            <input id="iban" className="field-input" value={f.iban} maxLength={34} required style={{ textTransform: "uppercase" }}
+              pattern="[Aa][Ee][0-9 ]{21,27}" autoComplete="off" onChange={set("iban")} />
+          </Field>
+        </div>
+      </section>
+
+      <section>
+        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>How you want to sell</h2>
+        <Field label="Pricing model">
+          <div style={grid2}>
+            <Choice name="pricing_model" checked={f.pricing_model === "managed"} onChange={() => setF(p => ({ ...p, pricing_model: "managed" }))}
+              title="Managed" sub="NOTMADE helps set and optimise your prices." />
+            <Choice name="pricing_model" checked={f.pricing_model === "seller_controlled"} onChange={() => setF(p => ({ ...p, pricing_model: "seller_controlled" }))}
+              title="Seller controlled" sub="You set your own prices." />
+          </div>
+        </Field>
+      </section>
+    </>
   );
 }
 
@@ -355,8 +490,10 @@ function Choice({ name, checked, onChange, title, sub }: { name: string; checked
 const MAX_BYTES = 8 * 1024 * 1024;
 
 function DocumentsStep({ status, onChanged, onContinue }: { status: OnboardingState; onChanged: () => Promise<void>; onContinue: () => Promise<void> }) {
+  const req = status.required_documents;
   const optional: DocType[] = [
-    ...(!status.required_documents.includes("gst_certificate") ? (["aadhaar_back"] as DocType[]) : []),
+    ...(req.includes("aadhaar_front") ? (["aadhaar_back"] as DocType[]) : []),
+    ...(req.includes("emirates_id_front") ? (["emirates_id_back"] as DocType[]) : []),
     "logo",
   ];
   const done = status.missing_documents.length === 0;
@@ -431,114 +568,22 @@ function DocRow({ docType, required = false, uploaded, onUploaded }: { docType: 
 // ─── Step 3: agreement ────────────────────────────────────────────────────────
 
 function AgreementStep({ seller, onSigned }: { seller: Seller; onSigned: () => Promise<void> }) {
-  const [agreement, setAgreement] = useState<Agreement | null>(null);
-  const [loadErr, setLoadErr] = useState("");
-  const [signer, setSigner] = useState(seller.contact_name ?? "");
-  const [agreed, setAgreed] = useState(false);
-  const [codeSent, setCodeSent] = useState(false);
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const [info, setInfo] = useState("");
-
-  const load = useCallback(async () => {
-    setLoadErr("");
-    try { setAgreement(await api.agreement()); }
-    catch (err) { setLoadErr(err instanceof Error ? err.message : "Could not load agreement"); }
-  }, []);
-  useEffect(() => { void load(); }, [load]);
-
-  const sendCode = async () => {
-    setBusy(true); setError(""); setInfo("");
-    try {
-      await api.sendOtp(seller.email, "agreement");
-      setCodeSent(true);
-      setInfo(`We've sent a 6-digit code to ${seller.email}.`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not send code");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const sign = async (e: FormEvent) => {
-    e.preventDefault();
-    if (!agreement) return;
-    setBusy(true); setError(""); setInfo("");
-    try {
-      await api.signAgreement({ code, signer_name: signer.trim(), agreement_hash: agreement.agreement_hash });
-      await onSigned();
-    } catch (err) {
-      if (err instanceof ApiError && err.status === 409 && typeof err.data.agreement_hash === "string") {
-        // Text changed server-side; the code was not consumed, so the seller can re-read and sign again.
-        await load();
-        setAgreed(false);
-      }
-      setError(err instanceof Error ? err.message : "Could not sign agreement");
-      setBusy(false);
-    }
-  };
-
-  if (loadErr) return <Alert>{loadErr} <button type="button" onClick={() => void load()} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>Retry</button></Alert>;
-  if (!agreement) return <FullPageSpinner />;
-
+  const uaeBased = seller.seller_country === "AE";
   return (
-    <Card>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "baseline" }}>
-        <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>NOTMADE Seller Agreement</h2>
-        <span style={{ fontSize: 12, color: "#888888" }}>Version {agreement.version}</span>
-      </div>
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0 14px" }}>
-        <Pill>Commission {agreement.commission_rate}%</Pill>
-        <Pill>{agreement.pricing_model === "managed" ? "Managed pricing" : "Seller-controlled pricing"}</Pill>
-        {agreement.includes_uae_clause && <Pill>Includes UAE terms</Pill>}
-      </div>
-      <pre tabIndex={0} style={{
-        whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13, lineHeight: 1.6, color: "#333333",
-        background: "#FAFAFA", border: "1px solid #EEEEEE", borderRadius: 10, padding: 16, maxHeight: 420, overflowY: "auto",
-      }}>{agreement.text}</pre>
-
-      <form onSubmit={sign} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 18 }}>
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "#333333", cursor: "pointer" }}>
-          <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, accentColor: RED }} />
-          I have read and agree to the NOTMADE Seller Agreement on behalf of {seller.legal_name || seller.business_name}.
-        </label>
-        <div style={grid2}>
-          <Field label="Your full name (signature)" htmlFor="signer">
-            <input id="signer" className="field-input" value={signer} onChange={e => setSigner(e.target.value)} required minLength={2} maxLength={120} autoComplete="name" />
-          </Field>
-          {codeSent && (
-            <Field label="Email code" htmlFor="sign-code">
-              <input id="sign-code" className="field-input" value={code} inputMode="numeric" maxLength={6} pattern="[0-9]{6}" required autoComplete="one-time-code"
-                placeholder="123456" style={{ letterSpacing: "0.2em" }} onChange={e => setCode(e.target.value.replace(/\D/g, ""))} />
-            </Field>
-          )}
-        </div>
-
-        {info && <Alert kind="success">{info}</Alert>}
-        {error && <Alert>{error}</Alert>}
-
-        <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
-          {!codeSent ? (
-            <Button disabled={busy || !agreed || signer.trim().length < 2} onClick={() => void sendCode()}>
-              {busy ? "Sending…" : "Send signing code →"}
-            </Button>
-          ) : (
-            <>
-              <Button variant="secondary" disabled={busy} onClick={() => void sendCode()}>Resend code</Button>
-              <Button type="submit" disabled={busy || !agreed || code.length < 6 || signer.trim().length < 2}>
-                {busy ? "Signing…" : "Sign agreement"}
-              </Button>
-            </>
-          )}
-        </div>
-      </form>
-    </Card>
+    <AgreementSigner
+      seller={seller}
+      title={uaeBased ? "NOTMADE Seller Agreement — UAE" : "NOTMADE Seller Agreement"}
+      load={api.agreement}
+      sign={api.signAgreement}
+      onSigned={onSigned}
+      pills={a => (
+        <>
+          <Pill>{uaeBased ? `UAE commission ${a.commission_rate}%` : `Commission ${a.commission_rate}%`}</Pill>
+          <Pill>{a.pricing_model === "managed" ? "Managed pricing" : "Seller-controlled pricing"}</Pill>
+        </>
+      )}
+    />
   );
-}
-
-function Pill({ children }: { children: React.ReactNode }) {
-  return <span style={{ fontSize: 12, fontWeight: 600, padding: "4px 10px", borderRadius: 100, background: "#F3F3F3", color: "#444444" }}>{children}</span>;
 }
 
 // ─── Step 4 / terminal states ─────────────────────────────────────────────────
