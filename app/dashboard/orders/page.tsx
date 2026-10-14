@@ -2,61 +2,111 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  api, inr, fmtDate, REJECT_REASONS,
-  type Order, type RejectReason, type UnboxingVideo,
+  api, amountIn, fmtDate, fmtDateTime, REJECT_REASONS,
+  type Order, type OrderBucket, type RejectReason, type ReturnRequest, type UnboxingVideo,
 } from "../../lib/seller-api";
 import { Alert, Badge, Button, Card, EmptyState, FullPageSpinner, Modal, PageHeader, RED, Spinner } from "../../components/portal-ui";
+import OrderTimeline from "../../components/OrderTimeline";
 
-// Mirrors ACCEPTABLE_ORDER_STATUSES in the backend: the only statuses a seller can act on
-const ACTIONABLE = ["pending", "confirmed", "processing", "packed"];
-const SHIPPED = ["shipped", "dispatched", "in_transit", "out_for_delivery"];
-
-type Tab = "new" | "accepted" | "rejected" | "shipped" | "delivered";
-const TABS: { key: Tab; label: string }[] = [
+const TABS: { key: OrderBucket; label: string }[] = [
   { key: "new", label: "New" },
   { key: "accepted", label: "Accepted" },
-  { key: "rejected", label: "Rejected" },
+  { key: "ready", label: "Ready" },
   { key: "shipped", label: "Shipped" },
   { key: "delivered", label: "Delivered" },
+  { key: "cancelled", label: "Rejected / Cancelled" },
+  { key: "returns", label: "Returns" },
 ];
-
-function tabOf(o: Order): Tab {
-  if (o.seller_status === "rejected") return "rejected";
-  if (o.status === "delivered") return "delivered";
-  if (SHIPPED.includes(o.status)) return "shipped";
-  if (o.seller_status === "accepted" || o.seller_accepted_at) return "accepted";
-  return "new";
-}
-
+const EMPTY: Record<OrderBucket, string> = {
+  new: "No new orders. New orders land here for you to accept or reject.",
+  accepted: "Nothing to pack. Accepted orders wait here until you mark them ready.",
+  ready: "Nothing waiting for pickup.",
+  shipped: "Nothing on the way right now.",
+  delivered: "No delivered orders yet.",
+  cancelled: "No rejected or cancelled orders.",
+  returns: "No returns. Nice.",
+};
 const VIDEO_LABEL: Record<string, string> = { pending_review: "Pending review", approved: "Approved", rejected: "Rejected" };
 
-interface LabelState { waybill: string; url: string | null; pending: boolean }
 type VideoState = { loading: true } | { loading: false; video: UnboxingVideo | null; error?: string };
+
+function useNow(ms = 30_000) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t); }, [ms]);
+  return now;
+}
+
+function SlaChip({ due, now }: { due: string; now: number }) {
+  const left = new Date(due).getTime() - now;
+  const overdue = left <= 0;
+  const h = Math.floor(Math.abs(left) / 3_600_000);
+  const m = Math.floor((Math.abs(left) % 3_600_000) / 60_000);
+  const txt = overdue ? `Overdue by ${h ? `${h}h ` : ""}${m}m` : `Accept within ${h ? `${h}h ` : ""}${m}m`;
+  const urgent = overdue || left < 2 * 3_600_000;
+  return (
+    <span className={urgent ? "sp-chip sp-chip-red" : "sp-chip"}>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+      {txt}
+    </span>
+  );
+}
 
 export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[] | null>(null);
+  const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<Tab>("new");
+  const [tab, setTab] = useState<OrderBucket>("new");
+  const [focus, setFocus] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
-  const [labels, setLabels] = useState<Record<string, LabelState>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [videos, setVideos] = useState<Record<string, VideoState>>({});
   const [rejecting, setRejecting] = useState<Order | null>(null);
+  const [readying, setReadying] = useState<Order | null>(null);
+  const now = useNow();
 
-  const load = useCallback(async () => {
-    setError("");
-    try { setOrders((await api.orders()).orders); }
-    catch (err) { setError(err instanceof Error ? err.message : "Could not load orders"); }
+  // ?tab=ready&ref=NM-… deep links from notifications and emails
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    const t = p.get("tab");
+    if (t && TABS.some(x => x.key === t)) setTab(t as OrderBucket);
+    const ref = p.get("ref");
+    if (ref) { setFocus(ref); setOpen(o => ({ ...o, [ref]: true })); }
+  }, []);
+
+  const load = useCallback(async (quiet = false) => {
+    if (!quiet) setError("");
+    try {
+      const [o, r] = await Promise.all([api.orders(), api.returns().catch(() => ({ returns: [] as ReturnRequest[] }))]);
+      setOrders(o.orders);
+      setReturns(r.returns);
+    } catch (err) {
+      if (!quiet) setError(err instanceof Error ? err.message : "Could not load orders");
+    }
   }, []);
   useEffect(() => { void load(); }, [load]);
+  // Live: AWBs generated by NOTMADE and new orders appear without a refresh
+  useEffect(() => {
+    const t = setInterval(() => { if (document.visibilityState === "visible") void load(true); }, 30_000);
+    return () => clearInterval(t);
+  }, [load]);
 
   const counts = useMemo(() => {
-    const c: Record<Tab, number> = { new: 0, accepted: 0, rejected: 0, shipped: 0, delivered: 0 };
-    for (const o of orders ?? []) c[tabOf(o)]++;
+    const c = { new: 0, accepted: 0, ready: 0, shipped: 0, delivered: 0, cancelled: 0, returns: 0 } as Record<OrderBucket, number>;
+    for (const o of orders ?? []) c[o.bucket]++;
+    c.returns += returns.length;
     return c;
-  }, [orders]);
-  const shown = useMemo(() => (orders ?? []).filter(o => tabOf(o) === tab), [orders, tab]);
+  }, [orders, returns]);
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (orders ?? []).filter(o => o.bucket === tab)
+      .filter(o => !q || o.ref_no.toLowerCase().includes(q) || o.items.some(i => i.product_name?.toLowerCase().includes(q)))
+      .sort((a, b) => tab === "new"
+        ? new Date(a.sla_due_at || a.created_at).getTime() - new Date(b.sla_due_at || b.created_at).getTime()
+        : new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  }, [orders, tab, query]);
 
   const replaceOrder = (order: Order) => setOrders(os => (os ?? []).map(o => o.ref_no === order.ref_no ? order : o));
 
@@ -68,17 +118,20 @@ export default function OrdersPage() {
     finally { setBusy(null); }
   };
 
-  const accept = (refNo: string) => run(refNo, async () => {
-    replaceOrder((await api.acceptOrder(refNo)).order);
-  });
+  const accept = (refNo: string) => run(refNo, async () => { replaceOrder((await api.acceptOrder(refNo)).order); });
 
-  const label = (refNo: string) => run(refNo, async () => {
+  const downloadLabel = (refNo: string) => run(refNo, async () => {
     const res = await api.orderLabel(refNo);
-    setLabels(l => ({ ...l, [refNo]: { waybill: res.waybill, url: res.label_url, pending: res.label_pending } }));
-    setOrders(os => (os ?? []).map(o => o.ref_no === refNo ? { ...o, waybill: res.waybill, courier_status: o.courier_status ?? "Shipment Created" } : o));
+    if (res.label_url) window.open(res.label_url, "_blank", "noopener");
+    else if (res.manual) throw new Error(`${res.courier} label is handed over by NOTMADE at pickup.`);
+    else throw new Error("The courier is still preparing the label. Try again in a minute.");
   });
 
-  const loadVideo = async (refNo: string) => {
+  const toggleVideo = async (refNo: string) => {
+    const isOpen = !open[`v-${refNo}`];
+    setOpen(o => ({ ...o, [`v-${refNo}`]: isOpen }));
+    const cur = videos[refNo];
+    if (!isOpen || (cur && !cur.loading && !cur.error)) return;
     setVideos(v => ({ ...v, [refNo]: { loading: true } }));
     try {
       const { video } = await api.unboxingVideo(refNo);
@@ -88,227 +141,242 @@ export default function OrdersPage() {
     }
   };
 
-  const toggleDetails = (o: Order) => {
-    const next = !open[o.ref_no];
-    setOpen(s => ({ ...s, [o.ref_no]: next }));
-    if (next && o.has_unboxing_video && !videos[o.ref_no]) void loadVideo(o.ref_no);
-  };
+  if (error) return <Alert>{error}</Alert>;
+  if (!orders) return <FullPageSpinner />;
 
   return (
     <div>
-      <PageHeader title="Orders" sub="Accept or reject new orders, then generate a Delhivery shipping label to hand over the package."
-        action={<Button variant="secondary" onClick={() => { setOrders(null); void load(); }}>Refresh</Button>} />
+      <PageHeader title="Orders" sub="Accept, pack and hand over. NOTMADE generates the AWB once you mark an order ready."
+        action={<input className="sp-search" placeholder="Search order or product" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search orders" />} />
 
-      {error && <div style={{ marginBottom: 14 }}><Alert>{error}</Alert></div>}
+      <div role="tablist" aria-label="Order status" className="sp-tabs">
+        {TABS.map(t => (
+          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+            className={tab === t.key ? "sp-tab active" : "sp-tab"}>
+            {t.label}
+            {counts[t.key] > 0 && <span className={t.key === "new" ? "sp-count sp-count-red" : "sp-count"}>{counts[t.key]}</span>}
+          </button>
+        ))}
+      </div>
 
-      {!orders ? (!error && <FullPageSpinner />) : orders.length === 0 ? (
-        <EmptyState title="No orders yet" sub="Orders for your products will show up here." />
+      {tab === "returns" && returns.length > 0 && (
+        <Card style={{ padding: 0, marginBottom: 14 }}>
+          <p style={{ padding: "14px 18px", fontSize: 14, fontWeight: 800, borderBottom: "1px solid #EEEEEE" }}>Return and exchange requests</p>
+          {returns.map(r => (
+            <div key={r.id} style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", padding: "12px 18px", borderBottom: "1px solid #F3F3F3" }}>
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <p style={{ fontSize: 14, fontWeight: 700 }}>{r.product_name || r.order_ref || "Return"} <span style={{ color: "#888", fontWeight: 500 }}>· {r.type}</span></p>
+                <p style={{ fontSize: 12, color: "#777", marginTop: 2 }}>{r.reason || "—"}{r.size_ordered && ` · size ${r.size_ordered}${r.size_requested ? ` → ${r.size_requested}` : ""}`} · {fmtDate(r.created_at)}</p>
+              </div>
+              <Badge status={r.status} />
+            </div>
+          ))}
+        </Card>
+      )}
+
+      {shown.length === 0 ? (
+        tab === "returns" && returns.length ? null : <EmptyState title={EMPTY[tab]} />
       ) : (
-        <>
-          <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-            {TABS.map(t => (
-              <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)} style={{
-                padding: "7px 14px", borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                border: `1.5px solid ${tab === t.key ? "#111111" : "#E0E0E0"}`,
-                background: tab === t.key ? "#111111" : "#FFFFFF", color: tab === t.key ? "#FFFFFF" : "#555555",
-              }}>
-                {t.label} ({counts[t.key]})
-              </button>
-            ))}
-          </div>
-
-          {shown.length === 0 && (
-            <p style={{ fontSize: 14, color: "#888888", padding: "20px 0" }}>
-              {tab === "new" ? "You're all caught up." : "No orders here."}
-            </p>
-          )}
-
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {shown.map(o => {
-              const lbl = labels[o.ref_no];
-              const canDecide = !o.multi_seller && o.seller_status === "awaiting" && ACTIONABLE.includes(o.status);
-              const canLabel = !o.multi_seller && o.seller_status === "accepted" && ACTIONABLE.includes(o.status);
-              const isBusy = busy === o.ref_no;
-              const vid = videos[o.ref_no];
-              return (
-                <Card key={o.ref_no} style={{ padding: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-                    <div>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                        <p style={{ fontSize: 15, fontWeight: 800, color: "#111111" }}>{o.ref_no}</p>
-                        <Badge status={o.status} />
-                        {o.seller_status === "accepted" && <Badge status="accepted" label="Accepted" />}
-                        {o.seller_status === "rejected" && <Badge status="rejected" label="Rejected" />}
-                        {o.payment_method && <span style={{ fontSize: 11, fontWeight: 700, color: "#888888", textTransform: "uppercase" }}>{o.payment_method}</span>}
-                      </div>
-                      <p style={{ fontSize: 12, color: "#888888", marginTop: 3 }}>
-                        {fmtDate(o.created_at)} · {o.customer_name ?? "Customer"}{o.city && `, ${o.city}`}{o.pincode && ` ${o.pincode}`}
-                      </p>
-                    </div>
-                    <div style={{ textAlign: "right" }}>
-                      <p style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>{inr(o.seller_subtotal)}</p>
-                      {o.order_total !== null && o.order_total !== o.seller_subtotal && (
-                        <p style={{ fontSize: 11, color: "#AAAAAA" }}>Order total {inr(o.order_total)}</p>
-                      )}
-                    </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          {shown.map(o => {
+            const actionable = o.seller_status === "awaiting" && !o.multi_seller;
+            const c = o.commission;
+            const video = videos[o.ref_no];
+            return (
+              <Card key={o.ref_no} style={{ padding: 0, overflow: "hidden", outline: focus === o.ref_no ? `2px solid ${RED}` : undefined }}>
+                <div className="sp-order-head">
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontSize: 15, fontWeight: 800 }}>{o.ref_no}</p>
+                    <p style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
+                      {fmtDateTime(o.created_at)}{o.city && ` · ${o.city}`}{o.pincode && ` ${o.pincode}`}
+                    </p>
                   </div>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+                    {o.bucket === "new" && o.sla_due_at && <SlaChip due={o.sla_due_at} now={now} />}
+                    <span className="sp-chip">{o.region === "ae" ? "UAE" : "India"}</span>
+                    <span className="sp-chip">{String(o.payment_method || "").toLowerCase() === "cod" ? "COD" : "Prepaid"}</span>
+                    <Badge status={o.bucket === "cancelled" ? "cancelled" : o.stage === "awb" ? "packed" : o.status} label={o.bucket === "ready" ? (o.waybill ? "AWB ready" : "Ready for pickup") : undefined} />
+                  </div>
+                </div>
 
-                  <ul style={{ listStyle: "none", margin: "12px 0 0", padding: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-                    {o.items.map((it, i) => (
-                      <li key={`${it.product_id}-${it.size}-${i}`} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                        <div style={{ width: 40, height: 40, borderRadius: 8, overflow: "hidden", background: "#F3F3F3", flexShrink: 0 }}>
-                          {it.product_image && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={it.product_image} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          )}
-                        </div>
-                        <p style={{ flex: 1, fontSize: 13, color: "#333333" }}>
-                          {it.product_name}
-                          <span style={{ color: "#888888" }}>{it.size && ` · ${it.size}`} · Qty {it.quantity}</span>
-                        </p>
-                        <span style={{ fontSize: 13, color: "#555555" }}>{inr(it.line_total)}</span>
-                      </li>
-                    ))}
-                  </ul>
+                <ul style={{ listStyle: "none", margin: 0, padding: "4px 18px" }}>
+                  {o.items.map((i, idx) => (
+                    <li key={idx} style={{ display: "flex", gap: 12, alignItems: "center", padding: "10px 0", borderBottom: idx < o.items.length - 1 ? "1px solid #F3F3F3" : undefined }}>
+                      {i.image
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={i.image} alt="" width={52} height={64} style={{ width: 52, height: 64, objectFit: "cover", borderRadius: 8, background: "#F3F3F3" }} />
+                        : <div style={{ width: 52, height: 64, borderRadius: 8, background: "#F3F3F3" }} />}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 14, fontWeight: 700 }}>{i.product_name}</p>
+                        <p style={{ fontSize: 12, color: "#777", marginTop: 2 }}>{i.label && `${i.label} · `}Qty {i.quantity}</p>
+                      </div>
+                      <p style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>
+                        {i.market_currency === "AED" && i.market_unit_price != null ? amountIn("AED", i.market_unit_price * i.quantity) : amountIn("INR", i.line_total)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
 
-                  {o.multi_seller && (
-                    <p style={{ fontSize: 12, color: "#888888", marginTop: 12 }}>
-                      This order includes items from other sellers — NOTMADE handles fulfilment.
-                    </p>
-                  )}
+                <div className="sp-money">
+                  <div><span>Order value</span><strong>{amountIn(c.currency, c.gross)}</strong></div>
+                  <div><span>Commission {c.pct != null ? `${c.pct}%` : ""} · {c.label}{c.snapshot ? " · locked" : ""}</span><strong style={{ color: RED }}>{c.commission != null ? `−${amountIn(c.currency, c.commission)}` : "—"}</strong></div>
+                  <div><span>Your payout</span><strong>{c.payout != null ? amountIn(c.currency, c.payout) : "—"}</strong></div>
+                  <div><span>Settlement</span><strong>{o.settlement_date ? fmtDate(o.settlement_date) : `${o.settlement_days} days after delivery`}</strong></div>
+                </div>
 
-                  {o.seller_status === "rejected" && (
-                    <p style={{ fontSize: 13, color: "#333333", marginTop: 12 }}>
-                      You rejected this order{o.seller_rejected_at && ` on ${fmtDate(o.seller_rejected_at)}`}
-                      {o.seller_reject_reason && <> — <strong>{o.seller_reject_reason}</strong></>}. NOTMADE will follow up with the customer.
-                    </p>
-                  )}
-
-                  {(o.waybill || lbl) && (
-                    <p style={{ fontSize: 13, color: "#333333", marginTop: 12 }}>
-                      Waybill <strong>{lbl?.waybill ?? o.waybill}</strong>{o.courier_status && ` · ${o.courier_status}`}
-                      {lbl?.url && <> · <a href={lbl.url} target="_blank" rel="noopener noreferrer" style={{ color: RED, fontWeight: 700 }}>Download label</a></>}
-                      {lbl?.pending && <span style={{ color: "#B45309" }}> · Label is still being generated, try again in a minute.</span>}
-                    </p>
-                  )}
-
-                  {open[o.ref_no] && (
-                    <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid #F0F0F0" }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#111111", marginBottom: 8 }}>Unboxing video</p>
-                      {!o.has_unboxing_video ? (
-                        <p style={{ fontSize: 13, color: "#888888" }}>The customer hasn&apos;t uploaded an unboxing video for this order.</p>
-                      ) : !vid || vid.loading ? (
-                        <Spinner size={22} />
-                      ) : vid.error ? (
-                        <Alert>{vid.error}</Alert>
-                      ) : !vid.video ? (
-                        <p style={{ fontSize: 13, color: "#888888" }}>No unboxing video for this order.</p>
-                      ) : (
-                        <div>
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8, flexWrap: "wrap" }}>
-                            <Badge status={vid.video.status} label={VIDEO_LABEL[vid.video.status] ?? vid.video.status} />
-                            {vid.video.uploaded_at && <span style={{ fontSize: 12, color: "#888888" }}>Uploaded {fmtDate(vid.video.uploaded_at)}</span>}
-                          </div>
-                          {vid.video.url ? (
-                            <video key={vid.video.url} src={vid.video.url} controls playsInline preload="metadata"
-                              style={{ width: "100%", maxHeight: 420, borderRadius: 10, background: "#000000" }} />
-                          ) : (
-                            <p style={{ fontSize: 13, color: "#888888" }}>Video preview is unavailable. Contact NOTMADE support if you need it.</p>
-                          )}
-                          <p style={{ fontSize: 12, color: "#999999", marginTop: 6 }}>
-                            View only — NOTMADE reviews unboxing videos. The link expires after a few minutes;{" "}
-                            <button type="button" onClick={() => void loadVideo(o.ref_no)} style={{ background: "none", border: "none", padding: 0, color: RED, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", fontSize: 12 }}>reload video</button>.
-                          </p>
-                        </div>
-                      )}
+                {o.waybill && (
+                  <div className="sp-awb">
+                    <div>
+                      <p style={{ fontSize: 11, color: "#888", fontWeight: 600, letterSpacing: ".06em" }}>AWB · {o.courier || "Courier"}</p>
+                      <p style={{ fontSize: 16, fontWeight: 800, fontFamily: "var(--font-space-mono), monospace" }}>{o.waybill}</p>
                     </div>
-                  )}
-
-                  {rowError[o.ref_no] && <div style={{ marginTop: 12 }}><Alert>{rowError[o.ref_no]}</Alert></div>}
-
-                  <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 14, flexWrap: "wrap" }}>
-                    <Button variant="ghost" onClick={() => toggleDetails(o)}>
-                      {open[o.ref_no] ? "Hide details" : "Details"}
-                    </Button>
-                    {canDecide && (
-                      <>
-                        <Button variant="danger" disabled={isBusy} onClick={() => setRejecting(o)}>Reject</Button>
-                        <Button disabled={isBusy} onClick={() => void accept(o.ref_no)}>
-                          {isBusy ? "Accepting…" : "Accept"}
-                        </Button>
-                      </>
-                    )}
-                    {canLabel && (
-                      <Button variant={o.waybill ? "secondary" : "primary"} disabled={isBusy} onClick={() => void label(o.ref_no)}>
-                        {isBusy ? "Generating…" : o.waybill ? "Get shipping label" : "Generate shipping label"}
+                    <span className="sp-chip">{o.pickup_status || o.courier_status || "Pickup scheduled"}</span>
+                    {o.label_available && (
+                      <Button variant="secondary" onClick={() => downloadLabel(o.ref_no)} disabled={busy === o.ref_no}>
+                        {busy === o.ref_no ? <Spinner size={14} /> : "Download label"}
                       </Button>
                     )}
                   </div>
-                </Card>
-              );
-            })}
-          </div>
-        </>
+                )}
+
+                {o.bucket === "ready" && !o.waybill && (
+                  <p className="sp-note-line">Marked ready {o.ready_at ? fmtDateTime(o.ready_at) : ""}{o.package_weight_kg ? ` · ${o.package_weight_kg} kg` : ""}. NOTMADE is generating the AWB — it will show here with the label.</p>
+                )}
+                {o.bucket === "cancelled" && (
+                  <p className="sp-note-line" style={{ color: "#B00000" }}>{o.seller_reject_reason || o.cancel_reason || "Cancelled"}</p>
+                )}
+                {o.multi_seller && <p className="sp-note-line">This order has items from other sellers too. NOTMADE handles its fulfilment.</p>}
+
+                {rowError[o.ref_no] && <div style={{ padding: "0 18px 12px" }}><Alert>{rowError[o.ref_no]}</Alert></div>}
+
+                <div className="sp-order-foot">
+                  <button type="button" className="sp-link" onClick={() => setOpen(s => ({ ...s, [o.ref_no]: !s[o.ref_no] }))} aria-expanded={!!open[o.ref_no]}>
+                    {open[o.ref_no] ? "Hide progress" : "Track progress"}
+                  </button>
+                  {o.has_unboxing_video && (
+                    <button type="button" className="sp-link" onClick={() => void toggleVideo(o.ref_no)}>
+                      Unboxing video · {VIDEO_LABEL[o.unboxing_video_status || "pending_review"]}
+                    </button>
+                  )}
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {actionable && (
+                      <>
+                        <Button variant="danger" onClick={() => setRejecting(o)} disabled={busy === o.ref_no}>Reject</Button>
+                        <Button onClick={() => void accept(o.ref_no)} disabled={busy === o.ref_no}>
+                          {busy === o.ref_no ? <Spinner size={14} /> : "Accept order"}
+                        </Button>
+                      </>
+                    )}
+                    {o.bucket === "accepted" && !o.multi_seller && (
+                      <Button onClick={() => setReadying(o)} disabled={busy === o.ref_no}>Mark as ready</Button>
+                    )}
+                  </div>
+                </div>
+
+                {open[o.ref_no] && (
+                  <div style={{ padding: "4px 18px 18px" }}>
+                    <OrderTimeline steps={o.timeline} cancelled={o.bucket === "cancelled"} />
+                  </div>
+                )}
+                {open[`v-${o.ref_no}`] && (
+                  <div style={{ padding: "0 18px 18px" }}>
+                    {!video || video.loading ? <Spinner size={20} />
+                      : video.error ? <Alert>{video.error}</Alert>
+                      : video.video?.url ? <video src={video.video.url} controls playsInline style={{ width: "100%", maxWidth: 420, borderRadius: 12, background: "#000" }} />
+                      : <p style={{ fontSize: 13, color: "#888" }}>Video is not available right now.</p>}
+                  </div>
+                )}
+              </Card>
+            );
+          })}
+        </div>
       )}
 
       {rejecting && (
-        <RejectModal
-          order={rejecting}
-          onClose={() => setRejecting(null)}
-          onRejected={order => { replaceOrder(order); setRejecting(null); }}
-        />
+        <RejectModal order={rejecting} onClose={() => setRejecting(null)}
+          onRejected={o => { replaceOrder(o); setRejecting(null); }} />
+      )}
+      {readying && (
+        <ReadyModal order={readying} onClose={() => setReadying(null)}
+          onReady={o => { replaceOrder(o); setReadying(null); setTab("ready"); }} />
       )}
     </div>
   );
 }
 
 function RejectModal({ order, onClose, onRejected }: { order: Order; onClose: () => void; onRejected: (o: Order) => void }) {
-  const [reason, setReason] = useState<RejectReason | "">("");
+  const [reason, setReason] = useState<RejectReason>(REJECT_REASONS[0]);
   const [details, setDetails] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-
-  const needsDetails = reason === "Other";
-  const valid = !!reason && (!needsDetails || details.trim().length >= 3);
+  const tooShort = details.trim().length < 3;
 
   const submit = async () => {
-    if (!reason || !valid) return;
-    setSaving(true);
-    setError("");
-    try { onRejected((await api.rejectOrder(order.ref_no, reason, details.trim() || undefined)).order); }
-    catch (err) { setError(err instanceof Error ? err.message : "Could not reject order"); setSaving(false); }
+    setBusy(true); setError("");
+    try { onRejected((await api.rejectOrder(order.ref_no, reason, details.trim())).order); }
+    catch (err) { setError(err instanceof Error ? err.message : "Could not reject order"); setBusy(false); }
   };
 
   return (
-    <Modal title={`Reject ${order.ref_no}?`} onClose={saving ? () => {} : onClose} width={460}>
-      <p style={{ fontSize: 14, color: "#555555", marginBottom: 14 }}>
-        Tell us why you can&apos;t fulfil this order. NOTMADE will decide what happens next with the customer.
+    <Modal title={`Reject ${order.ref_no}?`} onClose={onClose} width={480}>
+      <p style={{ fontSize: 14, color: "#555", lineHeight: 1.55, marginBottom: 16 }}>
+        The order will be cancelled, the stock goes back to your listing and the customer is told by email and WhatsApp.
       </p>
-      <div role="radiogroup" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {REJECT_REASONS.map(r => (
-          <label key={r} style={{
-            display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, cursor: "pointer", fontSize: 14,
-            border: `1.5px solid ${reason === r ? "#111111" : "#E5E5E5"}`, color: "#222222",
-          }}>
-            <input type="radio" name="reject-reason" value={r} checked={reason === r} onChange={() => setReason(r)} />
-            {r}
-          </label>
-        ))}
-      </div>
-      {reason && (
-        <textarea
-          value={details}
-          onChange={e => setDetails(e.target.value)}
-          maxLength={500}
-          rows={3}
-          placeholder={needsDetails ? "Describe the reason (required)" : "Add a note (optional)"}
-          style={{ width: "100%", marginTop: 12, padding: "10px 12px", borderRadius: 10, border: "1.5px solid #E5E5E5", fontSize: 14, fontFamily: "inherit", resize: "vertical" }}
-        />
-      )}
+      <label htmlFor="reject-reason" style={{ display: "block", fontSize: 13, fontWeight: 600, marginBottom: 6 }}>Reason</label>
+      <select id="reject-reason" value={reason} onChange={e => setReason(e.target.value as RejectReason)} className="sp-field">
+        {REJECT_REASONS.map(r => <option key={r} value={r}>{r}</option>)}
+      </select>
+      <label htmlFor="reject-note" style={{ display: "block", fontSize: 13, fontWeight: 600, margin: "14px 0 6px" }}>Note (required)</label>
+      <textarea id="reject-note" rows={3} value={details} onChange={e => setDetails(e.target.value)} maxLength={500} className="sp-field"
+        placeholder={reason === "Out of stock" ? "e.g. Last piece was damaged during QC" : reason === "Can't fulfil in time" ? "e.g. Restock arrives next week" : "Tell us what happened"} />
       {error && <div style={{ marginTop: 12 }}><Alert>{error}</Alert></div>}
-      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", marginTop: 18 }}>
-        <Button variant="secondary" disabled={saving} onClick={onClose}>Cancel</Button>
-        <Button disabled={!valid || saving} onClick={() => void submit()}>{saving ? "Rejecting…" : "Reject order"}</Button>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>Keep order</Button>
+        <Button onClick={() => void submit()} disabled={busy || tooShort} style={{ background: "#111111" }}>
+          {busy ? <Spinner size={14} /> : "Reject and cancel"}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+function ReadyModal({ order, onClose, onReady }: { order: Order; onClose: () => void; onReady: (o: Order) => void }) {
+  const [weight, setWeight] = useState("");
+  const [checks, setChecks] = useState({ packed: false, tagged: false });
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const w = weight.trim() ? Number(weight) : undefined;
+  const badWeight = w !== undefined && (!Number.isFinite(w) || w <= 0 || w > 50);
+
+  const submit = async () => {
+    setBusy(true); setError("");
+    try { onReady((await api.markReady(order.ref_no, w)).order); }
+    catch (err) { setError(err instanceof Error ? err.message : "Could not mark ready"); setBusy(false); }
+  };
+
+  return (
+    <Modal title={`Ready for pickup · ${order.ref_no}`} onClose={onClose} width={460}>
+      <p style={{ fontSize: 14, color: "#555", lineHeight: 1.55, marginBottom: 16 }}>
+        Once you confirm, NOTMADE generates the AWB and books the pickup from your address. You&apos;ll get the label here.
+      </p>
+      {[
+        { k: "packed" as const, t: "Packed in a sealed NOTMADE-ready parcel" },
+        { k: "tagged" as const, t: "Tags on, invoice inside" },
+      ].map(c => (
+        <label key={c.k} style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 14, padding: "8px 0", cursor: "pointer" }}>
+          <input type="checkbox" checked={checks[c.k]} onChange={e => setChecks(s => ({ ...s, [c.k]: e.target.checked }))} style={{ width: 18, height: 18, accentColor: RED }} />
+          {c.t}
+        </label>
+      ))}
+      <label htmlFor="ready-weight" style={{ display: "block", fontSize: 13, fontWeight: 600, margin: "12px 0 6px" }}>Package weight in kg (optional)</label>
+      <input id="ready-weight" inputMode="decimal" value={weight} onChange={e => setWeight(e.target.value)} placeholder="0.5" className="sp-field" />
+      {badWeight && <p style={{ fontSize: 12, color: RED, marginTop: 6 }}>Enter a weight between 0 and 50 kg.</p>}
+      {error && <div style={{ marginTop: 12 }}><Alert>{error}</Alert></div>}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>Not yet</Button>
+        <Button onClick={() => void submit()} disabled={busy || badWeight || !checks.packed || !checks.tagged}>
+          {busy ? <Spinner size={14} /> : "Mark as ready"}
+        </Button>
       </div>
     </Modal>
   );

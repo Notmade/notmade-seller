@@ -204,6 +204,31 @@ export interface OrderItem {
   quantity: number;
   unit_price: number;
   line_total: number;
+  /** Variant snapshot: label falls back to the size, image to the product image */
+  variant_id: string | null;
+  label: string | null;
+  image: string | null;
+  option_values: Record<string, string>;
+  market_unit_price: number | null;
+  market_currency: string | null;
+}
+
+export type OrderBucket = "new" | "accepted" | "ready" | "shipped" | "delivered" | "cancelled" | "returns";
+export type StageKey = "placed" | "accepted" | "ready" | "awb" | "picked_up" | "in_transit" | "delivered";
+
+export interface TimelineStep { key: StageKey; label: string; done: boolean; current: boolean; at: string | null }
+
+/** Commission on this seller's lines: India 17%, UAE local 17%, India to UAE 45% (rates from the backend). */
+export interface OrderCommission {
+  type: "india" | "uae_local" | "uae_from_india";
+  label: string;
+  pct: number | null;
+  currency: "INR" | "AED";
+  gross: number;
+  commission: number | null;
+  payout: number | null;
+  /** true once the rate was locked in at accept */
+  snapshot: boolean;
 }
 
 export interface Order {
@@ -214,6 +239,7 @@ export interface Order {
   customer_name: string | null;
   city: string | null;
   pincode: string | null;
+  region: "in" | "ae";
   items: OrderItem[];
   seller_subtotal: number;
   order_total: number | null;
@@ -222,8 +248,22 @@ export interface Order {
   seller_accepted_at: string | null;
   seller_rejected_at: string | null;
   seller_reject_reason: string | null;
+  cancel_reason: string | null;
+  bucket: OrderBucket;
+  stage: StageKey;
+  timeline: TimelineStep[];
+  sla_due_at: string | null;
+  ready_at: string | null;
+  package_weight_kg: number | null;
   waybill: string | null;
+  courier: string | null;
   courier_status: string | null;
+  pickup_status: string | null;
+  awb_generated_at: string | null;
+  label_available: boolean;
+  commission: OrderCommission;
+  settlement_days: number;
+  settlement_date: string | null;
   has_unboxing_video: boolean;
   unboxing_video_status: UnboxingVideoStatus | null;
 }
@@ -231,8 +271,59 @@ export interface Order {
 export type SellerOrderStatus = "awaiting" | "accepted" | "rejected";
 export type UnboxingVideoStatus = "pending_review" | "approved" | "rejected";
 
-export const REJECT_REASONS = ["Out of stock", "Size unavailable", "Quality issue", "Other"] as const;
+export const REJECT_REASONS = ["Out of stock", "Can't fulfil in time", "Other"] as const;
 export type RejectReason = (typeof REJECT_REASONS)[number];
+
+export type Money = Partial<Record<"INR" | "AED", number>>;
+
+export interface DashboardData {
+  today: { orders: number; payout: Money };
+  pending_accept: { count: number; overdue: number; next_due_at: string | null };
+  ready_for_pickup: { count: number; awaiting_awb: number; awb_generated: number };
+  counts: Record<OrderBucket, number>;
+  earnings: { today: Money; month: Money; delivered_lifetime: Money };
+  next_settlement: { date: string; amount: Money; source: "payout" | "estimate" } | null;
+  settlement_days: number;
+  low_stock: { count: number; threshold: number; items: { product_id: string; name: string; variant: string | null; stock: number; image: string | null }[] };
+  returns: { open: number };
+  products: { total: number; live: number; pending: number; rejected: number };
+  sla_hours: number;
+  recent_orders: Order[];
+}
+
+export interface SellerNotification {
+  id: string;
+  type: "new_order" | "reminder" | "awb_ready" | "cancelled" | "payout" | "product";
+  urgent: boolean;
+  title: string;
+  body: string;
+  href: string;
+  at: string;
+}
+
+export interface Payout {
+  id: string;
+  amount: number;
+  commission: number | null;
+  currency: "INR" | "AED";
+  status: "paid" | "pending";
+  due_date: string | null;
+  paid_at: string | null;
+  reference: string | null;
+  invoice_url: string | null;
+  created_at: string;
+}
+
+export interface UpcomingSettlement {
+  ref_no: string; settlement_date: string; currency: "INR" | "AED";
+  gross: number; commission: number | null; commission_pct: number | null; payout: number | null;
+}
+
+export interface ReturnRequest {
+  id: string; order_ref: string | null; product_id: string | null; product_name: string | null;
+  type: string; reason: string | null; status: string; size_ordered: string | null; size_requested: string | null;
+  has_video: boolean; created_at: string; resolved_at: string | null;
+}
 
 export interface UnboxingVideo {
   url: string | null;
@@ -317,14 +408,20 @@ export const api = {
     request<{ product: Product }>(`/seller/products/${id}`, { method: "PUT", body: fd }),
   deleteProduct: (id: string) => request<{ success: true }>(`/seller/products/${id}`, { method: "DELETE" }),
 
-  orders: () => request<{ orders: Order[] }>("/seller/orders"),
+  orders: () => request<{ orders: Order[]; counts: Record<OrderBucket, number>; sla_hours: number }>("/seller/orders"),
   acceptOrder: (refNo: string) => post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/accept`),
-  rejectOrder: (refNo: string, reason: RejectReason, details?: string) =>
+  rejectOrder: (refNo: string, reason: RejectReason, details: string) =>
     post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/reject`, { reason, details }),
+  markReady: (refNo: string, weightKg?: number) =>
+    post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/ready`, weightKg ? { weight_kg: weightKg } : {}),
+  dashboard: () => request<DashboardData>("/seller/dashboard"),
+  notifications: () => request<{ notifications: SellerNotification[] }>("/seller/notifications"),
+  payouts: () => request<{ payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }>("/seller/payouts"),
+  returns: () => request<{ returns: ReturnRequest[] }>("/seller/returns"),
   unboxingVideo: (refNo: string) =>
     request<{ video: UnboxingVideo | null }>(`/seller/orders/${encodeURIComponent(refNo)}/unboxing-video`),
   orderLabel: (refNo: string) =>
-    post<{ waybill: string; label_url: string | null; label_pending: boolean }>(
+    post<{ waybill: string; courier?: string; label_url: string | null; label_pending: boolean; manual?: boolean }>(
       `/seller/orders/${encodeURIComponent(refNo)}/label`),
 };
 
@@ -362,6 +459,23 @@ export function downloadAgreement(text: string, title: string, version: string):
 
 export function inr(n: number | null | undefined): string {
   return `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+}
+
+/** "₹1,200 + AED 55" for a per-currency amount bag. */
+export function money(m: Money | null | undefined): string {
+  const parts: string[] = [];
+  if (m?.INR) parts.push(inr(m.INR));
+  if (m?.AED) parts.push(aed(m.AED));
+  return parts.length ? parts.join(" + ") : inr(0);
+}
+
+export function amountIn(currency: "INR" | "AED", n: number | null | undefined): string {
+  return currency === "AED" ? aed(n) : inr(n);
+}
+
+export function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
 export function fmtDate(iso: string | null | undefined): string {
