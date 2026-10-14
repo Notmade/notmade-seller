@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import { useSeller } from "../lib/useSeller";
-import { SellerContext } from "./seller-context";
+import { SellerContext, SellerReloadContext } from "./seller-context";
 import Sidebar from "../components/Sidebar";
 import { Alert, Button, Spinner } from "../components/portal-ui";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { state, reload, signOut } = useSeller();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -40,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <SellerReloadContext.Provider value={reload}>
     <SellerContext.Provider value={seller}>
       <div style={{ display: "flex", minHeight: "100vh", background: "#F5F5F5" }}>
         <Sidebar
@@ -73,10 +76,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           <div style={{ padding: "28px 16px", maxWidth: 1100 }} className="lg:px-6">
+            {seller.agreement?.resign_required && pathname !== "/dashboard/agreement" && (
+              <div role="alert" style={{
+                display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap",
+                background: "#FFF7E6", border: "1px solid #F5D08A", borderRadius: 10, padding: "12px 16px", marginBottom: 20,
+              }}>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: "#7A4B00" }}>Please review and sign the updated agreement</p>
+                  <p style={{ fontSize: 13, color: "#8A6A2E", marginTop: 2 }}>
+                    Until you sign, you can&apos;t add or edit products. Your live products stay live and existing orders continue.
+                  </p>
+                </div>
+                <Link href="/dashboard/agreement" style={{ fontSize: 14, fontWeight: 700, color: "#CC0000", textDecoration: "none", whiteSpace: "nowrap" }}>
+                  Review &amp; sign →
+                </Link>
+              </div>
+            )}
             {children}
           </div>
         </div>
       </div>
     </SellerContext.Provider>
+    </SellerReloadContext.Provider>
   );
 }

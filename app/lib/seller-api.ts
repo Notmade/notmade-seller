@@ -43,6 +43,30 @@ export interface UaeStatus {
   commission_pct: number | null;
 }
 
+/** Main agreement state from GET /seller/me. resign_required: signed an older version than the current one for their country. */
+export interface AgreementStatus {
+  seller_country: "IN" | "AE" | "OTHER";
+  required_version: string | null;
+  required_open: boolean;
+  signed_version: string | null;
+  signed_at: string | null;
+  resign_required: boolean;
+}
+
+/** Effective rates from GET /seller/me. international_pct: UAE store rate for UAE-based sellers. */
+export interface SellerCommission {
+  pricing: "seller_controlled";
+  india_pct: number | null;
+  international_pct: number | null;
+}
+
+/** GET /seller/commission-rates — shown at registration. */
+export interface CommissionRates {
+  india_pct: number | null;
+  international_pct: number | null;
+  uae_local_pct: number | null;
+}
+
 export interface Seller {
   id: string;
   email: string;
@@ -76,8 +100,12 @@ export interface Seller {
   emirates_id_last4?: string | null;
   emirate?: string | null;
   iban?: string | null;
+  // Migration 048
+  agreement_version?: string | null;
   /** Merged in from GET /seller/me */
   uae?: UaeStatus;
+  agreement?: AgreementStatus;
+  commission?: SellerCommission;
 }
 
 export interface VerifyOtpResponse {
@@ -113,7 +141,13 @@ export interface OnboardingState {
 
 export interface Agreement {
   version: string;
+  title: string;
+  /** Signed markdown; agreement_hash covers exactly this */
   text: string;
+  /** Sanitised HTML rendered by the backend from `text` */
+  html: string;
+  /** `text` with all markdown markers removed, for downloads */
+  plain_text: string;
   agreement_hash: string;
   pricing_model: string;
   commission_rate: number;
@@ -126,6 +160,17 @@ export interface UaeAgreementResponse extends UaeStatus {
 }
 
 export type SignBody = { code: string; signer_name: string; agreement_hash: string };
+
+export interface SignedAgreement {
+  id: string;
+  version: string;
+  title: string;
+  agreement_hash: string;
+  signer_name: string;
+  signed_at: string;
+  html: string;
+  plain_text: string;
+}
 
 export interface Category { id: string; name: string; slug: string }
 
@@ -240,9 +285,10 @@ export const api = {
     post<VerifyOtpResponse>("/seller-auth/verify-otp", { email, code, purpose }),
 
   me: async () => {
-    const r = await request<{ seller: Seller; uae?: UaeStatus }>("/seller/me");
-    return { seller: r.seller ? { ...r.seller, uae: r.uae } : r.seller };
+    const r = await request<{ seller: Seller; uae?: UaeStatus; agreement?: AgreementStatus; commission?: SellerCommission }>("/seller/me");
+    return { seller: r.seller ? { ...r.seller, uae: r.uae, agreement: r.agreement, commission: r.commission } : r.seller };
   },
+  commissionRates: () => request<CommissionRates>("/seller/commission-rates"),
   signup: (body: Record<string, unknown>) =>
     post<{ seller: Seller; token?: string; required_documents: DocType[] }>("/seller/signup", body),
   onboardingStatus: () => request<OnboardingState>("/seller/onboarding-status"),
@@ -256,6 +302,7 @@ export const api = {
   },
 
   agreement: () => request<Agreement>("/seller/agreement"),
+  signedAgreements: () => request<{ agreements: SignedAgreement[] }>("/seller/agreements/signed"),
   signAgreement: (body: SignBody) =>
     post<{ agreement: { id: string; version: string; signed_at: string }; onboarding_status: OnboardingStatus }>(
       "/seller/agreement/sign", body),
@@ -300,6 +347,17 @@ export function aed(n: number | null | undefined): string {
 /** What the seller keeps on a UAE sale after commission, rounded to fils. */
 export function uaeNet(priceAed: number, commissionPct: number): number {
   return Math.round(priceAed * (1 - commissionPct / 100) * 100) / 100;
+}
+
+/** Saves agreement text as a .txt download (plain text, no markdown markers). */
+export function downloadAgreement(text: string, title: string, version: string): void {
+  const safe = title.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "NOTMADE-Agreement";
+  const url = URL.createObjectURL(new Blob([text], { type: "text/plain;charset=utf-8" }));
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${safe}-${version}.txt`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 export function inr(n: number | null | undefined): string {

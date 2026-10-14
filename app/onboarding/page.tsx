@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, t
 import { useRouter } from "next/navigation";
 import {
   api, ApiError, setToken, DOC_LABELS, fmtDate,
-  type DocType, type OnboardingState, type Seller, type SellerCountry,
+  type CommissionRates, type DocType, type OnboardingState, type Seller, type SellerCountry,
 } from "../lib/seller-api";
 import { useSeller } from "../lib/useSeller";
 import { Alert, Button, Card, Field, FullPageSpinner, RED, Spinner } from "../components/portal-ui";
@@ -178,7 +178,6 @@ interface DetailsForm {
   seller_country: "" | SellerCountry;
   legal_name: string; business_name: string; contact_name: string; phone: string;
   address_line: string; city: string; state: string; pincode: string;
-  pricing_model: "" | "managed" | "seller_controlled";
   gst_registered: "" | "yes" | "no"; gstin: string; pan_number: string; aadhaar_number: string;
   sell_in_uae: boolean;
   // UAE path
@@ -193,7 +192,7 @@ function fromSeller(s: Seller | null): DetailsForm {
     legal_name: s?.legal_name ?? "", business_name: s?.business_name ?? "", contact_name: s?.contact_name ?? "",
     phone: (country === "AE" ? s?.phone?.replace(/^\+971/, "") : s?.phone) ?? "",
     address_line: s?.address_line ?? "", city: s?.city ?? "", state: s?.state ?? "",
-    pincode: s?.pincode ?? "", pricing_model: s?.pricing_model ?? "",
+    pincode: s?.pincode ?? "",
     gst_registered: s?.gst_registered == null ? "" : s.gst_registered ? "yes" : "no",
     gstin: s?.gstin ?? "", pan_number: s?.pan_number ?? "", aadhaar_number: "", sell_in_uae: !!s?.sell_in_uae,
     emirate: s?.emirate ?? "", trade_licence_number: s?.trade_licence_number ?? "", trn: s?.trn ?? "",
@@ -237,7 +236,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
         body = {
           seller_country: "AE",
           legal_name: f.legal_name, business_name: f.business_name, contact_name: f.contact_name, phone: f.phone,
-          address_line: f.address_line, city: f.city, emirate: f.emirate, pricing_model: f.pricing_model,
+          address_line: f.address_line, city: f.city, emirate: f.emirate,
           trade_licence_number: f.trade_licence_number.toUpperCase(), trn: f.trn, uae_id_type: f.uae_id_type,
           iban: f.iban.replace(/\s+/g, "").toUpperCase(),
         };
@@ -248,7 +247,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
           seller_country: "IN",
           legal_name: f.legal_name, business_name: f.business_name, contact_name: f.contact_name, phone: f.phone,
           address_line: f.address_line, city: f.city, state: f.state, pincode: f.pincode,
-          pricing_model: f.pricing_model, gst_registered: f.gst_registered === "" ? "" : gst,
+          gst_registered: f.gst_registered === "" ? "" : gst,
           gstin: gst ? f.gstin.toUpperCase() : "", pan_number: f.pan_number.toUpperCase(), sell_in_uae: f.sell_in_uae,
         };
         if (!gst) body.aadhaar_number = f.aadhaar_number;
@@ -380,14 +379,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
           <section>
             <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>How you want to sell</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Field label="Pricing model">
-                <div style={grid2}>
-                  <Choice name="pricing_model" checked={f.pricing_model === "managed"} onChange={() => setF(p => ({ ...p, pricing_model: "managed" }))}
-                    title="Managed" sub="NOTMADE helps set and optimise your prices." />
-                  <Choice name="pricing_model" checked={f.pricing_model === "seller_controlled"} onChange={() => setF(p => ({ ...p, pricing_model: "seller_controlled" }))}
-                    title="Seller controlled" sub="You set your own prices." />
-                </div>
-              </Field>
+              <PricingNote showRates />
               <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#333333", cursor: "pointer" }}>
                 <input type="checkbox" checked={f.sell_in_uae} onChange={set("sell_in_uae")} style={{ width: 18, height: 18, accentColor: RED }} />
                 I also want to sell in the UAE
@@ -405,7 +397,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
 
           {!readOnly && !blocked && (
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <Button type="submit" disabled={saving || !f.seller_country || !f.pricing_model || (f.seller_country === "IN" ? !f.gst_registered : !f.uae_id_type)}>
+              <Button type="submit" disabled={saving || !f.seller_country || (f.seller_country === "IN" ? !f.gst_registered : !f.uae_id_type)}>
                 {saving ? "Saving…" : "Save & continue →"}
               </Button>
             </div>
@@ -499,14 +491,7 @@ function UaeDetailsFields({ f, setF, set }: {
 
       <section>
         <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>How you want to sell</h2>
-        <Field label="Pricing model">
-          <div style={grid2}>
-            <Choice name="pricing_model" checked={f.pricing_model === "managed"} onChange={() => setF(p => ({ ...p, pricing_model: "managed" }))}
-              title="Managed" sub="NOTMADE helps set and optimise your prices." />
-            <Choice name="pricing_model" checked={f.pricing_model === "seller_controlled"} onChange={() => setF(p => ({ ...p, pricing_model: "seller_controlled" }))}
-              title="Seller controlled" sub="You set your own prices." />
-          </div>
-        </Field>
+        <PricingNote />
       </section>
     </>
   );
@@ -549,6 +534,24 @@ function WaitlistState({ market, onChangeCountry }: { market: Market; onChangeCo
         </button>
       </p>
     </Card>
+  );
+}
+
+/** Seller-controlled pricing is the only model. India-based sellers also see their rates, read from the backend. */
+function PricingNote({ showRates = false }: { showRates?: boolean }) {
+  const [rates, setRates] = useState<CommissionRates | null>(null);
+  useEffect(() => {
+    if (showRates) api.commissionRates().then(setRates).catch(() => setRates(null));
+  }, [showRates]);
+  const parts = rates ? [
+    rates.india_pct != null && `India sales ${rates.india_pct}%`,
+    rates.international_pct != null && `international ${rates.international_pct}%`,
+  ].filter(Boolean) : [];
+  return (
+    <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid #E5E5E5", background: "#FAFAFA" }}>
+      <p style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>You set your own prices. NOTMADE never changes your price.</p>
+      {parts.length > 0 && <p style={{ fontSize: 13, color: "#666666", marginTop: 4 }}>{parts.join(", ")}</p>}
+    </div>
   );
 }
 
@@ -660,8 +663,8 @@ function AgreementStep({ seller, onSigned }: { seller: Seller; onSigned: () => P
       onSigned={onSigned}
       pills={a => (
         <>
-          <Pill>{uaeBased ? `UAE commission ${a.commission_rate}%` : `Commission ${a.commission_rate}%`}</Pill>
-          <Pill>{a.pricing_model === "managed" ? "Managed pricing" : "Seller-controlled pricing"}</Pill>
+          <Pill>{uaeBased ? `UAE commission ${a.commission_rate}%` : `India commission ${a.commission_rate}%`}</Pill>
+          <Pill>Seller-controlled pricing</Pill>
         </>
       )}
     />

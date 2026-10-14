@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import Link from "next/link";
 import { api, DOC_LABELS, fmtDate, type SellerDocument } from "../../lib/seller-api";
 import { useDashboardSeller } from "../seller-context";
-import { Alert, Button, Card, PageHeader, Spinner } from "../../components/portal-ui";
+import { Alert, Button, Card, PageHeader, RED, Spinner } from "../../components/portal-ui";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -18,6 +19,9 @@ export default function ProfilePage() {
   const seller = useDashboardSeller();
   const uae = seller.uae;
   const uaeBased = seller.seller_country === "AE";
+  const agreement = seller.agreement;
+  const commission = seller.commission;
+  const pct = (n: number | null | undefined) => (n == null ? null : `${n}%`);
   const [docs, setDocs] = useState<SellerDocument[] | null>(null);
   const [docsErr, setDocsErr] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -75,15 +79,23 @@ export default function ProfilePage() {
                 : <Row label="Aadhaar" value={seller.aadhaar_last4 && `•••• •••• ${seller.aadhaar_last4}`} />}
               <Row label="PAN" value={seller.pan_number} />
             </>}
-            <Row label="Pricing model" value={seller.pricing_model === "managed" ? "Managed by NOTMADE" : seller.pricing_model === "seller_controlled" ? "Seller controlled" : null} />
-            <Row label="Commission" value={seller.commission_rate != null && `${seller.commission_rate}%`} />
-            {(seller.sell_in_uae || uae?.ready) && (
-              <Row label="UAE commission" value={uae?.ready
-                ? (uae.commission_pct != null ? `${uae.commission_pct}%` : "—")
-                : "UAE agreement not signed"} />
-            )}
-            {uae?.signed_agreement_version && <Row label="UAE agreement" value={`${uae.signed_agreement_version} · ${fmtDate(uae.signed_at)}`} />}
-            <Row label="Agreement signed" value={fmtDate(seller.agreement_signed_at)} />
+            <Row label="Pricing" value="Seller-controlled. You set your own prices; NOTMADE never changes your price." />
+            {uaeBased
+              ? <Row label="UAE store commission" value={pct(commission?.international_pct ?? uae?.commission_pct)} />
+              : <>
+                <Row label="India store commission" value={pct(commission?.india_pct ?? seller.commission_rate)} />
+                <Row label="International commission" value={pct(commission?.international_pct ?? uae?.commission_pct)} />
+              </>}
+            <Row label="Seller agreement" value={agreement?.signed_version
+              ? <>
+                {agreement.signed_version} · signed {fmtDate(agreement.signed_at)}
+                {agreement.resign_required && <span style={{ color: RED, fontWeight: 700 }}> · update to {agreement.required_version} needs your signature</span>}
+              </>
+              : fmtDate(seller.agreement_signed_at)} />
+            {!uaeBased && <Row label="International addendum" value={uae?.signed_agreement_version
+              ? `${uae.signed_agreement_version} · signed ${fmtDate(uae.signed_at)}`
+              : "Not signed"} />}
+            <Row label="Agreement text" value={<Link href="/dashboard/agreement" style={{ color: RED, fontWeight: 700, textDecoration: "none" }}>View agreement →</Link>} />
             <Row label="Seller since" value={fmtDate(seller.created_at)} />
           </dl>
         </Card>

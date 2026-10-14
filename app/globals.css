@@ -578,3 +578,25 @@ body {
 .s-links { display: flex; flex-wrap: wrap; gap: 4px 20px; }
 .s-links a { display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; text-decoration: none; }
 .s-links a:hover { text-decoration: underline; }
+
+/* ── Agreement (HTML rendered by the backend from the agreement markdown) ── */
+.agreement-doc-box {
+  overflow-y: auto;
+  background: #FAFAFA;
+  border: 1px solid #EEEEEE;
+  border-radius: 10px;
+  padding: 18px 20px;
+  color: #333333;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.agreement-doc h1 { font-size: 18px; font-weight: 800; color: #111111; letter-spacing: -0.01em; margin: 0 0 2px; }
+.agreement-doc h2 { font-size: 13px; font-weight: 700; color: #666666; margin: 0 0 14px; letter-spacing: 0.02em; }
+.agreement-doc h3 { font-size: 14px; font-weight: 800; color: #111111; margin: 22px 0 8px; }
+.agreement-doc p { margin: 0 0 10px; }
+.agreement-doc ul, .agreement-doc ol { margin: 0 0 10px; padding-left: 20px; }
+.agreement-doc ul { list-style: disc; }
+.agreement-doc ol { list-style: decimal; }
+.agreement-doc li { margin: 0 0 4px; }
+.agreement-doc strong { font-weight: 700; color: #111111; }
+.agreement-doc hr { border: 0; border-top: 1px solid #E5E5E5; margin: 18px 0; }

@@ -21,6 +21,8 @@ function productStatus(p: Product): { key: string; label: string } {
 }
 
 export default function ProductsPage() {
+  // Adding / editing waits for the updated agreement; delete and orders are unaffected
+  const locked = !!useDashboardSeller().agreement?.resign_required;
   const [products, setProducts] = useState<Product[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
@@ -63,13 +65,22 @@ export default function ProductsPage() {
   return (
     <div>
       <PageHeader title="Products" sub="New products and edits go to NOTMADE for review before going live."
-        action={<Button onClick={() => setEditing("new")}>+ Add product</Button>} />
+        action={<Button disabled={locked} onClick={() => setEditing("new")}>+ Add product</Button>} />
+
+      {locked && (
+        <div style={{ marginBottom: 14 }}>
+          <Alert kind="warn">
+            Sign the updated agreement to add or edit products. Your live products stay live.{" "}
+            <Link href="/dashboard/agreement" style={{ color: RED, fontWeight: 700 }}>Review &amp; sign</Link>
+          </Alert>
+        </div>
+      )}
 
       {error && <div style={{ marginBottom: 14 }}><Alert>{error}</Alert></div>}
 
       {!products ? (!error && <FullPageSpinner />) : products.length === 0 ? (
         <EmptyState title="No products yet" sub="Add your first product to start selling on NOTMADE."
-          action={<Button onClick={() => setEditing("new")}>+ Add product</Button>} />
+          action={<Button disabled={locked} onClick={() => setEditing("new")}>+ Add product</Button>} />
       ) : (
         <>
           <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
@@ -123,7 +134,7 @@ export default function ProductsPage() {
                         </>
                       ) : (
                         <>
-                          <Button variant="secondary" onClick={() => setEditing(p)}>Edit</Button>
+                          <Button variant="secondary" disabled={locked} onClick={() => setEditing(p)}>Edit</Button>
                           <Button variant="danger" onClick={() => setConfirmDelete(p.id)}>Delete</Button>
                         </>
                       )}

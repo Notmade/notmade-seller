@@ -1,10 +1,32 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { api, ApiError, type Agreement, type Seller, type SignBody } from "../lib/seller-api";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import { api, ApiError, downloadAgreement, type Agreement, type Seller, type SignBody } from "../lib/seller-api";
 import { Alert, Button, Card, Field, FullPageSpinner, RED } from "./portal-ui";
 
 const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 };
+
+/**
+ * Formatted agreement. `html` is rendered and sanitised by the backend (every character of the
+ * markdown is escaped before tags are added), so it is safe to inject.
+ */
+export function AgreementDocument({ html, maxHeight = 420, onScrolledToEnd }: {
+  html: string;
+  maxHeight?: number;
+  onScrolledToEnd?: () => void;
+}) {
+  const box = useRef<HTMLDivElement>(null);
+  const check = useCallback(() => {
+    const el = box.current;
+    // A few px of slack for zoom / sub-pixel rounding; content that doesn't overflow counts as read
+    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 8) onScrolledToEnd?.();
+  }, [onScrolledToEnd]);
+  useEffect(() => { check(); }, [check, html]);
+  return (
+    <div ref={box} tabIndex={0} onScroll={check} className="agreement-doc-box" style={{ maxHeight }}
+      dangerouslySetInnerHTML={{ __html: html }} />
+  );
+}
 
 /** Review + OTP e-sign for any agreement (seller agreement, UAE addendum). */
 export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: {
@@ -24,9 +46,13 @@ export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
+  // Sign stays disabled until the seller has scrolled to the end of the agreement
+  const [readToEnd, setReadToEnd] = useState(false);
+  const markRead = useCallback(() => setReadToEnd(true), []);
 
   const reload = useCallback(async () => {
     setLoadErr("");
+    setReadToEnd(false);
     try { setAgreement(await load()); }
     catch (err) { setLoadErr(err instanceof Error ? err.message : "Could not load agreement"); }
   }, [load]);
@@ -73,15 +99,21 @@ export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: 
         <span style={{ fontSize: 12, color: "#888888" }}>Version {agreement.version}</span>
       </div>
       {pills && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0 14px" }}>{pills(agreement)}</div>}
-      <pre tabIndex={0} style={{
-        whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 13, lineHeight: 1.6, color: "#333333",
-        background: "#FAFAFA", border: "1px solid #EEEEEE", borderRadius: 10, padding: 16, maxHeight: 420, overflowY: "auto",
-        marginTop: pills ? 0 : 12,
-      }}>{agreement.text}</pre>
+      <div style={{ marginTop: pills ? 0 : 12 }}>
+        <AgreementDocument html={agreement.html} onScrolledToEnd={markRead} />
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
+        <span style={{ fontSize: 12, color: readToEnd ? "#16A34A" : "#888888" }}>
+          {readToEnd ? "You've reached the end of the agreement." : "Scroll to the end of the agreement to enable signing."}
+        </span>
+        <Button variant="ghost" onClick={() => downloadAgreement(agreement.plain_text, agreement.title || title, agreement.version)} style={{ padding: "6px 10px", fontSize: 13 }}>
+          Download
+        </Button>
+      </div>
 
-      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 18 }}>
-        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: "#333333", cursor: "pointer" }}>
-          <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, accentColor: RED }} />
+      <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16, marginTop: 14 }}>
+        <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 14, color: readToEnd ? "#333333" : "#AAAAAA", cursor: readToEnd ? "pointer" : "not-allowed" }}>
+          <input type="checkbox" checked={agreed} disabled={!readToEnd} onChange={e => setAgreed(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, accentColor: RED }} />
           I have read and agree to the {title} on behalf of {seller.legal_name || seller.business_name}.
         </label>
         <div style={grid2}>
@@ -101,13 +133,13 @@ export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: 
 
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
           {!codeSent ? (
-            <Button disabled={busy || !agreed || signer.trim().length < 2} onClick={() => void sendCode()}>
+            <Button disabled={busy || !readToEnd || !agreed || signer.trim().length < 2} onClick={() => void sendCode()}>
               {busy ? "Sending…" : "Send signing code →"}
             </Button>
           ) : (
             <>
               <Button variant="secondary" disabled={busy} onClick={() => void sendCode()}>Resend code</Button>
-              <Button type="submit" disabled={busy || !agreed || code.length < 6 || signer.trim().length < 2}>
+              <Button type="submit" disabled={busy || !readToEnd || !agreed || code.length < 6 || signer.trim().length < 2}>
                 {busy ? "Signing…" : "Sign agreement"}
               </Button>
             </>
