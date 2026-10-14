@@ -6,6 +6,13 @@ const nextConfig = {
     NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
   },
+  // Portal pages are never indexed
+  async headers() {
+    return ['/login', '/dashboard/:path*', '/onboarding/:path*'].map((source) => ({
+      source,
+      headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
+    }));
+  },
   // Pages kept in the repo but not backed by the seller API yet (payouts lands in week 2)
   async redirects() {
     return ['payouts', 'warehouse', 'contract', 'returns'].map((p) => ({

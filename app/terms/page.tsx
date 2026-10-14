@@ -46,9 +46,8 @@ export default function Terms() {
               COMMISSION
             </h2>
             <p>
-              NOTMADE charges a commission of{" "}
-              <span className="text-white font-medium">17% flat per completed sale</span>.
-              That&apos;s the only fee. No setup fee, no listing fee, no monthly
+              NOTMADE charges a commission on each completed sale, at the rate
+              set out in your signed seller agreement. That&apos;s the only fee. No setup fee, no listing fee, no monthly
               subscription. You get paid when a customer places and receives an
               order.
             </p>

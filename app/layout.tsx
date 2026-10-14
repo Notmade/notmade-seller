@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, Archivo, Space_Mono } from "next/font/google";
+import { Bebas_Neue, Archivo, Inter, Space_Mono } from "next/font/google";
+import { SITE_URL } from "./lib/seller-config";
 import "./globals.css";
 
 const bebasNeue = Bebas_Neue({
@@ -15,6 +16,12 @@ const archivo = Archivo({
   display: "swap",
 });
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 const spaceMono = Space_Mono({
   weight: ["400", "700"],
   subsets: ["latin"],
@@ -23,16 +30,11 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sell on NOTMADE — Built For Sellers Who Mean Business",
-  description:
-    "Not another marketplace. A platform that actually gives a damn about your cash flow, your customers, and your growth. Apply to sell on NOTMADE.",
+  metadataBase: new URL(SITE_URL),
+  title: "Sell on NOTMADE | Seller portal",
+  description: "Open a NOTMADE seller account. Sell on notmade.in and get paid within 7 days after each order is delivered.",
   robots: { index: true, follow: true },
-  openGraph: {
-    title: "Sell on NOTMADE — Built For Sellers Who Mean Business",
-    description: "7-day payouts. Better commissions. No BS. Apply to sell.",
-    url: "https://seller.notmade.in",
-    siteName: "NOTMADE Seller Portal",
-  },
+  openGraph: { siteName: "NOTMADE Seller", url: SITE_URL },
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
@@ -47,7 +49,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${bebasNeue.variable} ${archivo.variable} ${spaceMono.variable}`}
+      className={`${bebasNeue.variable} ${archivo.variable} ${inter.variable} ${spaceMono.variable}`}
     >
       <body className="antialiased">{children}</body>
     </html>

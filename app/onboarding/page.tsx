@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import {
   api, ApiError, setToken, DOC_LABELS, fmtDate,
@@ -9,6 +9,10 @@ import {
 import { useSeller } from "../lib/useSeller";
 import { Alert, Button, Card, Field, FullPageSpinner, RED, Spinner } from "../components/portal-ui";
 import { AgreementSigner, Pill } from "../components/AgreementSigner";
+import { Flag, MarketSwitcher, Waitlist, useMarket } from "../components/market";
+import {
+  MARKETS, SETTLEMENT_DAYS, marketForCountry, openMarketsSentence, type Market,
+} from "@/src/config/markets";
 
 type StepKey = "details" | "documents" | "agreement" | "review";
 const STEPS: { key: StepKey; label: string }[] = [
@@ -33,7 +37,21 @@ const EMIRATES = ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ra
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
+  return <Suspense fallback={<FullPageSpinner />}><Onboarding /></Suspense>;
+}
+
+const SELLER_MARKETS = MARKETS.filter(m => m.sellerCountry);
+
+/** Commission for a business country: the seller's own rate from the API when we have it, else the market config. */
+function commissionFor(m: Market, seller: Seller | null): number | null {
+  if (m.sellerCountry === "IN" && seller?.commission_rate != null) return seller.commission_rate;
+  if (m.sellerCountry === "AE" && seller?.seller_country === "AE") return seller.uae?.commission_pct ?? seller.commission_rate ?? m.commissionPct;
+  return m.commissionPct;
+}
+
+function Onboarding() {
   const router = useRouter();
+  const [market, setMarket] = useMarket();
   const { state, reload, signOut } = useSeller();
   const [status, setStatus] = useState<OnboardingState | null>(null);
   const [statusErr, setStatusErr] = useState("");
@@ -71,18 +89,22 @@ export default function OnboardingPage() {
     );
   } else if (!seller) {
     // Signed up by email but no seller row yet
-    body = <DetailsStep seller={null} onSaved={refresh} />;
+    body = <DetailsStep seller={null} onSaved={refresh} market={market} />;
   } else if (status) {
     const ns = status.next_step;
+    const sellerMarket = marketForCountry(seller.seller_country === "AE" ? "AE" : "IN");
+    const editing = EDITABLE.includes(seller.onboarding_status ?? "pending_details");
     if (ns === "rejected" || ns === "suspended") {
       body = <ClosedState kind={ns} />;
+    } else if (editing && sellerMarket && !sellerMarket.open && view !== "details") {
+      body = <WaitlistState market={sellerMarket} onChangeCountry={() => setView("details")} />;
     } else {
       const derived: StepKey = ns === "details" || ns === "documents" || ns === "agreement" ? ns : "review";
       current = view ?? derived;
       const editable = EDITABLE.includes(seller.onboarding_status ?? "pending_details");
       body = (
         <>
-          {current === "details" && <DetailsStep seller={seller} onSaved={refresh} readOnly={!editable} />}
+          {current === "details" && <DetailsStep seller={seller} onSaved={refresh} readOnly={!editable} market={market} />}
           {current === "documents" && <DocumentsStep status={status} onChanged={loadStatus} onContinue={refresh} />}
           {current === "agreement" && <AgreementStep seller={seller} onSigned={refresh} />}
           {current === "review" && <ReviewState seller={seller} status={status} />}
@@ -108,6 +130,7 @@ export default function OnboardingPage() {
             <span style={{ fontSize: 10, color: "#888888", fontWeight: 600, letterSpacing: "0.12em", marginLeft: 8 }}>SELLER</span>
           </a>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <MarketSwitcher value={market} onChange={setMarket} compact />
             {seller?.email && <span style={{ fontSize: 13, color: "#777777", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{seller.email}</span>}
             <Button variant="ghost" onClick={signOut} style={{ padding: "8px 10px" }}>Log out</Button>
           </div>
@@ -180,8 +203,22 @@ function fromSeller(s: Seller | null): DetailsForm {
 
 const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 };
 
-function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | null; onSaved: () => Promise<void>; readOnly?: boolean }) {
-  const [f, setF] = useState<DetailsForm>(() => fromSeller(seller));
+function DetailsStep({ seller, onSaved, readOnly = false, market }: {
+  seller: Seller | null; onSaved: () => Promise<void>; readOnly?: boolean; market: Market;
+}) {
+  const [f, setF] = useState<DetailsForm>(() => {
+    const init = fromSeller(seller);
+    // New sellers start on the country they picked in the switcher
+    return !seller && market.sellerCountry && market.open ? { ...init, seller_country: market.sellerCountry } : init;
+  });
+
+  // Switching country in the header moves a new seller's choice along with it
+  useEffect(() => {
+    if (!seller && market.sellerCountry) setF(p => ({ ...p, seller_country: market.sellerCountry! }));
+  }, [market, seller]);
+
+  const chosen = f.seller_country ? marketForCountry(f.seller_country) : undefined;
+  const blocked = !!chosen && !chosen.open && !readOnly;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -238,16 +275,21 @@ function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | n
           <section>
             <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Where is your business based?</h2>
             <div style={grid2}>
-              <Choice name="seller_country" checked={f.seller_country === "IN"} onChange={() => setF(p => ({ ...p, seller_country: "IN" }))}
-                title="India" sub="GST or PAN + Aadhaar" />
-              <Choice name="seller_country" checked={f.seller_country === "AE"} onChange={() => setF(p => ({ ...p, seller_country: "AE" }))}
-                title="UAE" sub="Trade licence, Emirates ID or passport, IBAN" />
+              {SELLER_MARKETS.map(m => (
+                <Choice key={m.code} name="seller_country" checked={f.seller_country === m.sellerCountry}
+                  onChange={() => setF(p => ({ ...p, seller_country: m.sellerCountry! }))}
+                  title={<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Flag market={m} size={12} />{m.name}</span>}
+                  sub={m.open ? m.documents.slice(0, 2).join(", ") : "Waitlist only for now"} />
+              ))}
             </div>
+            {chosen && chosen.open && <CountryTerms market={chosen} seller={seller} />}
           </section>
 
-          {f.seller_country === "AE" && <UaeDetailsFields f={f} setF={setF} set={set} />}
+          {blocked && chosen && <WaitlistNote market={chosen} />}
 
-          {f.seller_country === "IN" && <>
+          {!blocked && f.seller_country === "AE" && <UaeDetailsFields f={f} setF={setF} set={set} />}
+
+          {!blocked && f.seller_country === "IN" && <>
           <section>
             <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Business</h2>
             <div style={grid2}>
@@ -361,7 +403,7 @@ function DetailsStep({ seller, onSaved, readOnly = false }: { seller: Seller | n
             </Alert>
           )}
 
-          {!readOnly && (
+          {!readOnly && !blocked && (
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
               <Button type="submit" disabled={saving || !f.seller_country || !f.pricing_model || (f.seller_country === "IN" ? !f.gst_registered : !f.uae_id_type)}>
                 {saving ? "Saving…" : "Save & continue →"}
@@ -470,7 +512,47 @@ function UaeDetailsFields({ f, setF, set }: {
   );
 }
 
-function Choice({ name, checked, onChange, title, sub }: { name: string; checked: boolean; onChange: () => void; title: string; sub?: string }) {
+function CountryTerms({ market, seller }: { market: Market; seller: Seller | null }) {
+  const pct = commissionFor(market, seller);
+  return (
+    <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "#F6F6F6", fontSize: 14, lineHeight: 1.6, color: "#333333" }}>
+      <p>
+        <strong>Commission:</strong>{" "}
+        {pct != null ? `${pct}% of each completed sale in ${market.name}.` : "shown in your seller agreement before you sign."}
+      </p>
+      <p>Settlement within {SETTLEMENT_DAYS} days after your order is delivered, to your bank account in {market.payoutCurrency}.</p>
+    </div>
+  );
+}
+
+function WaitlistNote({ market }: { market: Market }) {
+  return (
+    <div style={{ padding: "16px", borderRadius: 12, border: "1px solid #EEEEEE" }}>
+      <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>{openMarketsSentence()}</p>
+      <p style={{ fontSize: 14, color: "#666666", margin: "6px 0 14px", lineHeight: 1.6 }}>
+        Join the waitlist and we will email you when seller accounts open for {market.name}-based businesses.
+      </p>
+      <div className="s-page" style={{ minHeight: 0, background: "transparent" }}><Waitlist market={market} /></div>
+    </div>
+  );
+}
+
+function WaitlistState({ market, onChangeCountry }: { market: Market; onChangeCountry: () => void }) {
+  return (
+    <Card>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>Seller accounts are not open in {market.name} yet</h2>
+      <div style={{ marginTop: 14 }}><WaitlistNote market={market} /></div>
+      <p style={{ fontSize: 14, color: "#666666", marginTop: 14 }}>
+        Is your business based somewhere else?{" "}
+        <button type="button" onClick={onChangeCountry} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 14 }}>
+          Change business country
+        </button>
+      </p>
+    </Card>
+  );
+}
+
+function Choice({ name, checked, onChange, title, sub }: { name: string; checked: boolean; onChange: () => void; title: React.ReactNode; sub?: string }) {
   return (
     <label style={{
       display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", borderRadius: 10, cursor: "pointer",

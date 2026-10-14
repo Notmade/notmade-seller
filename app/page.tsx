@@ -1,478 +1,281 @@
-import AnimatedSection from "./components/AnimatedSection";
-import Header from "./components/Header";
+import { Suspense } from "react";
+import { cookies } from "next/headers";
+import { Flag, UrlMarketSwitcher, Waitlist } from "./components/market";
+import { faqLd, organizationLd, pageMetadata } from "./lib/seo";
+import { CONTACT_EMAIL, LEGAL_NAME, MIN_PRODUCTS, RETURN_WINDOW_HOURS } from "./lib/seller-config";
+import {
+  MARKET_COOKIE, SETTLEMENT_DAYS, UAE_STORE_LIVE, getMarket, isMarketCode, openMarketsSentence, signupHref, type Market,
+} from "@/src/config/markets";
 
-/* ─── SVG Icons ─── */
-function Icon({ name }: { name: string }) {
-  const p = {
-    width: 22, height: 22, viewBox: "0 0 24 24",
-    fill: "none" as const, stroke: "#CC0000", strokeWidth: 2,
-    strokeLinecap: "round" as const, strokeLinejoin: "round" as const,
-  };
-  switch (name) {
-    case "map-pin":     return <svg {...p}><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>;
-    case "zap":         return <svg {...p}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>;
-    case "truck":       return <svg {...p}><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>;
-    case "database":    return <svg {...p}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>;
-    case "credit-card": return <svg {...p}><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>;
-    case "clock":       return <svg {...p}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>;
-    default:            return null;
-  }
-}
+export const metadata = pageMetadata({
+  title: "Sell on NOTMADE | Seller portal for India and UAE",
+  description:
+    "Open a NOTMADE seller account. Sell on notmade.in in INR, add the UAE in AED later, and get settled within 7 days after delivery.",
+  path: "/",
+});
 
-/* ─── Dashboard mockup (visual only — fake data) ─── */
-function DashboardMockup() {
+const SETTLEMENT_LINE = `Settlement within ${SETTLEMENT_DAYS} days after your order is delivered, to your bank account in INR (India) or AED (UAE).`;
+const UAE_STATUS = UAE_STORE_LIVE ? "Now also available in UAE" : "UAE store launching soon";
+
+const WHATSAPP = [
+  { label: "India", display: "+91 93548 52701", href: "https://wa.me/919354852701" },
+  { label: "UAE", display: "+971 55 759 0282", href: "https://wa.me/971557590282" },
+];
+
+const FAQ = [
+  { q: "Who can create a seller account right now?",
+    a: `${openMarketsSentence()} Sellers based elsewhere can join the waitlist and we will email them when their country opens.` },
+  { q: "What documents do I need?",
+    a: "In India: a GST certificate, or your PAN and Aadhaar if you are not GST registered, plus product photos and a bank account. In the UAE: a trade licence, your TRN if you are VAT registered, an Emirates ID or passport, and an IBAN." },
+  { q: "When do I get paid?",
+    a: `${SETTLEMENT_LINE} Each settlement comes with a statement listing the orders it covers.` },
+  { q: "How much commission does NOTMADE take?",
+    a: "Commission is a percentage of each completed sale. You see the exact rate for your country before you sign, both during sign up and in the seller agreement." },
+  { q: "Do I need to arrange delivery?",
+    a: "No. You pack the order and print the shipping label from your dashboard. Our courier partner picks it up from your address and delivers it to the customer." },
+  { q: "How do I sign the seller agreement?",
+    a: "Online. You read the agreement in your dashboard and sign it with a 6-digit code we send to your email. No printing or scanning." },
+  { q: "I am based in India. Can I also sell in the UAE?",
+    a: "Yes. Once your account is approved, turn on UAE selling from your dashboard, set a separate AED price for each product and sign a short UAE addendum with an email code." },
+  { q: "How many products do I need to go live?",
+    a: `At least ${MIN_PRODUCTS} products. Each product is reviewed by our team before it appears on the store.` },
+];
+
+const STEPS = [
+  { t: "Create your account", d: "Enter your email and confirm it with a one-time code. No password to remember." },
+  { t: "Add your business", d: "Tell us where your business is based and upload your documents." },
+  { t: "Sign the agreement", d: "Read the seller agreement and sign it with a code sent to your email." },
+  { t: "List and sell", d: "Once approved, add your products. We review each one and put it live." },
+];
+
+const HANDLE = [
+  { t: "Delivery", d: "Our courier partner picks up from your address and delivers to the customer. You see the tracking in your dashboard." },
+  { t: "Customer support", d: "Customers talk to us about their orders. We come to you only when we need something about the product." },
+  { t: "Returns", d: `Customers can raise a return for a damaged or wrong item within ${RETURN_WINDOW_HOURS} hours of delivery. We review each request and keep you informed.` },
+];
+
+const TIMELINE = [
+  { t: "Order delivered", d: "The customer receives the order." },
+  { t: `${SETTLEMENT_DAYS} days`, d: "Your settlement is due within this window." },
+  { t: "Settlement statement", d: "You get a statement of the orders being paid." },
+  { t: "Money in your account", d: "We transfer the amount in INR or AED." },
+];
+
+type Search = { [key: string]: string | string[] | undefined };
+
+export default function Home({ searchParams }: { searchParams: Search }) {
+  const q = typeof searchParams.market === "string" ? searchParams.market : undefined;
+  const c = cookies().get(MARKET_COOKIE)?.value;
+  const market = getMarket(isMarketCode(q) ? q : c);
+  const india = getMarket("in");
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, width: "100%", maxWidth: 440 }}>
-      <div style={{
-        background: "#FFFFFF", border: "1px solid #E0E0E0",
-        boxShadow: "0 32px 80px rgba(0,0,0,0.10), 0 8px 20px rgba(0,0,0,0.05)",
-        overflow: "hidden", width: "100%",
-      }}>
-        {/* Browser chrome */}
-        <div style={{ background: "#F5F5F5", borderBottom: "1px solid #E0E0E0", padding: "10px 16px", display: "flex", alignItems: "center", gap: 6 }}>
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#CC0000" }} />
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#FFBD2E" }} />
-          <div style={{ width: 10, height: 10, borderRadius: "50%", background: "#28C840" }} />
-          <div style={{ flex: 1, marginLeft: 8, background: "white", border: "1px solid #E0E0E0", height: 22, display: "flex", alignItems: "center", paddingLeft: 10 }}>
-            <span style={{ fontSize: 10, color: "#aaa", fontFamily: "system-ui" }}>seller.notmade.in/dashboard</span>
+    <div className="s-page">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify([organizationLd(), faqLd(FAQ)]) }} />
+
+      <header className="s-header">
+        <div className="s-wrap s-header-row">
+          <a href="/" className="s-wordmark" aria-label="NOTMADE seller home">NOTMADE <small>SELLER</small></a>
+          <Suspense fallback={null}><UrlMarketSwitcher compact /></Suspense>
+          <a href="/login" className="s-btn s-btn-ghost">Log in</a>
+          {market.open
+            ? <a href={signupHref(market)} className="s-btn s-btn-red s-hide-sm">Create seller account</a>
+            : <a href="#waitlist" className="s-btn s-btn-red s-hide-sm">Create seller account</a>}
+        </div>
+      </header>
+
+      <main>
+        <Hero market={market} />
+
+        <section className="s-section" aria-labelledby="paid">
+          <div className="s-wrap">
+            <p className="s-pill s-pill-red">Settlement</p>
+            <h2 id="paid" className="s-h2" style={{ marginTop: 16 }}>Paid in {SETTLEMENT_DAYS} days</h2>
+            <p className="s-lead" style={{ marginTop: 12, maxWidth: 640 }}>{SETTLEMENT_LINE}</p>
+            <ol className="s-timeline" style={{ marginTop: 40 }}>
+              {TIMELINE.map((s, i) => (
+                <li key={s.t}>
+                  <span className={i === TIMELINE.length - 1 ? "s-dot s-dot-red" : "s-dot"} aria-hidden />
+                  <div>
+                    <p className="s-h3" style={{ marginTop: 2 }}>{s.t}</p>
+                    <p className="s-note" style={{ marginTop: 4 }}>{s.d}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
           </div>
-        </div>
+        </section>
 
-        {/* Dashboard header */}
-        <div style={{ padding: "14px 20px", borderBottom: "1px solid #F0F0F0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontFamily: "var(--font-bebas), 'Bebas Neue', cursive", fontSize: 18, letterSpacing: "0.05em", color: "#1A1A1A" }}>NOTMADE</span>
-          <span style={{ fontSize: 10, fontWeight: 700, color: "#FFFFFF", background: "#CC0000", padding: "3px 10px", borderRadius: 100 }}>SELLER</span>
-        </div>
-
-        {/* Stats row */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", borderBottom: "1px solid #F0F0F0" }}>
-          {[
-            { val: "₹24K", label: "Revenue", color: "#1A1A1A" },
-            { val: "47", label: "Orders", color: "#1A1A1A" },
-            { val: "7d", label: "Payout", color: "#CC0000" },
-          ].map((s, i) => (
-            <div key={i} style={{ padding: "16px", borderRight: i < 2 ? "1px solid #F0F0F0" : "none", textAlign: "center" }}>
-              <div style={{ fontSize: 20, fontWeight: 800, color: s.color, lineHeight: 1, fontFamily: "system-ui" }}>{s.val}</div>
-              <div style={{ fontSize: 10, color: "#999", marginTop: 4 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Orders */}
-        <div style={{ padding: "0 20px" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.12em", color: "#bbb", textTransform: "uppercase", padding: "14px 0 8px" }}>Recent Orders</div>
-          {[
-            { name: "Handwoven Tote Bag", id: "#NM-2891", status: "Delivered",  amt: "₹2,400", sc: "#22c55e" },
-            { name: "Block Print Kurta",  id: "#NM-2890", status: "In Transit", amt: "₹3,800", sc: "#CC0000" },
-            { name: "Silver Jhumki Pair", id: "#NM-2889", status: "Processing", amt: "₹1,200", sc: "#999999" },
-          ].map(o => (
-            <div key={o.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", borderBottom: "1px solid #F5F5F5" }}>
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 600, color: "#1A1A1A" }}>{o.name}</div>
-                <div style={{ fontSize: 10, color: "#ccc" }}>{o.id}</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#1A1A1A" }}>{o.amt}</div>
-                <div style={{ fontSize: 10, color: o.sc, fontWeight: 600 }}>{o.status}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Payout banner */}
-        <div style={{ margin: "12px 20px 20px", background: "#0B0B0C", padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.4)" }}>Next Payout</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color: "#C8F542", lineHeight: 1.2, fontFamily: "system-ui" }}>₹8,200</div>
+        <section className="s-section" aria-labelledby="how">
+          <div className="s-wrap">
+            <h2 id="how" className="s-h2">How it works</h2>
+            <ol className="s-grid-4" style={{ listStyle: "none", padding: 0, margin: "32px 0 0" }}>
+              {STEPS.map((s, i) => (
+                <li key={s.t} className="s-card">
+                  <span className="s-step-num">{i + 1}</span>
+                  <p className="s-h3" style={{ marginTop: 16 }}>{s.t}</p>
+                  <p className="s-body" style={{ marginTop: 6 }}>{s.d}</p>
+                </li>
+              ))}
+            </ol>
           </div>
-          <div style={{ background: "#CC0000", color: "white", fontSize: 10, fontWeight: 700, padding: "8px 14px", letterSpacing: "0.06em" }}>IN 4 DAYS</div>
+        </section>
+
+        <section className="s-section" aria-labelledby="handle">
+          <div className="s-wrap">
+            <h2 id="handle" className="s-h2">What we handle</h2>
+            <p className="s-lead" style={{ marginTop: 12, maxWidth: 640 }}>You make and pack the product. We take care of the rest.</p>
+            <div className="s-grid-3" style={{ marginTop: 32 }}>
+              {HANDLE.map(h => (
+                <div key={h.t} className="s-card s-card-soft">
+                  <p className="s-h3">{h.t}</p>
+                  <p className="s-body" style={{ marginTop: 8 }}>{h.d}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="uae" className="s-section" aria-labelledby="uae-h">
+          <div className="s-wrap s-grid-2">
+            <div>
+              <p className="s-pill"><Flag market={india} size={12} /> to <Flag market={getMarket("ae")} size={12} /></p>
+              <h2 id="uae-h" className="s-h2" style={{ marginTop: 16 }}>Sell from India to UAE</h2>
+              <p className="s-lead" style={{ marginTop: 12 }}>
+                Already selling with us from India? You can add the UAE later from your dashboard. No second account.
+              </p>
+              <p className="s-note" style={{ marginTop: 12 }}>{UAE_STATUS}.</p>
+            </div>
+            <ul className="s-list s-card">
+              <li>Turn on UAE selling from your dashboard once your India account is approved.</li>
+              <li>Set a separate AED price for each product you want to sell in the UAE.</li>
+              <li>Sign a short UAE addendum with a code sent to your email.</li>
+              <li>UAE sales are settled in AED, {SETTLEMENT_DAYS} days after delivery.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section className="s-section" aria-labelledby="faq">
+          <div className="s-wrap">
+            <h2 id="faq" className="s-h2">Questions</h2>
+            <div className="s-faq" style={{ marginTop: 24 }}>
+              {FAQ.map(f => (
+                <details key={f.q}>
+                  <summary>{f.q}</summary>
+                  <p>{f.a}</p>
+                </details>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="s-section" aria-labelledby="about">
+          <div className="s-wrap s-grid-2">
+            <div>
+              <h2 id="about" className="s-h2">About NOTMADE</h2>
+              <p className="s-lead" style={{ marginTop: 12 }}>
+                NOTMADE is run by {LEGAL_NAME}, a DPIIT recognised startup.
+              </p>
+            </div>
+            <div className="s-card">
+              <p className="s-h3">Talk to us on WhatsApp</p>
+              <ul style={{ listStyle: "none", padding: 0, margin: "8px 0 0" }}>
+                {WHATSAPP.map(w => (
+                  <li key={w.href} className="s-links">
+                    <a href={w.href} target="_blank" rel="noopener noreferrer">{w.label}: {w.display}</a>
+                  </li>
+                ))}
+                <li className="s-links"><a href={`mailto:${CONTACT_EMAIL}`}>Email: {CONTACT_EMAIL}</a></li>
+              </ul>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="s-footer">
+        <div className="s-wrap">
+          <nav className="s-links" aria-label="Footer">
+            <a href="/terms">Seller terms</a>
+            <a href="/privacy-policy">Privacy policy</a>
+            <a href="/refund-policy">Refund policy</a>
+            <a href="https://notmade.in" target="_blank" rel="noopener noreferrer">notmade.in</a>
+            <a href="/login">Log in</a>
+          </nav>
+          <p className="s-note" style={{ marginTop: 16 }}>&copy; {new Date().getFullYear()} {LEGAL_NAME}</p>
         </div>
-      </div>
-      {/* Preview label */}
-      <span style={{
-        fontSize: 10, color: "#999999", letterSpacing: "0.1em",
-        fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-        textTransform: "uppercase",
-      }}>SELLER DASHBOARD PREVIEW</span>
+      </footer>
     </div>
   );
 }
 
-/* ─── Data ─── */
-const WHY_CARDS = [
-  { icon: "map-pin",     title: "SELL FROM YOUR LOCATION",   desc: "No warehouse needed. Sell from Delhi, Mumbai, Jaipur — anywhere in India. We handle the logistics." },
-  { icon: "zap",         title: "DELHI NCR: 3 HOURS",        desc: "Sellers in Delhi NCR get our flagship 3-hour delivery. Your customer orders at 2PM, receives by 5PM." },
-  { icon: "truck",       title: "PAN INDIA: 3-5 DAYS",       desc: "Standard delivery across India. Your products, everywhere." },
-  { icon: "database",    title: "YOUR CUSTOMERS, YOUR DATA", desc: "Access your complete buyer database at nominal cost. Know who bought, what they loved, and when." },
-  { icon: "credit-card", title: "ZERO UPFRONT COST",         desc: "No listing fees. No ad spend required to start. Just list your product and go live." },
-  { icon: "clock",       title: "7-DAY PAYOUTS",             desc: "We pay within 7 days of delivery. Not 30. Not 45. Seven. Because your cash flow matters." },
-];
+function Hero({ market }: { market: Market }) {
+  const isGlobal = market.code === "global";
+  const storeHost = market.storeUrl?.replace(/^https?:\/\//, "");
 
-const COMING_SOON = [
-  { emoji: "🖥️", title: "Seller Dashboard",   desc: "Manage orders, track payouts, add or remove products — all from one place." },
-  { emoji: "🌍", title: "UAE Expansion",       desc: "Sell across Gulf markets. Commission revised. No additional cost needed." },
-  { emoji: "💳", title: "COD & Returns Control", desc: "Enable or disable COD and returns on your own terms and convenience." },
-  { emoji: "📈", title: "Advanced Analytics",  desc: "In-house tech for better data visibility. Know your customers better." },
-];
-
-const STEPS = [
-  { num: "01", title: "FILL THE FORM", desc: "Takes 2 minutes." },
-  { num: "02", title: "WE CONNECT",    desc: "Our team calls within 48 hours." },
-  { num: "03", title: "GO LIVE",       desc: "Listing done by us. You focus on product." },
-];
-
-const STATS = [
-  { num: "0%",     label: "Zero upfront cost" },
-  { num: "17%",    label: "Flat commission" },
-  { num: "7 Days", label: "Payout cycle" },
-];
-
-const TRUST_ITEMS = [
-  { emoji: "📍", text: "Sell from Anywhere in India" },
-  { emoji: "⚡", text: "Delhi NCR 3-Hour Delivery" },
-  { emoji: "💰", text: "7-Day Guaranteed Payouts" },
-];
-
-/* ─── Page ─── */
-export default function Home() {
   return (
-    <main style={{ background: "#FFFFFF" }}>
-      <Header />
+    <section className="s-hero">
+      <div className="s-wrap s-hero-grid">
+        <div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            <span className="s-pill"><Flag market={market} size={12} />{isGlobal ? "Outside India and UAE" : `Selling from ${market.name} in ${market.currency}`}</span>
+            {market.code === "ae" && <span className="s-pill s-pill-red">{UAE_STATUS}</span>}
+          </div>
 
-      {/* ════ HERO ════ */}
-      {/* paddingTop 100 = 36px announcement bar + 64px nav */}
-      <section style={{ paddingTop: 100, background: "#FFFFFF", minHeight: "90vh", display: "flex", alignItems: "center" }}>
-        <div className="hero-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 28px", width: "100%" }}>
+          <h1 className="s-h1" style={{ marginTop: 20 }}>
+            {isGlobal ? "More countries coming" : <>Sell on <span className="s-red">{storeHost}</span></>}
+          </h1>
 
-          {/* Left */}
-          <AnimatedSection>
-            <div>
-              {/* Badge */}
-              <span style={{
-                display: "inline-flex", alignItems: "center",
-                background: "#CC0000", color: "#FFFFFF",
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
-                textTransform: "uppercase",
-                padding: "6px 16px", borderRadius: 100,
-                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                marginBottom: 28,
-              }}>
-                Fashion &amp; Lifestyle Marketplace
-              </span>
+          <p className="s-lead" style={{ marginTop: 20, maxWidth: 540 }}>
+            {market.code === "in" && `List your products on notmade.in, priced in INR. We deliver to your customers, answer their questions and handle returns. You are settled within ${SETTLEMENT_DAYS} days after each order is delivered.`}
+            {market.code === "ae" && `List your products on uae.notmade.in, priced in AED. We deliver across the UAE and settle you in AED to your UAE bank account within ${SETTLEMENT_DAYS} days after each order is delivered.`}
+            {isGlobal && "We are starting with India and the UAE. Leave your email and we will write to you when seller accounts open in your country."}
+          </p>
 
-              {/* H1 */}
-              <h1 style={{
-                fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                fontSize: "clamp(2.8rem, 5vw, 58px)",
-                fontWeight: 400, lineHeight: 1.05, letterSpacing: "0.02em",
-                color: "#1A1A1A", marginBottom: 24, maxWidth: 560,
-              }}>
-                Sell from where you are.<br />
-                Reach customers everywhere.
-              </h1>
-
-              {/* Subtext */}
-              <p style={{
-                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                fontSize: 18, color: "#666666", lineHeight: 1.7,
-                maxWidth: 480, marginBottom: 36,
-              }}>
-                NOTMADE is India&apos;s culture-first fashion and lifestyle marketplace — built for independent sellers who make things worth selling.
-              </p>
-
-              {/* CTAs */}
-              <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", marginBottom: 52 }}>
-                <a href="/login" className="hero-cta-primary" style={{ textDecoration: "none" }}>
-                  START SELLING →
-                </a>
-                <a href="mailto:admin@notmade.in" className="hero-cta-secondary" style={{ textDecoration: "none" }}>
-                  TALK TO US
-                </a>
+          <div id="waitlist" style={{ marginTop: 28, scrollMarginTop: 96 }}>
+            {market.open ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <a href={signupHref(market)} className="s-btn s-btn-red s-btn-lg">Create your seller account</a>
+                <a href="/login" className="s-btn s-btn-line s-btn-lg">Log in</a>
               </div>
+            ) : (
+              <>
+                <Waitlist market={market} />
+                <p className="s-note" style={{ marginTop: 12 }}>{openMarketsSentence()}</p>
+              </>
+            )}
+          </div>
 
-              {/* Stats */}
-              <div className="stats-row" style={{ paddingTop: 32, borderTop: "1px solid #E0E0E0" }}>
-                {STATS.map((s, i) => (
-                  <div key={i} style={{
-                    display: "flex", flexDirection: "column",
-                    paddingRight: i < 2 ? 40 : 0,
-                    borderRight: i < 2 ? "1px solid #E0E0E0" : "none",
-                  }}>
-                    <span style={{
-                      fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                      fontSize: 40, color: "#1A1A1A", lineHeight: 1,
-                    }}>{s.num}</span>
-                    <span style={{
-                      fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                      fontSize: 12, color: "#666666", marginTop: 4,
-                    }}>{s.label}</span>
-                  </div>
-                ))}
-              </div>
+          {market.code === "ae" && !market.open && (
+            <p className="s-note" style={{ marginTop: 16 }}>
+              Based in India? <a href="/?market=in#uae" style={{ color: "inherit", fontWeight: 600 }}>Create an India account and add the UAE later</a>.
+            </p>
+          )}
+        </div>
+
+        <div className="s-card">
+          <p className="s-h3">{isGlobal ? "What we will need" : "What you need"}</p>
+          <ul className="s-list" style={{ marginTop: 16 }}>
+            {market.documents.map(d => <li key={d}>{d}</li>)}
+          </ul>
+          {market.delivery && (
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid var(--s-line)" }}>
+              <p className="s-h3">Delivery</p>
+              <p className="s-body" style={{ marginTop: 6 }}>{market.delivery}</p>
             </div>
-          </AnimatedSection>
-
-          {/* Right — visual mockup only */}
-          <div className="hero-visual" style={{ display: "flex", justifyContent: "center", alignItems: "center" }}>
-            <DashboardMockup />
-          </div>
-        </div>
-      </section>
-
-      {/* ════ TRUST BAR ════ */}
-      <section style={{ background: "#F5F5F5", borderTop: "1px solid #E0E0E0", borderBottom: "1px solid #E0E0E0", padding: "28px 28px" }}>
-        <div className="trust-items" style={{ maxWidth: 1200, margin: "0 auto" }}>
-          {TRUST_ITEMS.map((item, i) => (
-            <>
-              {i > 0 && <div key={`sep-${i}`} className="trust-sep" />}
-              <span key={item.text} style={{
-                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                fontSize: 14, fontWeight: 500, color: "#1A1A1A",
-                display: "flex", alignItems: "center", gap: 8,
-              }}>
-                <span style={{ fontSize: 18 }}>{item.emoji}</span>
-                {item.text}
-              </span>
-            </>
-          ))}
-        </div>
-      </section>
-
-      {/* ════ WHY NOTMADE ════ */}
-      <section id="why" style={{ background: "#FFFFFF", padding: "100px 0 120px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 28px" }}>
-          <AnimatedSection>
-            <div style={{ marginBottom: 64, textAlign: "center" }}>
-              <h2 style={{
-                fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                fontSize: "clamp(1.8rem, 4vw, 32px)",
-                fontWeight: 700, lineHeight: 1.1, letterSpacing: "0.02em",
-                color: "#1A1A1A", marginBottom: 12,
-              }}>Why sellers choose NOTMADE</h2>
-              <p style={{
-                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                fontSize: 16, color: "#666666",
-              }}>Built for independent sellers. Not big brands.</p>
-            </div>
-          </AnimatedSection>
-
-          <div className="why-grid">
-            {WHY_CARDS.map((card, i) => (
-              <AnimatedSection key={i} delay={i * 60}>
-                <div className="why-card-light" style={{
-                  background: "#FFFFFF",
-                  border: "1px solid #E0E0E0",
-                  padding: "32px 28px", height: "100%",
-                  display: "flex", flexDirection: "column", gap: 16,
-                  transition: "border-color 0.22s, transform 0.22s cubic-bezier(0.16,1,0.3,1)",
-                }}>
-                  <div style={{
-                    width: 44, height: 44,
-                    background: "rgba(204,0,0,0.06)",
-                    border: "1px solid rgba(204,0,0,0.15)",
-                    display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
-                  }}>
-                    <Icon name={card.icon} />
-                  </div>
-                  <h3 style={{
-                    fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                    fontSize: "clamp(1.2rem, 2vw, 20px)",
-                    fontWeight: 400, letterSpacing: "0.04em",
-                    color: "#1A1A1A", lineHeight: 1.1, margin: 0,
-                  }}>{card.title}</h3>
-                  <p style={{
-                    fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                    fontSize: 14, color: "#666666",
-                    lineHeight: 1.75, margin: 0, flex: 1,
-                  }}>{card.desc}</p>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════ COMMISSION ════ */}
-      <section style={{ background: "#0B0B0C", padding: "100px 28px", textAlign: "center" }}>
-        <AnimatedSection>
-          <div style={{
-            fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-            fontSize: 12, fontWeight: 700, letterSpacing: "0.15em",
-            color: "#CC0000", textTransform: "uppercase", marginBottom: 16,
-          }}>OUR COMMISSION</div>
-          <div style={{
-            fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-            fontSize: "clamp(5rem, 18vw, 160px)",
-            color: "#FFFFFF", lineHeight: 0.9, letterSpacing: "0.02em", marginBottom: 32,
-          }}>17%</div>
-          <p style={{
-            fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-            fontSize: "clamp(1rem, 2.5vw, 20px)",
-            color: "#FFFFFF", fontWeight: 600, maxWidth: 560, margin: "0 auto 16px",
-          }}>Flat. Nothing hidden. No surprise deductions.</p>
-          <p style={{
-            fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-            fontSize: 15, color: "#999999",
-          }}>COD available. Returns flexible as per your preference.</p>
-        </AnimatedSection>
-      </section>
-
-      {/* ════ WHAT'S COMING ════ */}
-      <section style={{ background: "#FFFFFF", padding: "100px 0 120px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 28px" }}>
-          <AnimatedSection>
-            <div style={{ marginBottom: 64 }}>
-              <h2 style={{
-                fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                fontSize: "clamp(2rem, 5vw, 52px)",
-                fontWeight: 400, lineHeight: 1, letterSpacing: "0.02em",
-                color: "#1A1A1A", marginBottom: 12,
-              }}>We&apos;re just getting started.</h2>
-              <p style={{
-                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                fontSize: 16, color: "#666666",
-              }}>More tools. More markets. More control for you.</p>
-            </div>
-          </AnimatedSection>
-
-          <div className="coming-grid">
-            {COMING_SOON.map((item, i) => (
-              <AnimatedSection key={i} delay={i * 60}>
-                <div style={{
-                  background: "#F5F5F5", border: "1px solid #E0E0E0",
-                  padding: "28px 24px", height: "100%",
-                  display: "flex", flexDirection: "column", gap: 14,
-                  position: "relative",
-                }}>
-                  <span style={{
-                    display: "inline-block", background: "#C8F542", color: "#0B0B0C",
-                    fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-                    textTransform: "uppercase", padding: "4px 10px",
-                    fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                    alignSelf: "flex-start",
-                  }}>COMING SOON</span>
-                  <div style={{ fontSize: 28 }}>{item.emoji}</div>
-                  <h3 style={{
-                    fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                    fontSize: "clamp(1.2rem, 2vw, 22px)",
-                    fontWeight: 400, letterSpacing: "0.03em",
-                    color: "#1A1A1A", margin: 0,
-                  }}>{item.title}</h3>
-                  <p style={{
-                    fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                    fontSize: 14, color: "#666666", lineHeight: 1.65, margin: 0,
-                  }}>{item.desc}</p>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════ HOW IT WORKS ════ */}
-      <section id="how" style={{ background: "#F5F5F5", borderTop: "1px solid #E0E0E0", borderBottom: "1px solid #E0E0E0", padding: "100px 0" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 28px" }}>
-          <AnimatedSection>
-            <h2 style={{
-              fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-              fontSize: "clamp(2rem, 5vw, 48px)",
-              fontWeight: 400, lineHeight: 1, letterSpacing: "0.02em",
-              color: "#1A1A1A", marginBottom: 64, textAlign: "center",
-            }}>HOW IT WORKS</h2>
-          </AnimatedSection>
-
-          <div className="steps-grid">
-            {STEPS.map((step, i) => (
-              <AnimatedSection key={step.num} delay={i * 80}>
-                <div className="step-item" style={{ padding: "40px 36px", borderLeft: i > 0 ? "1px solid #E0E0E0" : "none" }}>
-                  <div style={{
-                    fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                    fontSize: "clamp(5rem, 10vw, 96px)",
-                    color: "#CC0000", lineHeight: 0.85, letterSpacing: "0.01em", marginBottom: 24,
-                  }}>{step.num}</div>
-                  <h3 style={{
-                    fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-                    fontSize: "clamp(1.3rem, 2.5vw, 24px)",
-                    fontWeight: 400, letterSpacing: "0.04em",
-                    color: "#1A1A1A", marginBottom: 12,
-                  }}>{step.title}</h3>
-                  <p style={{
-                    fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                    fontSize: 15, color: "#666666", lineHeight: 1.65,
-                  }}>{step.desc}</p>
-                </div>
-              </AnimatedSection>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════ CREATE ACCOUNT ════ */}
-      <section id="apply" style={{ background: "#0B0B0C", padding: "100px 0 120px" }}>
-        <div style={{ maxWidth: 680, margin: "0 auto", padding: "0 28px" }}>
-          <AnimatedSection>
-            <h2 style={{
-              fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-              fontSize: "clamp(2rem, 7vw, 52px)",
-              fontWeight: 400, lineHeight: 1, letterSpacing: "0.02em",
-              color: "#FFFFFF", marginBottom: 16, textAlign: "center",
-            }}>Ready to sell on NOTMADE?</h2>
-            <p style={{
-              fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-              fontSize: 16, color: "#999999", textAlign: "center",
-              marginBottom: 48, lineHeight: 1.6,
-            }}>Create your account with just your email, add your business details and KYC, and sign the agreement online. Our team reviews within 48 hours.</p>
-          </AnimatedSection>
-
-          <AnimatedSection delay={60}>
-            <div style={{ textAlign: "center" }}>
-              <a href="/login" className="btn-primary" style={{
-                textDecoration: "none", fontSize: 18, padding: "18px 40px",
-              }}>
-                CREATE YOUR SELLER ACCOUNT →
-              </a>
-              <p style={{
-                fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-                fontSize: 13, color: "#777777", marginTop: 20,
-              }}>
-                Already selling with us? <a href="/login" style={{ color: "#E8E4DC" }}>Log in</a>
+          )}
+          {market.code === "in" && (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: "1px solid var(--s-line)" }}>
+              <p className="s-h3">Optional: sell in the UAE</p>
+              <p className="s-body" style={{ marginTop: 6 }}>
+                Add the UAE later from your dashboard with a separate AED price. <a href="#uae" style={{ color: "inherit", fontWeight: 600 }}>How it works</a>
               </p>
             </div>
-          </AnimatedSection>
+          )}
+          {market.payoutCurrency && (
+            <p className="s-note" style={{ marginTop: 20 }}>Payouts in {market.payoutCurrency}, {SETTLEMENT_DAYS} days after delivery.</p>
+          )}
         </div>
-      </section>
-
-      {/* ════ FOOTER ════ */}
-      <footer style={{ background: "#0B0B0C", borderTop: "1px solid rgba(255,255,255,0.06)", padding: "56px 28px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{
-              fontFamily: "var(--font-bebas), 'Bebas Neue', cursive",
-              fontSize: 24, letterSpacing: "0.04em", color: "#FFFFFF",
-            }}>NOTMADE</span>
-            <span style={{
-              background: "#CC0000", color: "#FFFFFF",
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.1em",
-              textTransform: "uppercase", padding: "3px 8px", borderRadius: 100,
-              fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-            }}>SELLER</span>
-          </div>
-          <p style={{
-            fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-            fontSize: 13, color: "rgba(255,255,255,0.35)",
-          }}>seller.notmade.in — A NOTMADE PLATFORM</p>
-          <p style={{
-            fontFamily: "var(--font-archivo), Archivo, system-ui, sans-serif",
-            fontSize: 13, color: "rgba(255,255,255,0.22)",
-          }}>House of Notmade Studio Private Limited · Delhi NCR · India</p>
-          <nav style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
-            <a href="/privacy-policy" className="footer-pill">Privacy Policy</a>
-            <a href="/terms" className="footer-pill">Terms</a>
-            <a href="https://notmade.in" target="_blank" rel="noopener noreferrer" className="footer-pill">notmade.in</a>
-            <a href="mailto:admin@notmade.in" className="footer-pill">Contact</a>
-          </nav>
-        </div>
-      </footer>
-    </main>
+      </div>
+    </section>
   );
 }
