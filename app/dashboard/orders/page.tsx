@@ -195,7 +195,7 @@ export default function OrdersPage() {
                     {o.bucket === "new" && o.sla_due_at && <SlaChip due={o.sla_due_at} now={now} />}
                     <span className="sp-chip">{o.region === "ae" ? "UAE" : "India"}</span>
                     <span className="sp-chip">{String(o.payment_method || "").toLowerCase() === "cod" ? "COD" : "Prepaid"}</span>
-                    <Badge status={o.bucket === "cancelled" ? "cancelled" : o.stage === "awb" ? "packed" : o.status} label={o.bucket === "ready" ? (o.waybill ? "AWB ready" : "Ready for pickup") : undefined} />
+                    <Badge status={o.bucket === "cancelled" ? "cancelled" : o.stage === "awb" ? "packed" : o.status} label={o.bucket === "ready" ? (o.manual_courier && o.courier_assigned ? "Courier assigned" : o.waybill ? "AWB ready" : "Ready for pickup") : undefined} />
                   </div>
                 </div>
 
@@ -224,7 +224,22 @@ export default function OrdersPage() {
                   <div><span>Settlement</span><strong>{o.settlement_date ? fmtDate(o.settlement_date) : `${o.settlement_days} days after delivery`}</strong></div>
                 </div>
 
-                {o.waybill && (
+                {o.manual_courier && o.courier_assigned && o.courier && (
+                  // UAE: courier partner assigned by NOTMADE; tracking number may come later; no label to print
+                  <div className="sp-awb">
+                    <div>
+                      <p style={{ fontSize: 11, color: "#888", fontWeight: 600, letterSpacing: ".06em" }}>COURIER PARTNER</p>
+                      <p style={{ fontSize: 16, fontWeight: 800 }}>{o.courier}</p>
+                      <p style={{ fontSize: 12, color: "#777", marginTop: 2 }}>
+                        {o.waybill ? <>Tracking <span style={{ fontFamily: "var(--font-space-mono), monospace" }}>{o.waybill}</span></> : "Tracking number not issued yet"}
+                      </p>
+                      {o.pickup_note && <p style={{ fontSize: 13, color: "#333", marginTop: 6 }}>Pickup note: {o.pickup_note}</p>}
+                    </div>
+                    <span className="sp-chip">{o.handed_over_at ? `Handed over ${fmtDateTime(o.handed_over_at)}` : o.pickup_status || "Pickup scheduled"}</span>
+                  </div>
+                )}
+
+                {o.waybill && !o.manual_courier && (
                   <div className="sp-awb">
                     <div>
                       <p style={{ fontSize: 11, color: "#888", fontWeight: 600, letterSpacing: ".06em" }}>AWB · {o.courier || "Courier"}</p>
@@ -239,8 +254,10 @@ export default function OrdersPage() {
                   </div>
                 )}
 
-                {o.bucket === "ready" && !o.waybill && (
-                  <p className="sp-note-line">Marked ready {o.ready_at ? fmtDateTime(o.ready_at) : ""}{o.package_weight_kg ? ` · ${o.package_weight_kg} kg` : ""}. NOTMADE is generating the AWB — it will show here with the label.</p>
+                {o.bucket === "ready" && !o.waybill && !o.courier_assigned && (
+                  <p className="sp-note-line">Marked ready {o.ready_at ? fmtDateTime(o.ready_at) : ""}{o.package_weight_kg ? ` · ${o.package_weight_kg} kg` : ""}. {o.region === "ae"
+                    ? "NOTMADE is assigning a UAE courier partner — the courier and pickup note will show here."
+                    : "NOTMADE is generating the AWB — it will show here with the label."}</p>
                 )}
                 {o.bucket === "cancelled" && (
                   <p className="sp-note-line" style={{ color: "#B00000" }}>{o.seller_reject_reason || o.cancel_reason || "Cancelled"}</p>
@@ -357,7 +374,9 @@ function ReadyModal({ order, onClose, onReady }: { order: Order; onClose: () => 
   return (
     <Modal title={`Ready for pickup · ${order.ref_no}`} onClose={onClose} width={460}>
       <p style={{ fontSize: 14, color: "#555", lineHeight: 1.55, marginBottom: 16 }}>
-        Once you confirm, NOTMADE generates the AWB and books the pickup from your address. You&apos;ll get the label here.
+        {order.region === "ae"
+          ? <>Once you confirm, NOTMADE assigns a UAE courier partner to collect it from your address. The courier and pickup note will show here.</>
+          : <>Once you confirm, NOTMADE generates the AWB and books the pickup from your address. You&apos;ll get the label here.</>}
       </p>
       {[
         { k: "packed" as const, t: "Packed in a sealed NOTMADE-ready parcel" },

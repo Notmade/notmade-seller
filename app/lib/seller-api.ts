@@ -290,6 +290,12 @@ export interface Order {
   pickup_status: string | null;
   awb_generated_at: string | null;
   label_available: boolean;
+  /** Delhivery AWB generated, or (UAE) a courier partner assigned by NOTMADE — tracking number optional */
+  courier_assigned?: boolean;
+  /** UAE: NOTMADE assigns a courier partner (no Delhivery, no label) */
+  manual_courier?: boolean;
+  pickup_note?: string | null;
+  handed_over_at?: string | null;
   commission: OrderCommission;
   settlement_days: number;
   settlement_date: string | null;

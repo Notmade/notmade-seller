@@ -23,7 +23,9 @@ function productStatus(p: Product): { key: string; label: string } {
 
 export default function ProductsPage() {
   // Adding / editing waits for the updated agreement; delete and orders are unaffected
-  const locked = !!useDashboardSeller().agreement?.resign_required;
+  const me = useDashboardSeller();
+  const locked = !!me.agreement?.resign_required;
+  const aeSeller = (me.uae?.seller_country ?? me.seller_country) === "AE";
   const [products, setProducts] = useState<Product[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
@@ -113,12 +115,18 @@ export default function ProductsPage() {
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>{p.name}</p>
                         <Badge status={st.key} label={st.label} />
+                        {p.sell_in_uae && (
+                          <span className="sp-chip" title="Shown on uae.notmade.in only after NOTMADE approves it">
+                            {st.key === "live" ? "Live in UAE" : st.key === "pending" ? "UAE · awaiting approval" : "UAE"}
+                          </span>
+                        )}
                       </div>
                       <p style={{ fontSize: 13, color: "#777777", marginTop: 4 }}>
-                        {inr(p.price_inr)}
-                        {p.original_price_inr && p.original_price_inr > p.price_inr && (
+                        {aeSeller ? (p.price_aed ? aed(p.price_aed) : "No AED price") : inr(p.price_inr)}
+                        {!aeSeller && p.original_price_inr && p.original_price_inr > p.price_inr && (
                           <span style={{ textDecoration: "line-through", color: "#AAAAAA", marginLeft: 6 }}>{inr(p.original_price_inr)}</span>
                         )}
+                        {!aeSeller && p.sell_in_uae && p.price_aed ? <>{" · "}UAE {aed(p.price_aed)}</> : null}
                         {" · "}{p.category ?? "Uncategorised"}{" · "}Stock {p.stock ?? 0}
                         {p.sizes && p.sizes.length > 0 && ` (${p.sizes.join(", ")})`}
                       </p>
@@ -210,10 +218,14 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     return out;
   });
   const extraActive = !!extra;
-  // UAE listing needs the signed UAE agreement for the seller's country; until then the toggle is off and disabled
+  // UAE listing needs the signed UAE agreement for the seller's country (backend: isUaeReady). Until then the
+  // UAE fields are not shown. UAE-based sellers sell in the UAE only, priced in AED (no INR price).
+  const aeSeller = (seller.uae?.seller_country ?? seller.seller_country) === "AE";
   const uaeReady = !!seller.uae?.ready;
+  // Sellers outside India / the UAE (global agreement) cannot list on the UAE store
+  const canUnlockUae = !aeSeller && seller.agreement?.seller_country !== "OTHER";
   const uaePct = seller.uae?.commission_pct ?? null;
-  const [sellInUae, setSellInUae] = useState(!!product?.sell_in_uae && uaeReady);
+  const [sellInUae, setSellInUae] = useState(aeSeller || (!!product?.sell_in_uae && uaeReady));
   const [priceAed, setPriceAed] = useState(product?.price_aed ? String(product.price_aed) : "");
   const [existingImages, setExistingImages] = useState<string[]>(product?.images ?? []);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -262,8 +274,10 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     fd.append("name", name.trim());
     fd.append("description", description.trim());
     fd.append("category_id", categoryId);
-    fd.append("price_inr", price);
-    fd.append("mrp", mrp);
+    if (!aeSeller) {
+      fd.append("price_inr", price);
+      fd.append("mrp", mrp);
+    }
     if (extra) {
       // Options mode: Size (if any) + the extra option; one variant per value × size, ids kept on edit
       const name = extra.name.trim();
@@ -287,8 +301,9 @@ function ProductForm({ product, categories, onClose, onSaved }: {
       fd.append("stock", stock || "0");
     }
     // Always sent, so a UAE flag left over from before the UAE agreement is switched off on save
-    fd.append("sell_in_uae", String(uaeReady && sellInUae));
-    if (uaeReady && sellInUae) fd.append("price_aed", priceAed);
+    const uae = uaeReady && (aeSeller || sellInUae);
+    fd.append("sell_in_uae", String(uae));
+    if (uae) fd.append("price_aed", priceAed);
     // Only touch images on edit when they actually changed, so unchanged products skip re-conversion
     const imagesChanged = !isEdit || newImages.length > 0 || existingImages.length !== (product?.images?.length ?? 0);
     if (isEdit && imagesChanged) fd.append("existing_images", JSON.stringify(existingImages));
@@ -328,14 +343,18 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             </select>
           </Field>
 
-          <div style={grid2}>
+          {aeSeller && !uaeReady && (
+            <Alert kind="warn">Products can be listed once your UAE seller agreement is on file.</Alert>
+          )}
+
+          {!aeSeller && <div style={grid2}>
             <Field label="Selling price (₹)" htmlFor="p-price">
               <input id="p-price" className="field-input" type="number" min="1" step="0.01" max="1000000" value={price} onChange={e => setPrice(e.target.value)} required />
             </Field>
             <Field label="MRP (₹, optional)" htmlFor="p-mrp" hint="Shown struck-through if higher than price">
               <input id="p-mrp" className="field-input" type="number" min={price || "1"} step="0.01" max="1000000" value={mrp} onChange={e => setMrp(e.target.value)} />
             </Field>
-          </div>
+          </div>}
 
           <div>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer", marginBottom: 10 }}>
@@ -438,14 +457,18 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             )}
           </div>
 
-          {(seller.sell_in_uae || seller.uae?.ready || seller.seller_country === "AE") && (
+          {uaeReady ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={grid2}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: uaeReady ? "#333333" : "#AAAAAA", cursor: uaeReady ? "pointer" : "not-allowed" }}>
-                  <input type="checkbox" checked={sellInUae} disabled={!uaeReady} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
-                  Also sell in the UAE
-                </label>
-                {sellInUae && uaeReady && (
+                {aeSeller ? (
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#333333", alignSelf: "center" }}>Sell in UAE · priced in AED</p>
+                ) : (
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer" }}>
+                    <input type="checkbox" checked={sellInUae} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
+                    Sell in UAE
+                  </label>
+                )}
+                {(aeSeller || sellInUae) && (
                   <Field label="UAE price (AED)" htmlFor="p-aed">
                     <input id="p-aed" className="field-input" type="number" min="1" step="0.01" max="1000000" value={priceAed} onChange={e => setPriceAed(e.target.value)} required />
                     {uaePct !== null && Number(priceAed) > 0 && (
@@ -456,14 +479,14 @@ function ProductForm({ product, categories, onClose, onSaved }: {
                   </Field>
                 )}
               </div>
-              {!uaeReady && (
-                <p style={{ fontSize: 13, color: "#888888" }}>
-                  {seller.seller_country === "AE"
-                    ? "UAE listing unlocks once your UAE seller agreement is on file."
-                    : <>Sign the <Link href="/dashboard/uae" style={{ color: RED, fontWeight: 700 }}>UAE sales addendum</Link> to list this product in the UAE.</>}
-                </p>
+              {(aeSeller || sellInUae) && (
+                <p style={{ fontSize: 13, color: "#888888" }}>Shown on uae.notmade.in only after NOTMADE approves it.</p>
               )}
             </div>
+          ) : canUnlockUae && (
+            <p style={{ fontSize: 13, color: "#888888" }}>
+              Want to sell in the UAE? Sign the <Link href="/dashboard/uae" style={{ color: RED, fontWeight: 700 }}>UAE sales addendum</Link> first.
+            </p>
           )}
 
           <Field label={`Images (${totalImages}/${MAX_IMAGES})`} hint="JPG, PNG or WEBP, up to 8 MB each. The first image is the cover.">
