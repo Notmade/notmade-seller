@@ -224,7 +224,7 @@ export function openMarketsSentence(): string {
 }
 
 export function signupHref(m: Market): string {
-  return `/login?market=${m.code}`;
+  return `/login?apply=1&market=${m.code}`;
 }
 
 /** Markets shown in the landing page toggle, in order. */

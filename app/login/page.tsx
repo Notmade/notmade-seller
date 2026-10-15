@@ -148,7 +148,7 @@ function Login() {
             <li><b>₹0</b> listing fee</li>
           </ul>
         </div>
-        <p className="lg-art-foot">DPIIT recognised · {LEGAL_NAME}</p>
+        <p className="lg-art-foot">© {LEGAL_NAME}</p>
         <div className="lg-art-grid" />
       </aside>
 

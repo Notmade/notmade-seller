@@ -6,7 +6,8 @@ export const MAIN_SITE_URL = "https://notmade.in";
 export const UAE_SITE_URL = "https://uae.notmade.in";
 export const INSTAGRAM_URL = "https://instagram.com/notmade.in";
 export const CONTACT_EMAIL = "admin@notmade.in";
-export const LEGAL_NAME = "House of Notmade Studio Private Limited";
+/** Company name shown in the UI and JSON-LD. The seller agreement keeps the full registered name. */
+export const LEGAL_NAME = "House of Notmade Studio";
 
 /** NOTMADE's commission on each completed sale in India, in percent. */
 export const COMMISSION_PCT_INDIA = 17;

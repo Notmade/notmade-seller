@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Flag, Waitlist, writeMarketCookie } from "./market";
 import { api, type CommissionRates } from "../lib/seller-api";
 import { CONTACT_EMAIL, LEGAL_NAME } from "../lib/seller-config";
-import { LANDING_MARKETS, SETTLEMENT_DAYS, landingMarket, openMarketsSentence, signupHref, type MarketCode } from "@/src/config/markets";
+import { LANDING_MARKETS, MARKETS, SETTLEMENT_DAYS, landingMarket, openMarketsSentence, signupHref, type MarketCode } from "@/src/config/markets";
 
 type LMarket = ReturnType<typeof landingMarket>;
 type Route = "india" | "uae_local" | "uae_from_india";
@@ -68,6 +68,27 @@ function Cta({ market, label = "Start selling", variant = "red" }: { market: LMa
     ? <a href={signupHref(market)} className={cls}>{label}<span aria-hidden>→</span></a>
     : <a href="#start" className={cls}>Join the waitlist<span aria-hidden>→</span></a>;
 }
+
+/** One button per seller market: signup when the market is open (NEXT_PUBLIC_SELLER_MARKETS_OPEN), else marked as opening soon. */
+function SellerButtons({ current }: { current: MarketCode }) {
+  return (
+    <div className="nl-sellers" role="group" aria-label="Where is your business based?">
+      {MARKETS.map(m => m.open
+        ? <a key={m.code} href={signupHref(m)} className={m.code === current ? "nl-seller on" : "nl-seller"}>
+            <Flag market={m} size={12} />{m.name} seller<span aria-hidden>→</span>
+          </a>
+        : <span key={m.code} className="nl-seller off" aria-disabled="true">
+            <Flag market={m} size={12} />{m.name} seller<small>Opening soon</small>
+          </span>)}
+    </div>
+  );
+}
+
+const NAV = [
+  { label: "How it works", href: "#how" },
+  { label: "Commission", href: "#calculator" },
+  { label: "FAQ", href: "#faq" },
+];
 
 function Calculator({ market, rates, failed }: { market: LMarket; rates: CommissionRates | null; failed: boolean }) {
   const routes: { key: Route; label: string }[] = market.code === "ae"
@@ -178,6 +199,7 @@ function Faq({ items }: { items: { q: string; a: string }[] }) {
 export default function Landing({ initial }: { initial: MarketCode }) {
   const [code, setCode] = useState<MarketCode>(initial);
   const [scrolled, setScrolled] = useState(false);
+  const [menu, setMenu] = useState(false);
   const market = landingMarket(code);
   const L = market.landing;
   const { rates, failed } = useRates();
@@ -189,6 +211,13 @@ export default function Landing({ initial }: { initial: MarketCode }) {
     window.addEventListener("scroll", on, { passive: true });
     return () => window.removeEventListener("scroll", on);
   }, []);
+
+  useEffect(() => {
+    if (!menu) return;
+    const close = (e: KeyboardEvent) => { if (e.key === "Escape") setMenu(false); };
+    document.addEventListener("keydown", close);
+    return () => document.removeEventListener("keydown", close);
+  }, [menu]);
 
   const choose = (c: MarketCode) => {
     setCode(c);
@@ -208,15 +237,33 @@ export default function Landing({ initial }: { initial: MarketCode }) {
 
   return (
     <div className="nl">
-      <header className={scrolled ? "nl-top scrolled" : "nl-top"}>
+      <header className={scrolled || menu ? "nl-top scrolled" : "nl-top"}>
         <div className="nl-wrap nl-top-row">
           <a href="/" className="nl-logo" aria-label="NOTMADE seller home">NOT<span>MADE</span><small>SELLER</small></a>
-          <Toggle value={code} onChange={choose} size="sm" />
-          <nav className="nl-top-links">
-            <a href="/login" className="nl-hide-sm">Log in</a>
-            <Cta market={market} label="Start selling" />
+          <nav className="nl-top-nav" aria-label="Main">
+            {NAV.map(n => <a key={n.href} href={n.href}>{n.label}</a>)}
           </nav>
+          <Toggle value={code} onChange={choose} size="sm" />
+          <div className="nl-top-links">
+            <a href="/login" className="nl-hide-md">Log in</a>
+            <Cta market={market} label="Start selling" />
+            <button type="button" className="nl-menu-btn" aria-label={menu ? "Close menu" : "Open menu"}
+              aria-expanded={menu} aria-controls="nl-menu" onClick={() => setMenu(o => !o)}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden>
+                {menu ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+              </svg>
+            </button>
+          </div>
         </div>
+        {menu && (
+          <nav id="nl-menu" className="nl-menu" aria-label="Menu">
+            <div className="nl-wrap">
+              {NAV.map(n => <a key={n.href} href={n.href} onClick={() => setMenu(false)}>{n.label}</a>)}
+              <a href="/login" onClick={() => setMenu(false)}>Log in</a>
+              <Cta market={market} label="Start selling" />
+            </div>
+          </nav>
+        )}
       </header>
 
       <main>
@@ -308,7 +355,7 @@ export default function Landing({ initial }: { initial: MarketCode }) {
         </section>
 
         {/* How it works */}
-        <section className="nl-section">
+        <section className="nl-section" id="how">
           <div className="nl-wrap">
             <p className="nl-eyebrow nl-rv">How it works</p>
             <h2 className="nl-h2 nl-rv">Four steps to your first order.</h2>
@@ -345,7 +392,7 @@ export default function Landing({ initial }: { initial: MarketCode }) {
         </section>
 
         {/* FAQ */}
-        <section className="nl-section">
+        <section className="nl-section" id="faq">
           <div className="nl-wrap nl-faq-grid">
             <div>
               <p className="nl-eyebrow nl-rv">FAQ</p>
@@ -364,29 +411,41 @@ export default function Landing({ initial }: { initial: MarketCode }) {
               {market.open ? `Open your ${market.name} seller account in minutes. Listing is free.` : openMarketsSentence()}
             </p>
             <div className="nl-rv" style={{ marginTop: 28 }}>
-              {market.open ? <Cta market={market} variant="white" /> : <div className="nl-waitlist"><Waitlist market={market} /></div>}
+              <SellerButtons current={market.code} />
+              {!market.open && <div className="nl-waitlist" style={{ marginTop: 20 }}><Waitlist market={market} /></div>}
             </div>
           </div>
         </section>
-
-        <div className="nl-trust">
-          <div className="nl-wrap nl-trust-row">
-            <span className="nl-trust-badge">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" aria-hidden><path d="M12 2l8 4v6c0 5-3.5 9-8 10-4.5-1-8-5-8-10V6z" /><path d="M8.5 12l2.5 2.5 4.5-5" /></svg>
-              DPIIT recognised startup
-            </span>
-            <span>{LEGAL_NAME}</span>
-            <span><Flag market={market} size={12} /> {L.storeHost}</span>
-          </div>
-        </div>
       </main>
 
       <footer className="nl-foot">
-        <div className="nl-wrap nl-foot-row">
-          <span>© {new Date().getFullYear()} {LEGAL_NAME}</span>
-          <nav>
-            <a href="/terms">Terms</a><a href="/privacy-policy">Privacy</a><a href="/refund-policy">Refunds</a><a href={`mailto:${CONTACT_EMAIL}`}>Contact</a>
-          </nav>
+        <div className="nl-wrap">
+          <div className="nl-foot-grid">
+            <div className="nl-foot-brand">
+              <a href="/" className="nl-foot-mark" aria-label="NOTMADE seller home">NOT<span>MADE</span></a>
+              <p>Questions? <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
+            </div>
+            <nav aria-label="Sell">
+              <h2>Sell</h2>
+              <a href={market.open ? signupHref(market) : "#start"}>Start selling</a>
+              <a href="#how">How it works</a>
+              <a href="#calculator">Commission</a>
+              <a href="/login">Log in</a>
+            </nav>
+            <nav aria-label="Support">
+              <h2>Support</h2>
+              <a href="#faq">FAQ</a>
+              <a href={`mailto:${CONTACT_EMAIL}`}>Email us</a>
+              <a href={L.whatsapp.href} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+            </nav>
+            <nav aria-label="Legal">
+              <h2>Legal</h2>
+              <a href="/terms">Terms</a>
+              <a href="/privacy-policy">Privacy</a>
+              <a href="/refund-policy">Refunds</a>
+            </nav>
+          </div>
+          <p className="nl-foot-copy">© {LEGAL_NAME}</p>
         </div>
       </footer>
     </div>
