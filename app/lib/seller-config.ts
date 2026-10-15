@@ -13,7 +13,7 @@ export const LEGAL_NAME = "House of Notmade Studio";
 export const COMMISSION_PCT_INDIA = 17;
 /** Days after delivery that a seller's settlement is paid. */
 export const SETTLEMENT_DAYS_AFTER_DELIVERY = 7;
-/** Hours from delivery a customer has to raise a quality or wrong-item return. */
-export const RETURN_WINDOW_HOURS = 48;
+/** Days from delivery a customer has to raise a return (with an unboxing video). */
+export const RETURN_WINDOW_DAYS = 7;
 /** Minimum products needed to go live (seller terms). */
 export const MIN_PRODUCTS = 10;

@@ -194,6 +194,35 @@ export interface Product {
   reviewed_at: string | null;
   created_at: string;
   product_variants: { size: string; stock: number; is_active: boolean }[] | null;
+  /** Options beyond Size (migration 047). Values of non-Size options may carry an ordered gallery. */
+  options?: ProductOption[] | null;
+  variants?: { id: string; option_values: Record<string, string>; stock: number; stock_uae: number | null; is_active: boolean }[] | null;
+}
+
+export interface OptionImage { url: string; jpg_url: string | null }
+export interface ProductOption {
+  name: string;
+  values: { value: string; image_url?: string | null; image_jpg_url?: string | null; images?: OptionImage[] }[];
+}
+
+/** One order on the Delivery Timeline page: the orders-page shape plus the delivery promise. */
+export interface DeliveryStage { key: string; label: string; at: string | null; due_by: string | null; done: boolean; late: boolean }
+export interface DeliveryInfo {
+  lane: "uae" | "ncr_express" | "pan_india";
+  expected_delivery_at: string;
+  expected_from: string | null;
+  expected_label: string;
+  current_stage: string;
+  closed: boolean;
+  stages: DeliveryStage[];
+  delayed: boolean;
+  delay: { stage: string; label: string; due_by: string; overdue_hours: number } | null;
+}
+export interface DeliveryRules {
+  ncr_express: { enabled: boolean; hours: number; window_start: string; window_end: string };
+  pan_india: { min_days: number; max_days: number };
+  uae: { min_days: number; max_days: number };
+  sla_hours: { accept: number; ready: number; pickup: number };
 }
 
 export interface OrderItem {
@@ -261,6 +290,12 @@ export interface Order {
   pickup_status: string | null;
   awb_generated_at: string | null;
   label_available: boolean;
+  /** Delhivery AWB generated, or (UAE) a courier partner assigned by NOTMADE — tracking number optional */
+  courier_assigned?: boolean;
+  /** UAE: NOTMADE assigns a courier partner (no Delhivery, no label) */
+  manual_courier?: boolean;
+  pickup_note?: string | null;
+  handed_over_at?: string | null;
   commission: OrderCommission;
   settlement_days: number;
   settlement_date: string | null;
@@ -415,6 +450,15 @@ export const api = {
   markReady: (refNo: string, weightKg?: number) =>
     post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/ready`, weightKg ? { weight_kg: weightKg } : {}),
   dashboard: () => request<DashboardData>("/seller/dashboard"),
+  deliveryTimeline: (scope: "open" | "all" = "open") =>
+    request<{ rules: DeliveryRules; summary: { open: number; delayed: number; due_today: number }; orders: (Order & { delivery: DeliveryInfo })[] }>(`/seller/delivery-timeline?scope=${scope}`),
+  /** Option value image → products bucket. Returns the URL to put in options[].values[].images. */
+  uploadVariantImage: (file: File, productId?: string) => {
+    const fd = new FormData();
+    fd.append("image", file);
+    if (productId) fd.append("product_id", productId);
+    return post<{ url: string; image_url: string; image_jpg_url: string | null }>("/seller/products/variant-image", fd);
+  },
   notifications: () => request<{ notifications: SellerNotification[] }>("/seller/notifications"),
   payouts: () => request<{ payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }>("/seller/payouts"),
   returns: () => request<{ returns: ReturnRequest[] }>("/seller/returns"),

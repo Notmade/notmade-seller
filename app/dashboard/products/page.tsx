@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
-import { api, ApiError, aed, inr, fmtDate, uaeNet, type Category, type Product } from "../../lib/seller-api";
+import { api, ApiError, aed, inr, fmtDate, uaeNet, type Category, type OptionImage, type Product } from "../../lib/seller-api";
+import ValueGallery from "../../components/ValueGallery";
 import { useDashboardSeller } from "../seller-context";
 import { Alert, Badge, Button, Card, EmptyState, Field, FullPageSpinner, Modal, PageHeader, RED } from "../../components/portal-ui";
 
@@ -22,7 +23,9 @@ function productStatus(p: Product): { key: string; label: string } {
 
 export default function ProductsPage() {
   // Adding / editing waits for the updated agreement; delete and orders are unaffected
-  const locked = !!useDashboardSeller().agreement?.resign_required;
+  const me = useDashboardSeller();
+  const locked = !!me.agreement?.resign_required;
+  const aeSeller = (me.uae?.seller_country ?? me.seller_country) === "AE";
   const [products, setProducts] = useState<Product[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
@@ -112,12 +115,18 @@ export default function ProductsPage() {
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>{p.name}</p>
                         <Badge status={st.key} label={st.label} />
+                        {p.sell_in_uae && (
+                          <span className="sp-chip" title="Shown on uae.notmade.in only after NOTMADE approves it">
+                            {st.key === "live" ? "Live in UAE" : st.key === "pending" ? "UAE · awaiting approval" : "UAE"}
+                          </span>
+                        )}
                       </div>
                       <p style={{ fontSize: 13, color: "#777777", marginTop: 4 }}>
-                        {inr(p.price_inr)}
-                        {p.original_price_inr && p.original_price_inr > p.price_inr && (
+                        {aeSeller ? (p.price_aed ? aed(p.price_aed) : "No AED price") : inr(p.price_inr)}
+                        {!aeSeller && p.original_price_inr && p.original_price_inr > p.price_inr && (
                           <span style={{ textDecoration: "line-through", color: "#AAAAAA", marginLeft: 6 }}>{inr(p.original_price_inr)}</span>
                         )}
+                        {!aeSeller && p.sell_in_uae && p.price_aed ? <>{" · "}UAE {aed(p.price_aed)}</> : null}
                         {" · "}{p.category ?? "Uncategorised"}{" · "}Stock {p.stock ?? 0}
                         {p.sizes && p.sizes.length > 0 && ` (${p.sizes.join(", ")})`}
                       </p>
@@ -168,6 +177,11 @@ export default function ProductsPage() {
 // ─── Create / edit form ───────────────────────────────────────────────────────
 
 interface SizeRow { size: string; stock: string }
+interface ExtraOption { name: string; values: { value: string; images: OptionImage[] }[] }
+
+const OPTION_SUGGESTIONS = ["Colour", "Style", "Material", "Pattern", "Finish"];
+const isSizeName = (n: string) => n.trim().toLowerCase() === "size";
+const comboKey = (value: string, size: string | null) => `${value}\u0000${size ?? ""}`;
 
 function ProductForm({ product, categories, onClose, onSaved }: {
   product: Product | null; categories: Category[]; onClose: () => void; onSaved: (p: Product) => void;
@@ -188,10 +202,30 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   const [sizes, setSizes] = useState<SizeRow[]>(initialSizes.length ? initialSizes : [{ size: "M", stock: "" }]);
   const [customSize, setCustomSize] = useState("");
   const [stock, setStock] = useState(product && !initialSizes.length ? String(product.stock ?? 0) : "");
-  // UAE listing needs the signed UAE agreement for the seller's country; until then the toggle is off and disabled
+  // Second option (Colour, Style, …): values, a photo gallery per value, stock per value × size
+  const extraInit = product?.options?.find(o => !isSizeName(o.name)) ?? null;
+  const [extra, setExtra] = useState<ExtraOption | null>(extraInit ? {
+    name: extraInit.name,
+    values: extraInit.values.map(v => ({ value: v.value, images: v.images?.length ? v.images : v.image_url ? [{ url: v.image_url, jpg_url: v.image_jpg_url ?? null }] : [] })),
+  } : null);
+  const [newValue, setNewValue] = useState("");
+  const [comboStock, setComboStock] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    if (extraInit) for (const v of product?.variants ?? []) {
+      const val = v.option_values?.[extraInit.name];
+      if (val) out[comboKey(val, v.option_values?.Size ?? null)] = String(v.stock ?? 0);
+    }
+    return out;
+  });
+  const extraActive = !!extra;
+  // UAE listing needs the signed UAE agreement for the seller's country (backend: isUaeReady). Until then the
+  // UAE fields are not shown. UAE-based sellers sell in the UAE only, priced in AED (no INR price).
+  const aeSeller = (seller.uae?.seller_country ?? seller.seller_country) === "AE";
   const uaeReady = !!seller.uae?.ready;
+  // Sellers outside India / the UAE (global agreement) cannot list on the UAE store
+  const canUnlockUae = !aeSeller && seller.agreement?.seller_country !== "OTHER";
   const uaePct = seller.uae?.commission_pct ?? null;
-  const [sellInUae, setSellInUae] = useState(!!product?.sell_in_uae && uaeReady);
+  const [sellInUae, setSellInUae] = useState(aeSeller || (!!product?.sell_in_uae && uaeReady));
   const [priceAed, setPriceAed] = useState(product?.price_aed ? String(product.price_aed) : "");
   const [existingImages, setExistingImages] = useState<string[]>(product?.images ?? []);
   const [newImages, setNewImages] = useState<File[]>([]);
@@ -233,14 +267,33 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     setError("");
     if (totalImages === 0) { setError("Add at least one image"); return; }
     if (hasSizes && sizes.length === 0) { setError("Add at least one size, or switch off sizes"); return; }
+    if (extra && (!extra.name.trim() || isSizeName(extra.name))) { setError("Name the extra option, e.g. Colour"); return; }
+    if (extra && !extra.values.length) { setError(`Add at least one ${extra.name || "option"} value, or remove the option`); return; }
 
     const fd = new FormData();
     fd.append("name", name.trim());
     fd.append("description", description.trim());
     fd.append("category_id", categoryId);
-    fd.append("price_inr", price);
-    fd.append("mrp", mrp);
-    if (hasSizes) {
+    if (!aeSeller) {
+      fd.append("price_inr", price);
+      fd.append("mrp", mrp);
+    }
+    if (extra) {
+      // Options mode: Size (if any) + the extra option; one variant per value × size, ids kept on edit
+      const name = extra.name.trim();
+      const options = [
+        ...(hasSizes ? [{ name: "Size", values: sizes.map(r => ({ value: r.size })) }] : []),
+        { name, values: extra.values.map(v => ({ value: v.value, images: v.images })) },
+      ];
+      const sizeList: (string | null)[] = hasSizes ? sizes.map(r => r.size) : [null];
+      const variants = extra.values.flatMap(v => sizeList.map(sz => {
+        const option_values: Record<string, string> = { [name]: v.value, ...(sz ? { Size: sz } : {}) };
+        const prev = product?.variants?.find(x => x.option_values?.[name] === v.value && (x.option_values?.Size ?? null) === sz);
+        return { ...(prev ? { id: prev.id } : {}), option_values, stock: Number(comboStock[comboKey(v.value, sz)] || 0) };
+      }));
+      fd.append("options", JSON.stringify(options));
+      fd.append("variants", JSON.stringify(variants));
+    } else if (hasSizes) {
       fd.append("sizes", JSON.stringify(sizes.map(r => r.size)));
       fd.append("stock_by_size", JSON.stringify(Object.fromEntries(sizes.map(r => [r.size, Number(r.stock || 0)]))));
     } else {
@@ -248,8 +301,9 @@ function ProductForm({ product, categories, onClose, onSaved }: {
       fd.append("stock", stock || "0");
     }
     // Always sent, so a UAE flag left over from before the UAE agreement is switched off on save
-    fd.append("sell_in_uae", String(uaeReady && sellInUae));
-    if (uaeReady && sellInUae) fd.append("price_aed", priceAed);
+    const uae = uaeReady && (aeSeller || sellInUae);
+    fd.append("sell_in_uae", String(uae));
+    if (uae) fd.append("price_aed", priceAed);
     // Only touch images on edit when they actually changed, so unchanged products skip re-conversion
     const imagesChanged = !isEdit || newImages.length > 0 || existingImages.length !== (product?.images?.length ?? 0);
     if (isEdit && imagesChanged) fd.append("existing_images", JSON.stringify(existingImages));
@@ -289,14 +343,18 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             </select>
           </Field>
 
-          <div style={grid2}>
+          {aeSeller && !uaeReady && (
+            <Alert kind="warn">Products can be listed once your UAE seller agreement is on file.</Alert>
+          )}
+
+          {!aeSeller && <div style={grid2}>
             <Field label="Selling price (₹)" htmlFor="p-price">
               <input id="p-price" className="field-input" type="number" min="1" step="0.01" max="1000000" value={price} onChange={e => setPrice(e.target.value)} required />
             </Field>
             <Field label="MRP (₹, optional)" htmlFor="p-mrp" hint="Shown struck-through if higher than price">
               <input id="p-mrp" className="field-input" type="number" min={price || "1"} step="0.01" max="1000000" value={mrp} onChange={e => setMrp(e.target.value)} />
             </Field>
-          </div>
+          </div>}
 
           <div>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer", marginBottom: 10 }}>
@@ -320,30 +378,97 @@ function ProductForm({ product, categories, onClose, onSaved }: {
                     onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomSize(); } }} />
                   <Button variant="secondary" onClick={addCustomSize} style={{ padding: "6px 12px" }}>Add</Button>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
+                {!extraActive && <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10 }}>
                   {sizes.map(r => (
                     <Field key={r.size} label={`Stock · ${r.size}`} htmlFor={`stock-${r.size}`}>
                       <input id={`stock-${r.size}`} className="field-input" type="number" min="0" step="1" max="100000" required value={r.stock}
                         onChange={e => setSizes(prev => prev.map(x => x.size === r.size ? { ...x, stock: e.target.value } : x))} />
                     </Field>
                   ))}
-                </div>
+                </div>}
               </div>
-            ) : (
+            ) : extraActive ? null : (
               <Field label="Stock" htmlFor="p-stock">
                 <input id="p-stock" className="field-input" type="number" min="0" step="1" max="100000" value={stock} onChange={e => setStock(e.target.value)} required style={{ maxWidth: 200 }} />
               </Field>
             )}
           </div>
 
-          {(seller.sell_in_uae || seller.uae?.ready || seller.seller_country === "AE") && (
+          <div>
+            <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer", marginBottom: 10 }}>
+              <input type="checkbox" checked={extraActive} onChange={e => setExtra(e.target.checked ? { name: "Colour", values: [] } : null)} style={{ width: 18, height: 18, accentColor: RED }} />
+              This product has another option (colour, style, material…)
+            </label>
+            {extra && (
+              <div style={{ border: "1px solid #EEEEEE", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={grid2}>
+                  <Field label="Option name" htmlFor="p-opt" hint="Shoppers pick this on the product page">
+                    <input id="p-opt" className="field-input" list="p-opt-list" value={extra.name} maxLength={30} required
+                      onChange={e => setExtra(x => x && ({ ...x, name: e.target.value }))} />
+                    <datalist id="p-opt-list">{OPTION_SUGGESTIONS.map(o => <option key={o} value={o} />)}</datalist>
+                  </Field>
+                  <Field label={`Add ${extra.name.toLowerCase() || "value"}`} htmlFor="p-optval" hint="Press Enter to add">
+                    <input id="p-optval" className="field-input" value={newValue} maxLength={50} placeholder="e.g. Black"
+                      onChange={e => setNewValue(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key !== "Enter") return;
+                        e.preventDefault();
+                        const v = newValue.trim();
+                        if (v && !extra.values.some(x => x.value.toLowerCase() === v.toLowerCase())) setExtra(x => x && ({ ...x, values: [...x.values, { value: v, images: [] }] }));
+                        setNewValue("");
+                      }} />
+                  </Field>
+                </div>
+
+                {extra.values.length > 0 && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    <p style={{ fontSize: 12, color: "#777777" }}>Photos per {extra.name.toLowerCase() || "value"} (optional, up to 8 each, drag to reorder). The product page switches to these when a shopper picks it.</p>
+                    {extra.values.map(v => (
+                      <div key={v.value} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ flex: 1 }}>
+                          <ValueGallery label={v.value} images={v.images} productId={product?.id}
+                            onChange={imgs => setExtra(x => x && ({ ...x, values: x.values.map(y => y.value === v.value ? { ...y, images: imgs } : y) }))} />
+                        </div>
+                        <button type="button" aria-label={`Remove ${v.value}`} onClick={() => setExtra(x => x && ({ ...x, values: x.values.filter(y => y.value !== v.value) }))}
+                          style={{ border: "none", background: "transparent", color: "#999999", fontSize: 18, cursor: "pointer" }}>×</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {extra.values.length > 0 && (
+                  <div>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#333333", marginBottom: 8 }}>Stock</p>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
+                      {extra.values.flatMap(v => (hasSizes ? sizes.map(r => r.size) : [null]).map(sz => {
+                        const k = comboKey(v.value, sz);
+                        const id = `stock-${v.value}-${sz ?? "one"}`;
+                        return (
+                          <Field key={k} label={sz ? `${v.value} · ${sz}` : v.value} htmlFor={id}>
+                            <input id={id} className="field-input" type="number" min="0" step="1" max="100000" value={comboStock[k] ?? ""} required
+                              onChange={e => setComboStock(m => ({ ...m, [k]: e.target.value }))} />
+                          </Field>
+                        );
+                      }))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {uaeReady ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={grid2}>
-                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: uaeReady ? "#333333" : "#AAAAAA", cursor: uaeReady ? "pointer" : "not-allowed" }}>
-                  <input type="checkbox" checked={sellInUae} disabled={!uaeReady} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
-                  Also sell in the UAE
-                </label>
-                {sellInUae && uaeReady && (
+                {aeSeller ? (
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#333333", alignSelf: "center" }}>Sell in UAE · priced in AED</p>
+                ) : (
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer" }}>
+                    <input type="checkbox" checked={sellInUae} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
+                    Sell in UAE
+                  </label>
+                )}
+                {(aeSeller || sellInUae) && (
                   <Field label="UAE price (AED)" htmlFor="p-aed">
                     <input id="p-aed" className="field-input" type="number" min="1" step="0.01" max="1000000" value={priceAed} onChange={e => setPriceAed(e.target.value)} required />
                     {uaePct !== null && Number(priceAed) > 0 && (
@@ -354,14 +479,14 @@ function ProductForm({ product, categories, onClose, onSaved }: {
                   </Field>
                 )}
               </div>
-              {!uaeReady && (
-                <p style={{ fontSize: 13, color: "#888888" }}>
-                  {seller.seller_country === "AE"
-                    ? "UAE listing unlocks once your UAE seller agreement is on file."
-                    : <>Sign the <Link href="/dashboard/uae" style={{ color: RED, fontWeight: 700 }}>UAE sales addendum</Link> to list this product in the UAE.</>}
-                </p>
+              {(aeSeller || sellInUae) && (
+                <p style={{ fontSize: 13, color: "#888888" }}>Shown on uae.notmade.in only after NOTMADE approves it.</p>
               )}
             </div>
+          ) : canUnlockUae && (
+            <p style={{ fontSize: 13, color: "#888888" }}>
+              Want to sell in the UAE? Sign the <Link href="/dashboard/uae" style={{ color: RED, fontWeight: 700 }}>UAE sales addendum</Link> first.
+            </p>
           )}
 
           <Field label={`Images (${totalImages}/${MAX_IMAGES})`} hint="JPG, PNG or WEBP, up to 8 MB each. The first image is the cover.">

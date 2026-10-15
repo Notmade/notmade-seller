@@ -45,7 +45,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <SellerReloadContext.Provider value={reload}>
     <SellerContext.Provider value={seller}>
-      <div style={{ display: "flex", minHeight: "100vh", background: "#F5F5F5" }}>
+      {/* body text is the landing page's cream (#E8E4DC); the light panel sets its own ink */}
+      <div style={{ display: "flex", minHeight: "100vh", background: "#F5F5F5", color: "#111111" }}>
         <Sidebar
           sellerName={seller.contact_name ?? undefined}
           brandName={seller.business_name ?? seller.brand_name ?? undefined}
