@@ -24,7 +24,7 @@ export function FullPageSpinner() {
 export function Card({ children, style }: { children: ReactNode; style?: CSSProperties }) {
   return (
     <div style={{
-      background: "#FFFFFF", border: "1px solid #EEEEEE", borderRadius: 14, padding: "22px 22px",
+      background: "#FFFFFF", color: "#111111", border: "1px solid #EEEEEE", borderRadius: 14, padding: "22px 22px",
       boxShadow: "0 1px 4px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04)", ...style,
     }}>{children}</div>
   );
@@ -128,7 +128,7 @@ export function Modal({ title, onClose, children, width = 640 }: { title: string
       position: "fixed", inset: 0, zIndex: 60, background: "rgba(0,0,0,0.45)",
       display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "40px 16px", overflowY: "auto",
     }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#FFFFFF", borderRadius: 16, width: "100%", maxWidth: width, padding: "22px 22px 24px" }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#FFFFFF", color: "#111111", borderRadius: 16, width: "100%", maxWidth: width, padding: "22px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>{title}</h2>
           <button type="button" onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "#888888", fontSize: 22, lineHeight: 1 }}>×</button>

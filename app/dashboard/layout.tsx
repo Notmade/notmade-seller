@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useSeller } from "../lib/useSeller";
 import { SellerContext, SellerReloadContext } from "./seller-context";
 import Sidebar from "../components/Sidebar";
+import NotificationsBell from "../components/NotificationsBell";
 import { Alert, Button, Spinner } from "../components/portal-ui";
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -44,7 +45,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   return (
     <SellerReloadContext.Provider value={reload}>
     <SellerContext.Provider value={seller}>
-      <div style={{ display: "flex", minHeight: "100vh", background: "#F5F5F5" }}>
+      {/* body text is the landing page's cream (#E8E4DC); the light panel sets its own ink */}
+      <div style={{ display: "flex", minHeight: "100vh", background: "#F5F5F5", color: "#111111" }}>
         <Sidebar
           sellerName={seller.contact_name ?? undefined}
           brandName={seller.business_name ?? seller.brand_name ?? undefined}
@@ -72,10 +74,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <span style={{ color: "#111111" }}>NOT</span>
               <span style={{ color: "#CC0000" }}>MADE</span>
             </span>
-            <div style={{ width: 22 }} />
+            <NotificationsBell />
           </div>
 
-          <div style={{ padding: "28px 16px", maxWidth: 1100 }} className="lg:px-6">
+          <div style={{ padding: "28px 16px", maxWidth: 1180 }} className="lg:px-6">
+            <div className="hidden lg:flex" style={{ justifyContent: "flex-end", marginBottom: 4, marginTop: -12 }}>
+              <NotificationsBell />
+            </div>
             {seller.agreement?.resign_required && pathname !== "/dashboard/agreement" && (
               <div role="alert" style={{
                 display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", flexWrap: "wrap",
