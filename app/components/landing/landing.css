@@ -396,6 +396,54 @@
 }
 @media (min-width: 768px) and (pointer: fine) { .l-foot nav a { min-height: 36px; } }
 
+/* ── phones ── */
+@media (max-width: 899px) {
+  .l-snav a { min-height: 40px; display: inline-flex; align-items: center; }
+  .l-top .l-btn-sm { min-height: 44px; }
+}
+@media (max-width: 639px) {
+  .l-hero { padding: 20px 0 48px; }
+  .l-hero-grid { gap: 32px; }
+  .l-switch-lg { margin-bottom: 22px; }
+  .l-lead { font-size: 16px; margin-top: 18px; }
+  .l-hero-cta, .l-final-cta { flex-direction: column; align-items: stretch; }
+  .l-hero-cta .l-btn, .l-final-cta .l-btn { width: 100%; }
+  .l-stats > div { padding-right: 8px; }
+  .l-stats > div + div { padding-left: 10px; }
+  .l-stats dt { font-size: 11px; }
+  .l-hv { max-width: 340px; padding: 24px 0; aspect-ratio: auto; }
+  .l-hv-card { padding: 18px; }
+  .l-hv-chip { font-size: 11px; padding: 8px 12px; }
+  /* trust strip: one swipeable row instead of a tall wrapped block */
+  .l-trust-row { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; white-space: nowrap; -webkit-overflow-scrolling: touch; }
+  .l-trust-row::-webkit-scrollbar { display: none; }
+  .l-trust-row > span { flex-shrink: 0; }
+  .l-marquee b { font-size: 22px; }
+  .l-sec { padding: 56px 0; }
+  .l-why, .l-feats, .l-docs, .l-lanes, .l-calc { margin-top: 28px; }
+  .l-why-card { min-height: 0; padding: 22px 20px; }
+  .l-why-k { font-size: 52px; padding-bottom: 16px; }
+  .l-tl { padding-left: 48px; }
+  .l-tl-rail { left: 16px; }
+  .l-tl-dot { left: -48px; width: 34px; height: 34px; font-size: 11px; }
+  .l-tl-card { padding: 16px; }
+  .l-lane { padding: 18px 14px 14px; }
+  .l-lane-track li { font-size: 11px; }
+  .l-calc { padding: 18px; border-radius: 20px; }
+  .l-price span { font-size: 36px; }
+  .l-price input { font-size: 48px; }
+  .l-store dl > div { grid-template-columns: 84px 1fr; }
+  .l-faq-item button { font-size: 16px; padding: 18px 0; }
+  .l-faq-a p { padding-right: 8px; }
+  .l-final { padding: 64px 0 56px; }
+  .l-final-foot { margin-top: 28px; }
+}
+/* hover lifts only where there is a real pointer, so taps don't leave cards stuck raised */
+@media (hover: none) {
+  .l-why-card:hover, .l-feat:hover { transform: none; box-shadow: none; }
+  .l-feat:hover::after { transform: scaleX(0); }
+}
+
 /* reduced motion: everything visible, nothing moves */
 @media (prefers-reduced-motion: reduce) {
   .l *, .l *::before, .l *::after { animation: none !important; transition: none !important; }
