@@ -4,28 +4,30 @@
 
 import { COMMISSION_PCT_INDIA, MAIN_SITE_URL, SETTLEMENT_DAYS_AFTER_DELIVERY, UAE_SITE_URL } from "@/app/lib/seller-config";
 
-export type MarketCode = "in" | "ae" | "global";
+export type MarketCode = "in" | "ae";
 
 export interface Market {
   code: MarketCode;
   name: string;
   /** Inline SVG markup (trusted, static) drawn in a 3:2 box. */
   flag: string;
-  /** Seller country sent to POST /seller/signup; null when there is no signup path yet. */
-  sellerCountry: "IN" | "AE" | null;
-  currency: string | null;
-  payoutCurrency: string | null;
-  storeUrl: string | null;
+  /** Seller country sent to POST /seller/signup. */
+  sellerCountry: "IN" | "AE";
+  currency: string;
+  payoutCurrency: string;
+  storeUrl: string;
   documents: string[];
-  delivery: string | null;
+  delivery: string;
   /** Fallback commission for the registration step when the API has no seller-specific rate yet. */
   commissionPct: number | null;
   /** Seller accounts can be created for this market (NEXT_PUBLIC_SELLER_MARKETS_OPEN). */
   open: boolean;
 }
 
+// Only "in" and "ae" are recognised; anything else in the variable is ignored.
 const OPEN = new Set(
-  (process.env.NEXT_PUBLIC_SELLER_MARKETS_OPEN || "in").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+  (process.env.NEXT_PUBLIC_SELLER_MARKETS_OPEN || "in").split(",").map((s) => s.trim().toLowerCase())
+    .filter((s) => s === "in" || s === "ae"),
 );
 
 const envPct = (v: string | undefined) => (v && Number.isFinite(Number(v)) ? Number(v) : null);
@@ -38,9 +40,6 @@ const FLAG_IN =
 const FLAG_AE =
   '<rect width="30" height="20" fill="#fff"/><rect width="30" height="6.67" fill="#00732F"/><rect y="13.33" width="30" height="6.67" fill="#000"/>' +
   '<rect width="8" height="20" fill="#FF0000"/>';
-const FLAG_GLOBAL =
-  '<rect width="30" height="20" fill="#fff"/><g fill="none" stroke="#111" stroke-width="1.2"><circle cx="15" cy="10" r="7.5"/>' +
-  '<ellipse cx="15" cy="10" rx="3.2" ry="7.5"/><path d="M7.5 10h15M9 6h12M9 14h12"/></g>';
 
 export const MARKETS: Market[] = [
   {
@@ -69,25 +68,6 @@ export const MARKETS: Market[] = [
     commissionPct: envPct(process.env.NEXT_PUBLIC_UAE_COMMISSION_PCT),
     open: OPEN.has("ae"),
   },
-  {
-    code: "global",
-    name: "Global",
-    flag: FLAG_GLOBAL,
-    sellerCountry: null,
-    currency: null,
-    payoutCurrency: null,
-    storeUrl: null,
-    documents: [
-      "Business registration in your country",
-      "Tax registration number, if you have one",
-      "Government ID of the owner",
-      "A bank account in your business name",
-      "Product photos",
-    ],
-    delivery: null,
-    commissionPct: null,
-    open: OPEN.has("global"),
-  },
 ];
 
 export const DEFAULT_MARKET: MarketCode = "in";
@@ -109,7 +89,7 @@ export const OPEN_MARKETS = MARKETS.filter((m) => m.open);
 
 /** "Seller accounts are open to India-based sellers for now." built from the open list. */
 export function openMarketsSentence(): string {
-  const names = OPEN_MARKETS.filter((m) => m.sellerCountry).map((m) => `${m.name}-based`);
+  const names = OPEN_MARKETS.map((m) => `${m.name}-based`);
   if (!names.length) return "Seller accounts are not open yet.";
   const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
   return `Seller accounts are open to ${list} sellers for now.`;
