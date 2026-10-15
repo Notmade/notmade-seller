@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CONTACT_EMAIL, INSTAGRAM_URL, LEGAL_NAME, MAIN_SITE_URL, SITE_URL } from "./seller-config";
+import { CONTACT_EMAIL, INSTAGRAM_URL, MAIN_SITE_URL, SITE_URL } from "./seller-config";
 
 const SITE_NAME = "NOTMADE Seller";
 
@@ -21,7 +21,6 @@ export function organizationLd() {
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "NOTMADE",
-    legalName: LEGAL_NAME,
     url: MAIN_SITE_URL,
     email: CONTACT_EMAIL,
     sameAs: [INSTAGRAM_URL, MAIN_SITE_URL],

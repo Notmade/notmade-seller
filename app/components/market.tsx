@@ -119,7 +119,7 @@ export function Waitlist({ market }: { market: Market }) {
   }
 
   if (status === "done") {
-    return <p className="s-note" role="status">Thanks. We will email you when seller accounts open for {market.name === "Global" ? "your country" : market.name}.</p>;
+    return <p className="s-note" role="status">Thanks. We will email you when seller accounts open for {market.name}.</p>;
   }
 
   return (

@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError, clearSession, setToken } from "../lib/seller-api";
-import { CONTACT_EMAIL, LEGAL_NAME } from "../lib/seller-config";
+import { CONTACT_EMAIL } from "../lib/seller-config";
 import { Flag, MarketSwitcher, useMarket } from "../components/market";
 import { openMarketsSentence } from "@/src/config/markets";
 
@@ -148,7 +148,7 @@ function Login() {
             <li><b>₹0</b> listing fee</li>
           </ul>
         </div>
-        <p className="lg-art-foot">DPIIT recognised · {LEGAL_NAME}</p>
+        <p className="lg-art-foot">© House of Notmade Studio</p>
         <div className="lg-art-grid" />
       </aside>
 
