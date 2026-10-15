@@ -1,16 +1,19 @@
 // UAE copy. Only state what the app or backend already configures for the UAE; anything else
-// (payout timing, fees, delivery times, emirates covered) is "shared during onboarding".
+// (payout timing, fees, emirates covered, return window) is "shared during onboarding".
 import { UAE_SITE_URL } from "@/app/lib/seller-config";
+import { getMarket } from "@/src/config/markets";
 import type { ModeContent } from "./types";
 
 const host = UAE_SITE_URL.replace(/^https?:\/\//, "");
+/** "Delivered in 3 to 5 days across the UAE", from the markets config. */
+const DELIVERY = getMarket("ae").delivery;
 
 const uae: ModeContent = {
   code: "ae",
   label: "UAE",
   meta: {
     title: "Sell on NOTMADE in the UAE | Seller portal",
-    description: `Sell to customers in the UAE on ${host}. Cash on delivery, delivery handled with our partner couriers, and one seller panel for your orders.`,
+    description: `Sell to customers in the UAE on ${host}. Cash on delivery, and delivery in 3 to 5 days across the UAE with our partner couriers.`,
   },
 
   hero: {
@@ -19,8 +22,8 @@ const uae: ModeContent = {
     sub: `List on ${host} at prices you set. Customers can pay cash on delivery, and delivery is handled with our partner couriers.`,
     proof: [
       { value: "COD", label: "cash on delivery for customers" },
+      { value: "3 to 5 days", label: "delivery across the UAE" },
       { value: "Partner couriers", label: "handle delivery" },
-      { value: "Emirate-wise", label: "coverage, shared during onboarding" },
     ],
   },
 
@@ -43,8 +46,8 @@ const uae: ModeContent = {
     title: "Delivery in the UAE.",
     sub: "You pack and mark ready. Our partner couriers take it from there.",
     items: [
-      { value: "Partner couriers", label: "Delivery", note: "Collected from you and delivered to the customer" },
-      { value: "Emirate-wise", label: "Coverage", note: "Emirates covered and delivery times are shared during onboarding" },
+      { value: "3 to 5 days", label: "Delivery time", note: `${DELIVERY}, by our partner couriers` },
+      { value: "Emirate-wise", label: "Coverage", note: "The emirates covered are shared during onboarding" },
       { value: "COD", label: "Cash on delivery", note: "Customers in the UAE can pay on delivery" },
     ],
   },
@@ -79,7 +82,8 @@ const uae: ModeContent = {
     { q: "Where are my products sold?", a: `On NOTMADE's UAE store at ${host}.` },
     { q: "Who sets the price?", a: "You do, in AED, in the seller panel." },
     { q: "Who handles delivery?", a: "Our partner couriers. You pack the order and mark it ready in your panel." },
-    { q: "Which emirates do you cover?", a: "Coverage is set emirate by emirate. The emirates covered and delivery times are shared during onboarding." },
+    { q: "How fast is delivery?", a: `${DELIVERY}.` },
+    { q: "Which emirates do you cover?", a: "Coverage is set emirate by emirate. The emirates covered are shared during onboarding." },
     { q: "Can customers pay cash on delivery?", a: "Yes. Cash on delivery is available to customers in the UAE." },
     { q: "When do I get paid?", a: "Payouts go to your UAE bank account. The payout schedule is shared during onboarding." },
     { q: "What is the commission?", a: "The current UAE rate is shown live on this page and in your agreement before you sign." },
