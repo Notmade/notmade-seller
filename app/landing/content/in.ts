@@ -46,7 +46,7 @@ const india: ModeContent = {
       { counter: { to: 3, unit: "hours" }, title: "Delhi NCR delivery", desc: "Orders in Delhi NCR are delivered in 3 hours, between 9am and 6pm." },
       { counter: { from: 3, to: 5, unit: "days" }, title: "Across India", desc: "Everywhere else in India, orders arrive in 3 to 5 days." },
       { counter: { to: PAYOUT_DAYS, unit: "days" }, title: "Payout after delivery", desc: `Your settlement is paid ${PAYOUT_DAYS} days after the order is delivered.` },
-      { kicker: "Your price", title: "You set it. Always.", desc: "Every price on your listing is the one you entered. NOTMADE does not change it." },
+      { kicker: "Your price", title: "You set it. Always.", desc: "You set the price for every product you list." },
     ],
   },
 
@@ -76,7 +76,7 @@ const india: ModeContent = {
       { title: "Rest of India", counter: { from: 3, to: 5, unit: "days" }, stops: ["Order placed", "You accept", "Pickup with AWB", "Delivered"] },
     ],
     notes: [
-      { title: "Accept or Reject", desc: "Every order waits for your decision. Accept to confirm you will ship it; reject if the item is not available. Nothing is shipped from you without your accept." },
+      { title: "Accept or Reject", desc: "Every order waits for your decision. Accept to confirm you will ship it; reject if the item is not available." },
       { title: "Returns", desc: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video. You can watch the video from the order in your panel.` },
       { title: "Cash on delivery", desc: "Customers can choose to pay on delivery. COD orders come into your panel like any other order." },
     ],
@@ -89,7 +89,7 @@ const india: ModeContent = {
     currencySymbol: "₹",
     defaultPrice: 1999,
     routes: [{ label: "India store", rate: "india_pct", hint: `Orders on ${host}` }],
-    note: "Commission is charged on completed sales only. Your exact rate is also shown in the agreement before you sign.",
+    note: "Your exact rate is also shown in the agreement before you sign.",
   },
 
   features: {
@@ -107,7 +107,7 @@ const india: ModeContent = {
 
   documents: {
     title: "What you need to apply.",
-    sub: "Have these ready and sign-up takes one sitting.",
+    sub: "Have these ready before you start.",
     groups: [
       { title: "If you are GST registered", items: ["GST certificate (GSTIN)"] },
       { title: "If you are not GST registered", items: ["PAN card", "Aadhaar (front)"] },
@@ -116,13 +116,13 @@ const india: ModeContent = {
   },
 
   faq: [
-    { q: "Who sets the price?", a: "You do. The price customers see is the price you enter. NOTMADE does not change it." },
+    { q: "Who sets the price?", a: "You do. You set the price for each product you list." },
     { q: "How fast is delivery?", a: "3 hours across Delhi NCR between 9am and 6pm, and 3 to 5 days across the rest of India." },
     { q: "Do customers get cash on delivery?", a: "Yes. Cash on delivery is available to customers." },
     { q: "When do I get paid?", a: `${PAYOUT_DAYS} days after the order is delivered. Payouts in your panel show each settlement and the orders in it.` },
     { q: "How do returns work?", a: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video, which you can watch from the order in your panel.` },
     { q: "Can I reject an order?", a: "Yes. Every new order waits for you to accept or reject it. Reject if you cannot fulfil it." },
-    { q: "What is the commission?", a: "The current India rate is shown live on this page and in your agreement before you sign. It is charged on completed sales." },
+    { q: "What is the commission?", a: "The current India rate is shown live on this page and in your agreement before you sign." },
     { q: "Can I also sell in the UAE?", a: "Yes. Once your India account is approved you can turn on UAE selling for the products you choose. Switch to “Sell to UAE from India” above to see how." },
   ],
 

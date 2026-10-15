@@ -45,8 +45,12 @@ export function useRates() {
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let live = true;
-    api.commissionRates().then((r) => live && setRates(r)).catch(() => live && setFailed(true));
-    return () => { live = false; };
+    // A hung request shows the "rate is in your agreement" fallback instead of a skeleton forever
+    const timer = window.setTimeout(() => live && setFailed(true), 12000);
+    api.commissionRates()
+      .then((r) => { if (live) { window.clearTimeout(timer); setFailed(false); setRates(r); } })
+      .catch(() => live && setFailed(true));
+    return () => { live = false; window.clearTimeout(timer); };
   }, []);
   return { rates, failed };
 }

@@ -6,7 +6,7 @@ import { MODES, getMode, type ModeCode, type ModeContent } from "@/app/landing/c
 import { CONTACT_EMAIL, DPIIT_NUMBER, LEGAL_NAME, SETTLEMENT_DAYS_AFTER_DELIVERY } from "../../lib/seller-config";
 import { writeMarketCookie } from "../market";
 import { reducedMotion, useActiveSection, useRates, useReveal } from "./hooks";
-import { ApplyForm, Calculator, Counter, Faq, FlowDiagram, Icon, Lanes, Magnetic, Rate, Timeline } from "./parts";
+import { Calculator, Counter, Faq, FlowDiagram, Icon, Lanes, Magnetic, Rate, Timeline, WaitlistForm } from "./parts";
 
 type Props = { initial: ModeCode; uaeSignupOpen: boolean };
 
@@ -95,8 +95,8 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
     if (window.scrollY > 600) window.scrollTo({ top: 0, behavior: reducedMotion() ? "auto" : "smooth" });
   };
 
-  const apply = mode.code === "ae" && !uaeSignupOpen ? mode.signup.apply : undefined;
-  const primary = apply ? { label: apply.label, href: "#start" } : { label: mode.signup.label, href: mode.signup.href };
+  const waitlist = mode.code === "ae" && !uaeSignupOpen ? mode.signup.waitlist : undefined;
+  const primary = waitlist ? { label: waitlist.label, href: "#start" } : { label: mode.signup.label, href: mode.signup.href };
 
   return (
     <div className="l" data-mode={code}>
@@ -106,7 +106,7 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
           <ModeSwitcher value={code} onChange={choose} size="sm" />
           <nav className="l-top-links" aria-label="Account">
             <a href={mode.login.href} className="l-hide-sm l-top-login">{mode.login.label}</a>
-            <a href={primary.href} className="l-btn l-btn-red l-btn-sm"><span>{apply ? "Apply" : primary.label}</span></a>
+            <a href={primary.href} className="l-btn l-btn-red l-btn-sm"><span>{primary.label}</span></a>
           </nav>
         </div>
         <nav className="l-snav" aria-label="Sections">
@@ -307,8 +307,8 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
             <h2 className="l-final-h lr">{mode.final.title.map((l, i) => <span key={l} className={i === mode.final.title.length - 1 ? "red" : ""}>{l}</span>)}</h2>
             <p className="l-lead lr">{mode.final.sub}</p>
             <div className="l-final-cta lr">
-              {apply ? <ApplyForm apply={apply} /> : <Magnetic href={mode.signup.href} variant="white">{mode.signup.label}</Magnetic>}
-              <a href={mode.login.href} className="l-btn l-btn-ghost"><span>{apply ? "Already a seller? Log in" : mode.login.label}</span></a>
+              {waitlist ? <WaitlistForm waitlist={waitlist} /> : <Magnetic href={mode.signup.href} variant="white">{mode.signup.label}</Magnetic>}
+              <a href={mode.login.href} className="l-btn l-btn-ghost"><span>{waitlist ? "Already a seller? Log in" : mode.login.label}</span></a>
             </div>
             <p className="l-final-foot lr">{mode.footnote}</p>
           </div>

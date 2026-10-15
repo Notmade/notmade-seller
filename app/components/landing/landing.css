@@ -343,13 +343,17 @@
 .l-final .l-lead { color: rgba(255,255,255,.72); }
 .l-final-cta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; position: relative; z-index: 1; align-items: flex-start; }
 .l-final-foot { font-size: 13px; color: rgba(255,255,255,.5); margin: 40px 0 0; position: relative; }
-.l-apply { display: grid; gap: 10px; width: 100%; max-width: 560px; }
-@media (min-width: 640px) { .l-apply { grid-template-columns: 1fr auto; } .l-apply-note, .l-apply-err { grid-column: 1 / -1; } }
-.l-apply input { min-height: 52px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,.3); background: transparent; color: #fff; padding: 0 22px; font-size: 16px; outline: 0; }
-.l-apply input:focus { border-color: #fff; }
-.l-apply-note { font-size: 13px; color: rgba(255,255,255,.6); margin: 0; }
-.l-apply-err { font-size: 13px; color: var(--red2); margin: 0; }
-.l-apply-done { font-size: 16px; font-weight: 600; background: rgba(255,255,255,.08); border-radius: 14px; padding: 16px 18px; margin: 0; max-width: 560px; }
+.l-wl { display: grid; gap: 10px; width: 100%; max-width: 560px; }
+@media (min-width: 640px) { .l-wl { grid-template-columns: 1fr auto; } .l-wl-note, .l-wl-err { grid-column: 1 / -1; } }
+.l-wl input { min-height: 52px; border-radius: 999px; border: 1.5px solid rgba(255,255,255,.3); background: transparent; color: #fff; padding: 0 22px; font-size: 16px; outline: 0; }
+.l-wl input:focus { border-color: #fff; }
+.l-wl-note { font-size: 13px; color: rgba(255,255,255,.6); margin: 0; }
+.l-wl-err { font-size: 13px; color: var(--red2); margin: 0; }
+.l-wl-done { display: flex; gap: 14px; align-items: flex-start; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); border-radius: 16px; padding: 18px 20px; max-width: 560px; }
+.l-wl-tick { width: 32px; height: 32px; border-radius: 50%; background: var(--red); display: grid; place-items: center; font-weight: 800; flex-shrink: 0; }
+.l-wl-done strong { font: 800 16px/1.2 var(--font-archivo), sans-serif; }
+.l-wl-done p { margin: 6px 0 0; font-size: 14px; line-height: 1.5; color: rgba(255,255,255,.8); }
+.l-wl-done .l-wl-email { font-family: var(--font-space-mono), monospace; font-size: 12px; color: rgba(255,255,255,.55); }
 
 /* footer */
 .l-foot { background: #000; color: rgba(255,255,255,.55); font-size: 13px; }

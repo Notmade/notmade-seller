@@ -282,9 +282,9 @@ export function Faq({ items }: { items: { q: string; a: string }[] }) {
   );
 }
 
-/* ── "Apply to sell in the UAE" while UAE sign-up is closed ── */
+/* ── UAE seller waitlist while UAE sign-up is closed ── */
 
-export function ApplyForm({ apply }: { apply: NonNullable<ModeContent["signup"]["apply"]> }) {
+export function WaitlistForm({ waitlist }: { waitlist: NonNullable<ModeContent["signup"]["waitlist"]> }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [msg, setMsg] = useState("");
@@ -297,7 +297,7 @@ export function ApplyForm({ apply }: { apply: NonNullable<ModeContent["signup"][
       const res = await fetch("/api/waitlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, market: apply.waitlistMarket }),
+        body: JSON.stringify({ email, market: waitlist.waitlistMarket }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(typeof data.error === "string" ? data.error : "Something went wrong. Try again.");
@@ -308,16 +308,23 @@ export function ApplyForm({ apply }: { apply: NonNullable<ModeContent["signup"][
     }
   }
 
-  if (state === "done") return <p className="l-apply-done" role="status">{apply.done}</p>;
+  if (state === "done") {
+    return (
+      <div className="l-wl-done" role="status">
+        <span className="l-wl-tick" aria-hidden>✓</span>
+        <div><strong>Waitlist joined</strong><p>{waitlist.done}</p><p className="l-wl-email">{email}</p></div>
+      </div>
+    );
+  }
   return (
-    <form className="l-apply" onSubmit={submit}>
-      <label htmlFor="l-apply-email" className="l-sr">Email address</label>
-      <input id="l-apply-email" type="email" required autoComplete="email" placeholder="you@brand.com" value={email} onChange={(e) => setEmail(e.target.value)} />
+    <form className="l-wl" onSubmit={submit}>
+      <label htmlFor="l-wl-email" className="l-sr">Email address</label>
+      <input id="l-wl-email" type="email" required autoComplete="email" placeholder="you@brand.com" value={email} onChange={(e) => setEmail(e.target.value)} />
       <button type="submit" className="l-btn l-btn-red" disabled={state === "busy"}>
-        <span>{state === "busy" ? "Sending…" : apply.label}</span><span aria-hidden className="l-btn-arrow">→</span>
+        <span>{state === "busy" ? "Joining…" : waitlist.label}</span><span aria-hidden className="l-btn-arrow">→</span>
       </button>
-      <p className="l-apply-note">{apply.note}</p>
-      {state === "error" && <p className="l-apply-err" role="alert">{msg}</p>}
+      <p className="l-wl-note">{waitlist.note}</p>
+      {state === "error" && <p className="l-wl-err" role="alert">{msg}</p>}
     </form>
   );
 }

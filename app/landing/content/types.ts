@@ -94,8 +94,8 @@ export interface ModeContent {
 
   final: { title: string[]; sub: string };
 
-  /** Sign-up CTA. `apply` is used while this mode's country is not open for direct sign-up. */
-  signup: Cta & { apply?: { label: string; note: string; done: string; waitlistMarket: "ae" } };
+  /** Sign-up CTA. `waitlist` is used while this mode's country is not open for direct sign-up. */
+  signup: Cta & { waitlist?: { label: string; note: string; done: string; waitlistMarket: "ae" } };
   login: Cta;
 
   /** Closing line under the final CTA. */

@@ -78,7 +78,7 @@ const uae: ModeContent = {
     notes: [
       { title: "Accept or Reject", desc: "Every order waits for your decision. Accept to confirm you will ship it; reject if the item is not available." },
       { title: "Returns", desc: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video. You can watch the video from the order in your panel.` },
-      { title: "Your prices", desc: "Prices are set by you in the local currency in the panel. NOTMADE does not change them." },
+      { title: "Your prices", desc: "Prices are set by you in the local currency in the panel." },
     ],
   },
 
@@ -87,7 +87,7 @@ const uae: ModeContent = {
     sub: "Out of every sale, this is what NOTMADE keeps and what you receive. The rate comes live from NOTMADE.",
     kind: "split",
     routes: [{ label: "UAE local seller", rate: "uae_local_pct", hint: `Orders on ${host}` }],
-    note: "Commission is charged on completed sales only. Your exact rate is also shown in the agreement before you sign.",
+    note: "Your exact rate is also shown in the agreement before you sign.",
   },
 
   features: {
@@ -105,7 +105,7 @@ const uae: ModeContent = {
 
   documents: {
     title: "What a UAE seller needs.",
-    sub: "UAE-based businesses with a trade licence can apply.",
+    sub: "For UAE-based businesses with a trade licence.",
     groups: [
       { title: "Business", items: ["Trade licence and its number", "TRN, if you are VAT registered", "Business name, address and emirate"] },
       { title: "Owner ID", items: ["Emirates ID, or passport"] },
@@ -117,22 +117,22 @@ const uae: ModeContent = {
   faq: [
     { q: "Who can sell on the UAE store?", a: "UAE-based businesses with a trade licence. If your business is in India, see “Sell to UAE from India” above." },
     { q: "Where are my products sold?", a: `On NOTMADE's UAE store at ${host}.` },
-    { q: "Who sets the price?", a: "You do, in the local currency in the panel. NOTMADE does not change your prices." },
+    { q: "Who sets the price?", a: "You do, in the local currency in the panel." },
     { q: "Who handles delivery?", a: "Local delivery is handled with partner assistance. You pack the order and mark it ready in your panel." },
     { q: "Can customers pay cash on delivery?", a: "Yes. Cash on delivery is available in the UAE today." },
     { q: "When do I get paid?", a: `${PAYOUT_DAYS} days after the order is delivered, to your UAE bank account.` },
     { q: "How do returns work?", a: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video, which you can watch from the order in your panel.` },
-    { q: "What is the commission?", a: "The current UAE local rate is shown live on this page and in your agreement before you sign. It is charged on completed sales." },
+    { q: "What is the commission?", a: "The current UAE local rate is shown live on this page and in your agreement before you sign." },
   ],
 
   final: { title: ["Your drop,", "in the UAE."], sub: `Get your products on ${host}.` },
   signup: {
     label: "Start selling",
     href: "/login?market=ae",
-    apply: {
-      label: "Apply to sell in the UAE",
-      note: "Leave your email and we will write to you as soon as UAE seller sign-up opens.",
-      done: "Thanks. We have your email and will write to you when UAE seller sign-up opens.",
+    waitlist: {
+      label: "Join the waitlist",
+      note: "UAE seller sign-up is not open yet. This adds your email to the UAE seller waitlist; it is not an application.",
+      done: "You're on the UAE seller waitlist. We will email you when UAE seller sign-up opens. No account has been created yet.",
       waitlistMarket: "ae",
     },
   },
