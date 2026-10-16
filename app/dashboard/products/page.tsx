@@ -2,9 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
-import { api, ApiError, aed, inr, fmtDate, uaeNet, type Category, type OptionImage, type Product } from "../../lib/seller-api";
+import { api, ApiError, fmtDate, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
+import { AED, INR, UAE_NOT_APPROVED_MESSAGE, currencySymbol, formatMoney, isUaeApproved, sellerCountry } from "../../lib/currency";
 import ValueGallery from "../../components/ValueGallery";
-import { useDashboardSeller } from "../seller-context";
+import { useDashboardSeller, useSellerCurrency } from "../seller-context";
 import { Alert, Badge, Button, Card, EmptyState, Field, FullPageSpinner, Modal, PageHeader, RED } from "../../components/portal-ui";
 
 const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
@@ -25,7 +26,8 @@ export default function ProductsPage() {
   // Adding / editing waits for the updated agreement; delete and orders are unaffected
   const me = useDashboardSeller();
   const locked = !!me.agreement?.resign_required;
-  const aeSeller = (me.uae?.seller_country ?? me.seller_country) === "AE";
+  const { country, uaeApproved, fmt } = useSellerCurrency();
+  const aeSeller = country === "AE";
   const [products, setProducts] = useState<Product[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
@@ -115,18 +117,19 @@ export default function ProductsPage() {
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>{p.name}</p>
                         <Badge status={st.key} label={st.label} />
-                        {p.sell_in_uae && (
+                        {p.sell_in_uae && (aeSeller || uaeApproved) && (
                           <span className="sp-chip" title="Shown on uae.notmade.in only after NOTMADE approves it">
                             {st.key === "live" ? "Live in UAE" : st.key === "pending" ? "UAE · awaiting approval" : "UAE"}
                           </span>
                         )}
                       </div>
                       <p style={{ fontSize: 13, color: "#777777", marginTop: 4 }}>
-                        {aeSeller ? (p.price_aed ? aed(p.price_aed) : "No AED price") : inr(p.price_inr)}
+                        {aeSeller ? (p.price_aed ? fmt(p.price_aed) : `No ${AED} price`) : fmt(p.price_inr)}
                         {!aeSeller && p.original_price_inr && p.original_price_inr > p.price_inr && (
-                          <span style={{ textDecoration: "line-through", color: "#AAAAAA", marginLeft: 6 }}>{inr(p.original_price_inr)}</span>
+                          <span style={{ textDecoration: "line-through", color: "#AAAAAA", marginLeft: 6 }}>{fmt(p.original_price_inr)}</span>
                         )}
-                        {!aeSeller && p.sell_in_uae && p.price_aed ? <>{" · "}UAE {aed(p.price_aed)}</> : null}
+                        {/* India seller's UAE price is part of the UAE section: only once approved for UAE */}
+                        {!aeSeller && uaeApproved && p.sell_in_uae && p.price_aed ? <>{" · "}UAE {formatMoney(p.price_aed, AED)}</> : null}
                         {" · "}{p.category ?? "Uncategorised"}{" · "}Stock {p.stock ?? 0}
                         {p.sizes && p.sizes.length > 0 && ` (${p.sizes.join(", ")})`}
                       </p>
@@ -219,11 +222,11 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   });
   const extraActive = !!extra;
   // UAE listing needs the signed UAE agreement for the seller's country (backend: isUaeReady). Until then the
-  // UAE fields are not shown. UAE-based sellers sell in the UAE only, priced in AED (no INR price).
-  const aeSeller = (seller.uae?.seller_country ?? seller.seller_country) === "AE";
-  const uaeReady = !!seller.uae?.ready;
-  // Sellers outside India / the UAE (global agreement) cannot list on the UAE store
-  const canUnlockUae = !aeSeller && seller.agreement?.seller_country !== "OTHER";
+  // UAE fields are not shown. UAE-based sellers sell in the UAE only, priced in their currency (no India price).
+  // India-based sellers see UAE fields only once NOTMADE approved them for the UAE.
+  const aeSeller = sellerCountry(seller) === "AE";
+  const uaeApproved = isUaeApproved(seller);
+  const uaeReady = !!seller.uae?.ready && (aeSeller || uaeApproved);
   const uaePct = seller.uae?.commission_pct ?? null;
   const [sellInUae, setSellInUae] = useState(aeSeller || (!!product?.sell_in_uae && uaeReady));
   const [priceAed, setPriceAed] = useState(product?.price_aed ? String(product.price_aed) : "");
@@ -348,10 +351,10 @@ function ProductForm({ product, categories, onClose, onSaved }: {
           )}
 
           {!aeSeller && <div style={grid2}>
-            <Field label="Selling price (₹)" htmlFor="p-price">
+            <Field label={`Selling price (${currencySymbol(INR)})`} htmlFor="p-price">
               <input id="p-price" className="field-input" type="number" min="1" step="0.01" max="1000000" value={price} onChange={e => setPrice(e.target.value)} required />
             </Field>
-            <Field label="MRP (₹, optional)" htmlFor="p-mrp" hint="Shown struck-through if higher than price">
+            <Field label={`MRP (${currencySymbol(INR)}, optional)`} htmlFor="p-mrp" hint="Shown struck-through if higher than price">
               <input id="p-mrp" className="field-input" type="number" min={price || "1"} step="0.01" max="1000000" value={mrp} onChange={e => setMrp(e.target.value)} />
             </Field>
           </div>}
@@ -461,7 +464,7 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               <div style={grid2}>
                 {aeSeller ? (
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#333333", alignSelf: "center" }}>Sell in UAE · priced in AED</p>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: "#333333", alignSelf: "center" }}>Sell in UAE · priced in {AED}</p>
                 ) : (
                   <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer" }}>
                     <input type="checkbox" checked={sellInUae} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
@@ -469,11 +472,11 @@ function ProductForm({ product, categories, onClose, onSaved }: {
                   </label>
                 )}
                 {(aeSeller || sellInUae) && (
-                  <Field label="UAE price (AED)" htmlFor="p-aed">
+                  <Field label={`UAE price (${AED})`} htmlFor="p-aed">
                     <input id="p-aed" className="field-input" type="number" min="1" step="0.01" max="1000000" value={priceAed} onChange={e => setPriceAed(e.target.value)} required />
                     {uaePct !== null && Number(priceAed) > 0 && (
                       <p aria-live="polite" style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, marginTop: 6 }}>
-                        You receive {aed(uaeNet(Number(priceAed), uaePct))} after {uaePct}% commission
+                        You receive {formatMoney(netAfterCommission(Number(priceAed), uaePct), AED)} after {uaePct}% commission
                       </p>
                     )}
                   </Field>
@@ -483,11 +486,13 @@ function ProductForm({ product, categories, onClose, onSaved }: {
                 <p style={{ fontSize: 13, color: "#888888" }}>Shown on uae.notmade.in only after NOTMADE approves it.</p>
               )}
             </div>
-          ) : canUnlockUae && (
+          ) : !aeSeller && (uaeApproved ? (
             <p style={{ fontSize: 13, color: "#888888" }}>
               Want to sell in the UAE? Sign the <Link href="/dashboard/uae" style={{ color: RED, fontWeight: 700 }}>UAE sales addendum</Link> first.
             </p>
-          )}
+          ) : (
+            <p style={{ fontSize: 13, color: "#888888" }}>{UAE_NOT_APPROVED_MESSAGE}</p>
+          ))}
 
           <Field label={`Images (${totalImages}/${MAX_IMAGES})`} hint="JPG, PNG or WEBP, up to 8 MB each. The first image is the cover.">
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>

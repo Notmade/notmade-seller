@@ -2,8 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { api, amountIn, fmtDate, fmtDateTime, money, type DashboardData } from "../lib/seller-api";
-import { useDashboardSeller } from "./seller-context";
+import { api, fmtDate, fmtDateTime, type DashboardData } from "../lib/seller-api";
+import { useDashboardSeller, useSellerCurrency } from "./seller-context";
 import { Alert, Badge, Card, FullPageSpinner, PageHeader, RED } from "../components/portal-ui";
 
 function Stat({ label, value, sub, tone, href }: { label: string; value: string; sub?: string; tone?: "red" | "dark"; href?: string }) {
@@ -28,6 +28,7 @@ function timeLeft(iso: string | null) {
 
 export default function DashboardPage() {
   const seller = useDashboardSeller();
+  const { country, currency, uaeApproved, fmt, fmtBag } = useSellerCurrency();
   const [d, setD] = useState<DashboardData | null>(null);
   const [error, setError] = useState("");
 
@@ -45,10 +46,14 @@ export default function DashboardPage() {
   if (!d) return <FullPageSpinner />;
 
   const first = seller.contact_name?.split(" ")[0] || seller.business_name || "there";
-  const rates = [
-    seller.commission?.india_pct != null && `India ${seller.commission.india_pct}%`,
-    seller.uae?.commission_pct != null && seller.uae.ready && `UAE ${seller.uae.commission_pct}%`,
-  ].filter(Boolean).join(" · ");
+  // Amounts and rates for the seller's own market only; an approved India seller's UAE money is on /dashboard/uae
+  const rates = (country === "AE"
+    ? [seller.uae?.commission_pct != null && `UAE ${seller.uae.commission_pct}%`]
+    : [
+      seller.commission?.india_pct != null && `India ${seller.commission.india_pct}%`,
+      uaeApproved && seller.uae?.commission_pct != null && seller.uae.ready && `UAE ${seller.uae.commission_pct}%`,
+    ]).filter(Boolean).join(" · ");
+  const recent = d.recent_orders.filter(o => o.commission.currency === currency);
 
   return (
     <div>
@@ -65,13 +70,13 @@ export default function DashboardPage() {
       )}
 
       <div className="sp-stats">
-        <Stat label="Today's orders" value={String(d.today.orders)} sub={`Payout ${money(d.today.payout)}`} tone="dark" />
+        <Stat label="Today's orders" value={String(d.today.orders)} sub={`Payout ${fmtBag(d.today.payout)}`} tone="dark" />
         <Stat label="Pending accept" value={String(d.pending_accept.count)} tone={d.pending_accept.count ? "red" : undefined}
           sub={d.pending_accept.count ? timeLeft(d.pending_accept.next_due_at) : `Accept within ${d.sla_hours}h`} href="/dashboard/orders?tab=new" />
         <Stat label="Ready for pickup" value={String(d.ready_for_pickup.count)}
           sub={`${d.ready_for_pickup.awb_generated} with AWB · ${d.ready_for_pickup.awaiting_awb} awaiting AWB`} href="/dashboard/orders?tab=ready" />
-        <Stat label="Earnings this month" value={money(d.earnings.month)} sub={`Delivered lifetime ${money(d.earnings.delivered_lifetime)}`} />
-        <Stat label="Next settlement" value={d.next_settlement ? money(d.next_settlement.amount) : "—"}
+        <Stat label="Earnings this month" value={fmtBag(d.earnings.month)} sub={`Delivered lifetime ${fmtBag(d.earnings.delivered_lifetime)}`} />
+        <Stat label="Next settlement" value={d.next_settlement ? fmtBag(d.next_settlement.amount) : "—"}
           sub={d.next_settlement ? `${d.next_settlement.source === "estimate" ? "Expected " : ""}${fmtDate(d.next_settlement.date)}` : `${d.settlement_days} days after delivery`} href="/dashboard/payouts" />
         <Stat label="Low stock" value={String(d.low_stock.count)} sub={`${d.low_stock.threshold} or fewer left`} tone={d.low_stock.count ? "red" : undefined} href="/dashboard/products" />
         <Stat label="Returns" value={String(d.returns.open)} sub="Open requests" href="/dashboard/orders?tab=returns" />
@@ -84,13 +89,13 @@ export default function DashboardPage() {
             <h2>Recent orders</h2>
             <Link href="/dashboard/orders">View all →</Link>
           </div>
-          {d.recent_orders.length === 0 ? (
+          {recent.length === 0 ? (
             <p style={{ padding: "28px 20px", fontSize: 14, color: "#888", textAlign: "center" }}>
               No orders yet. {d.products.total === 0 && <Link href="/dashboard/products" style={{ color: RED, fontWeight: 600 }}>Add your first product</Link>}
             </p>
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {d.recent_orders.map(o => (
+              {recent.map(o => (
                 <li key={o.ref_no}>
                   <Link href={`/dashboard/orders?tab=${o.bucket}&ref=${encodeURIComponent(o.ref_no)}`} className="sp-row">
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -99,7 +104,7 @@ export default function DashboardPage() {
                       </p>
                       <p style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{o.ref_no} · {fmtDateTime(o.created_at)}</p>
                     </div>
-                    <span style={{ fontSize: 14, fontWeight: 700 }}>{amountIn(o.commission.currency, o.commission.payout ?? o.commission.gross)}</span>
+                    <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(o.commission.payout ?? o.commission.gross)}</span>
                     <Badge status={o.bucket === "new" ? "awaiting" : o.bucket === "cancelled" ? "cancelled" : o.bucket === "delivered" ? "delivered" : "packed"}
                       label={{ new: "New", accepted: "Accepted", ready: o.waybill ? "AWB ready" : "Ready", shipped: "Shipped", delivered: "Delivered", cancelled: "Cancelled", returns: "Return" }[o.bucket]} />
                   </Link>

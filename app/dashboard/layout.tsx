@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useSeller } from "../lib/useSeller";
+import { canOpenRoute, sellerCountry } from "../lib/currency";
 import { SellerContext, SellerReloadContext } from "./seller-context";
 import Sidebar from "../components/Sidebar";
 import NotificationsBell from "../components/NotificationsBell";
@@ -17,11 +18,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const seller = state.status === "ready" ? state.seller : null;
   const approved = seller?.onboarding_status === "approved";
+  // UAE-based sellers have no India-only pages (India-to-UAE, India contract, India pickup address)
+  const routeOk = canOpenRoute(seller, pathname);
 
   // Anyone not yet approved finishes (or waits on) onboarding first
   useEffect(() => {
     if (state.status === "ready" && !approved) router.replace("/onboarding");
   }, [state.status, approved, router]);
+  useEffect(() => {
+    if (seller && approved && !routeOk) router.replace("/dashboard");
+  }, [seller, approved, routeOk, router]);
 
   if (state.status === "error") {
     return (
@@ -34,7 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (!seller || !approved) {
+  if (!seller || !approved || !routeOk) {
     return (
       <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#F5F5F5" }}>
         <Spinner size={32} />
@@ -53,6 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           onLogout={signOut}
+          showUae={sellerCountry(seller) === "IN"}
         />
 
         <div className="lg:ml-60" style={{ flex: 1, minWidth: 0 }}>

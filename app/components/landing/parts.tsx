@@ -3,6 +3,7 @@
 import { useId, useState } from "react";
 import type { ModeContent } from "@/app/landing/content/types";
 import type { RatesState } from "./hooks";
+import { currencySymbol, formatMoney } from "@/app/lib/currency";
 
 /* ── commission calculator ── */
 
@@ -14,12 +15,6 @@ function cleanPrice(raw: string): string {
   const [whole, ...rest] = s.split(".");
   const dec = rest.join("").slice(0, 2);
   return whole.slice(0, 9) + (s.includes(".") ? `.${dec}` : "");
-}
-
-export function formatMoney(n: number, currency: Calc["currency"]): string {
-  return currency === "INR"
-    ? `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`
-    : `AED ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function Calculator({ calc, rates }: { calc: Calc; rates: RatesState }) {
@@ -40,7 +35,7 @@ export function Calculator({ calc, rates }: { calc: Calc; rates: RatesState }) {
       <div className="n-calc-field">
         <label htmlFor={id} className="n-label">Your selling price ({calc.currency})</label>
         <div className="n-calc-input">
-          <span aria-hidden>{calc.currency === "INR" ? "₹" : "AED"}</span>
+          <span aria-hidden>{currencySymbol(calc.currency)}</span>
           <input id={id} type="text" inputMode="decimal" autoComplete="off" enterKeyHint="done"
             placeholder="0" value={price} onChange={(e) => setPrice(cleanPrice(e.target.value))} />
         </div>

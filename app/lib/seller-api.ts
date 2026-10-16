@@ -1,6 +1,10 @@
 // Client for the NOTMADE backend seller endpoints (/seller-auth/*, /seller/*).
 // Auth is a 30-day seller JWT sent as a Bearer token.
 
+import type { Currency, Money } from "./currency";
+
+export type { Currency, Money } from "./currency";
+
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 
 const TOKEN_KEY = "nm_seller_token";
@@ -41,6 +45,8 @@ export interface UaeStatus {
   signed_agreement_version: string | null;
   signed_at: string | null;
   commission_pct: number | null;
+  /** NOTMADE approved this India-based seller for the UAE store (when the backend sends it). */
+  approved?: boolean | null;
 }
 
 /** Main agreement state from GET /seller/me. resign_required: signed an older version than the current one for their country. */
@@ -252,7 +258,7 @@ export interface OrderCommission {
   type: "india" | "uae_local" | "uae_from_india";
   label: string;
   pct: number | null;
-  currency: "INR" | "AED";
+  currency: Currency;
   gross: number;
   commission: number | null;
   payout: number | null;
@@ -309,8 +315,6 @@ export type UnboxingVideoStatus = "pending_review" | "approved" | "rejected";
 export const REJECT_REASONS = ["Out of stock", "Can't fulfil in time", "Other"] as const;
 export type RejectReason = (typeof REJECT_REASONS)[number];
 
-export type Money = Partial<Record<"INR" | "AED", number>>;
-
 export interface DashboardData {
   today: { orders: number; payout: Money };
   pending_accept: { count: number; overdue: number; next_due_at: string | null };
@@ -340,7 +344,7 @@ export interface Payout {
   id: string;
   amount: number;
   commission: number | null;
-  currency: "INR" | "AED";
+  currency: Currency;
   status: "paid" | "pending";
   due_date: string | null;
   paid_at: string | null;
@@ -350,7 +354,7 @@ export interface Payout {
 }
 
 export interface UpcomingSettlement {
-  ref_no: string; settlement_date: string; currency: "INR" | "AED";
+  ref_no: string; settlement_date: string; currency: Currency;
   gross: number; commission: number | null; commission_pct: number | null; payout: number | null;
 }
 
@@ -481,13 +485,9 @@ export const DOC_LABELS: Record<DocType, string> = {
   logo: "Brand logo",
 };
 
-export function aed(n: number | null | undefined): string {
-  return `AED ${Number(n || 0).toLocaleString("en-AE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-/** What the seller keeps on a UAE sale after commission, rounded to fils. */
-export function uaeNet(priceAed: number, commissionPct: number): number {
-  return Math.round(priceAed * (1 - commissionPct / 100) * 100) / 100;
+/** What the seller keeps on a sale after commission, rounded to the smallest unit (paise / fils). */
+export function netAfterCommission(price: number, commissionPct: number): number {
+  return Math.round(price * (1 - commissionPct / 100) * 100) / 100;
 }
 
 /** Saves agreement text as a .txt download (plain text, no markdown markers). */
@@ -499,22 +499,6 @@ export function downloadAgreement(text: string, title: string, version: string):
   a.download = `${safe}-${version}.txt`;
   a.click();
   URL.revokeObjectURL(url);
-}
-
-export function inr(n: number | null | undefined): string {
-  return `₹${Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-}
-
-/** "₹1,200 + AED 55" for a per-currency amount bag. */
-export function money(m: Money | null | undefined): string {
-  const parts: string[] = [];
-  if (m?.INR) parts.push(inr(m.INR));
-  if (m?.AED) parts.push(aed(m.AED));
-  return parts.length ? parts.join(" + ") : inr(0);
-}
-
-export function amountIn(currency: "INR" | "AED", n: number | null | undefined): string {
-  return currency === "AED" ? aed(n) : inr(n);
 }
 
 export function fmtDateTime(iso: string | null | undefined): string {

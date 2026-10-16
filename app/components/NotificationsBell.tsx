@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api, fmtDateTime, type SellerNotification } from "../lib/seller-api";
+import { currencySymbol } from "../lib/currency";
+import { useSellerCurrency } from "../dashboard/seller-context";
 
 const SEEN_KEY = "nm_seller_notifs_seen";
-const ICON: Record<SellerNotification["type"], string> = {
-  new_order: "N", reminder: "!", awb_ready: "A", cancelled: "×", payout: "₹", product: "✓",
+const ICON: Record<Exclude<SellerNotification["type"], "payout">, string> = {
+  new_order: "N", reminder: "!", awb_ready: "A", cancelled: "×", product: "✓",
 };
 
 function readSeen(): Set<string> {
@@ -18,6 +20,8 @@ function writeSeen(ids: Set<string>) {
 
 /** New orders, accept reminders, AWB ready, payouts and product reviews. Polls every minute. */
 export default function NotificationsBell({ dark = false }: { dark?: boolean }) {
+  const { currency } = useSellerCurrency();
+  const icon = (t: SellerNotification["type"]) => (t === "payout" ? currencySymbol(currency) : ICON[t]);
   const [items, setItems] = useState<SellerNotification[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState(false);
@@ -76,7 +80,7 @@ export default function NotificationsBell({ dark = false }: { dark?: boolean }) 
                   <li key={n.id}>
                     <Link href={n.href} onClick={() => { const s = new Set(seen); s.add(n.id); setSeen(s); writeSeen(s); setOpen(false); }}
                       className={`sp-notif${isNew ? " unread" : ""}${n.urgent ? " urgent" : ""}`}>
-                      <span className="sp-notif-icon" aria-hidden>{ICON[n.type]}</span>
+                      <span className="sp-notif-icon" aria-hidden style={icon(n.type).length > 1 ? { fontSize: 9 } : undefined}>{icon(n.type)}</span>
                       <span style={{ minWidth: 0, flex: 1 }}>
                         <span className="sp-notif-title">{n.title}</span>
                         {n.body && <span className="sp-notif-body">{n.body}</span>}

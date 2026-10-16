@@ -1,6 +1,8 @@
+import { INR, formatMoney } from "../lib/currency";
+
 const STATS = [
   { value: "17%", label: "Commission" },
-  { value: "₹0",     label: "Hidden fees" },
+  { value: formatMoney(0, INR), label: "Hidden fees" },
   { value: "2 hrs",  label: "Delhi delivery" },
   { value: "24 hrs", label: "Support response" },
 ];

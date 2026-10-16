@@ -89,9 +89,11 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
+  /** India-based sellers get the India-to-UAE section; UAE-based sellers sell only in their own market. */
+  showUae: boolean;
 }
 
-export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogout }: Props) {
+export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogout, showUae }: Props) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -124,7 +126,7 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogo
         </div>
 
         <nav style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
-          {NAV.map(({ href, label, icon }) => {
+          {NAV.filter(n => showUae || n.href !== "/dashboard/uae").map(({ href, label, icon }) => {
             const active = isActive(href);
             return (
               <Link

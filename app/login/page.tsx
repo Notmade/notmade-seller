@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState, type ClipboardEvent, type FormEv
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError, clearSession, setToken } from "../lib/seller-api";
 import { CONTACT_EMAIL } from "../lib/seller-config";
+import { formatMoney } from "../lib/currency";
 import { Flag, MarketSwitcher, useMarket } from "../components/market";
 import { openMarketsSentence } from "@/src/config/markets";
 
@@ -143,9 +144,15 @@ function Login() {
           <p className="lg-art-k">For streetwear labels</p>
           <p className="lg-art-h">Make it.<br />We&apos;ll move it.</p>
           <ul>
-            <li><b>3-hour</b> delivery across Delhi NCR</li>
-            <li><b>7-day</b> payout after delivery</li>
-            <li><b>₹0</b> listing fee</li>
+            {market.code === "ae" ? <>
+              <li><b>3 to 5 day</b> delivery across the UAE</li>
+              <li><b>{market.currency}</b> prices, set by you</li>
+              <li><b>IBAN</b> payout to your UAE bank</li>
+            </> : <>
+              <li><b>3-hour</b> delivery across Delhi NCR</li>
+              <li><b>7-day</b> payout after delivery</li>
+              <li><b>{formatMoney(0, market.currency)}</b> listing fee</li>
+            </>}
           </ul>
         </div>
         <p className="lg-art-foot">© House of Notmade Studio</p>
