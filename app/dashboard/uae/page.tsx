@@ -2,11 +2,28 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api, fmtDate, type UaeAgreementResponse } from "../../lib/seller-api";
-import { useDashboardSeller } from "../seller-context";
+import { AED, UAE_NOT_APPROVED_MESSAGE } from "../../lib/currency";
+import { useDashboardSeller, useSellerCurrency } from "../seller-context";
 import { Alert, Button, Card, FullPageSpinner, PageHeader, RED } from "../../components/portal-ui";
 import { AgreementSigner, Pill } from "../../components/AgreementSigner";
+import OrdersView from "../../components/OrdersView";
+import PayoutsView from "../../components/PayoutsView";
 
+/** India-to-UAE section for India-based sellers. UAE-based sellers never reach it (dashboard layout). */
 export default function UaeSalesPage() {
+  const { uaeApproved } = useSellerCurrency();
+  if (!uaeApproved) {
+    return (
+      <div>
+        <PageHeader title="UAE sales" />
+        <Alert kind="info">{UAE_NOT_APPROVED_MESSAGE}</Alert>
+      </div>
+    );
+  }
+  return <ApprovedUaeSales />;
+}
+
+function ApprovedUaeSales() {
   const seller = useDashboardSeller();
   const [state, setState] = useState<UaeAgreementResponse | null>(null);
   const [error, setError] = useState("");
@@ -36,25 +53,22 @@ export default function UaeSalesPage() {
   if (!state) return <FullPageSpinner />;
 
   const pct = state.commission_pct;
-  const uaeBased = state.seller_country === "AE";
 
   return (
     <div>
-      <PageHeader title="UAE sales" sub="Sell on uae.notmade.in with a separate AED price for each product." />
+      <PageHeader title="UAE sales" sub={`Sell on uae.notmade.in with a separate ${AED} price for each product.`} />
 
       {state.ready ? (
         <Card>
           <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>You can sell in the UAE</h2>
           <p style={{ fontSize: 14, color: "#666666", marginTop: 6, lineHeight: 1.6 }}>
-            {uaeBased ? "UAE seller agreement" : "International sales addendum"} <strong>{state.signed_agreement_version}</strong> signed on {fmtDate(state.signed_at)}.
-            {pct !== null && <> NOTMADE&apos;s UAE commission on your products is <strong>{pct}%</strong> of the AED selling price.</>}
+            International sales addendum <strong>{state.signed_agreement_version}</strong> signed on {fmtDate(state.signed_at)}.
+            {pct !== null && <> NOTMADE&apos;s UAE commission on your products is <strong>{pct}%</strong> of the {AED} selling price.</>}
           </p>
           <p style={{ fontSize: 13, color: "#888888", marginTop: 10 }}>
-            Switch on &quot;Also sell in the UAE&quot; and set an AED price on each product. To stop selling in the UAE, email admin@notmade.in (14 days&apos; notice).
+            Switch on &quot;Sell in UAE&quot; and set an {AED} price on each product. To stop selling in the UAE, email admin@notmade.in (14 days&apos; notice).
           </p>
         </Card>
-      ) : uaeBased ? (
-        <Alert kind="warn">Your UAE seller agreement is not on file. Contact admin@notmade.in.</Alert>
       ) : signing ? (
         <AgreementSigner
           seller={seller}
@@ -66,7 +80,7 @@ export default function UaeSalesPage() {
           pills={a => (
             <>
               <Pill>UAE commission {a.commission_rate}%</Pill>
-              <Pill>AED pricing</Pill>
+              <Pill>{AED} pricing</Pill>
               <Pill>3-day unboxing-video returns</Pill>
             </>
           )}
@@ -77,14 +91,25 @@ export default function UaeSalesPage() {
           <p style={{ fontSize: 14, color: "#666666", marginTop: 6, lineHeight: 1.6 }}>
             {seller.uae_agreement_version || seller.sell_in_uae
               ? "UAE terms have been updated. Your UAE listings stay off until you sign the new addendum."
-              : "To list products on the UAE store, review and sign the international sales addendum. You set a separate AED price for each product."}
-            {pct !== null && <> NOTMADE&apos;s UAE commission is <strong>{pct}%</strong> of the AED selling price.</>}
+              : `To list products on the UAE store, review and sign the international sales addendum. You set a separate ${AED} price for each product.`}
+            {pct !== null && <> NOTMADE&apos;s UAE commission is <strong>{pct}%</strong> of the {AED} selling price.</>}
           </p>
           <div style={{ marginTop: 16 }}>
             <Button onClick={() => setSigning(true)} disabled={pct === null}>Review addendum →</Button>
           </div>
           {pct === null && <p style={{ fontSize: 13, color: "#888888", marginTop: 8 }}>UAE commission isn&apos;t configured yet. Please check back soon.</p>}
         </Card>
+      )}
+
+      {state.ready && (
+        <>
+          <div id="orders" style={{ marginTop: 32 }}>
+            <OrdersView currency={AED} title="UAE orders" sub="Orders from uae.notmade.in. NOTMADE assigns a UAE courier partner once you mark an order ready." />
+          </div>
+          <div style={{ marginTop: 32 }}>
+            <PayoutsView currency={AED} title="UAE payouts" rates={pct != null ? `UAE ${pct}%` : ""} />
+          </div>
+        </>
       )}
     </div>
   );

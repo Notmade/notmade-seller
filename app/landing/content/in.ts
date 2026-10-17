@@ -1,4 +1,5 @@
 import { MAIN_SITE_URL, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS } from "@/app/lib/seller-config";
+import { INR, formatMoney } from "@/app/lib/currency";
 import type { ModeContent } from "./types";
 
 const host = MAIN_SITE_URL.replace(/^https?:\/\//, "");
@@ -8,7 +9,7 @@ const india: ModeContent = {
   label: "India",
   meta: {
     title: "Sell on NOTMADE across India | Seller portal",
-    description: `Sell streetwear on ${host}. 3-hour delivery across Delhi NCR, 3 to 5 days across India, ₹0 listing fee, and payout ${PAYOUT_DAYS} days after delivery.`,
+    description: `Sell streetwear on ${host}. 3-hour delivery across Delhi NCR, 3 to 5 days across India, ${formatMoney(0, INR)} listing fee, and payout ${PAYOUT_DAYS} days after delivery.`,
   },
 
   hero: {
@@ -18,7 +19,7 @@ const india: ModeContent = {
     proof: [
       { value: "3-hour", label: "delivery across Delhi NCR" },
       { value: `${PAYOUT_DAYS}-day`, label: "payout after delivery" },
-      { value: "₹0", label: "listing fee" },
+      { value: formatMoney(0, INR), label: "listing fee" },
     ],
   },
 
@@ -50,13 +51,13 @@ const india: ModeContent = {
     title: "Commission and payout.",
     sub: "One commission on each completed sale. No listing fee.",
     points: [
-      { title: "₹0 listing fee", desc: "List your products for free." },
+      { title: `${formatMoney(0, INR)} listing fee`, desc: "List your products for free." },
       { title: "You set the price", desc: "You set the price for every product you list." },
       { title: `Paid in ${PAYOUT_DAYS} days`, desc: `Payout ${PAYOUT_DAYS} days after the order is delivered.` },
     ],
     calc: {
       rate: "india_pct",
-      currency: "INR",
+      currency: INR,
       defaultPrice: 1999,
       note: "Your exact rate is shown in the seller agreement before you sign.",
     },

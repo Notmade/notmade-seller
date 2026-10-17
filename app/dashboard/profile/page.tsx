@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { api, DOC_LABELS, fmtDate, type SellerDocument } from "../../lib/seller-api";
-import { useDashboardSeller } from "../seller-context";
+import { useDashboardSeller, useSellerCurrency } from "../seller-context";
+import { UAE_NOT_APPROVED_MESSAGE } from "../../lib/currency";
 import { Alert, Button, Card, PageHeader, RED, Spinner } from "../../components/portal-ui";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
@@ -18,7 +19,8 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 export default function ProfilePage() {
   const seller = useDashboardSeller();
   const uae = seller.uae;
-  const uaeBased = seller.seller_country === "AE";
+  const { country, uaeApproved } = useSellerCurrency();
+  const uaeBased = country === "AE";
   const agreement = seller.agreement;
   const commission = seller.commission;
   const pct = (n: number | null | undefined) => (n == null ? null : `${n}%`);
@@ -84,7 +86,7 @@ export default function ProfilePage() {
               ? <Row label="UAE store commission" value={pct(commission?.international_pct ?? uae?.commission_pct)} />
               : <>
                 <Row label="India store commission" value={pct(commission?.india_pct ?? seller.commission_rate)} />
-                <Row label="International commission" value={pct(commission?.international_pct ?? uae?.commission_pct)} />
+                {uaeApproved && <Row label="UAE store commission" value={pct(uae?.commission_pct ?? commission?.international_pct)} />}
               </>}
             <Row label="Seller agreement" value={agreement?.signed_version
               ? <>
@@ -92,9 +94,9 @@ export default function ProfilePage() {
                 {agreement.resign_required && <span style={{ color: RED, fontWeight: 700 }}> · update to {agreement.required_version} needs your signature</span>}
               </>
               : fmtDate(seller.agreement_signed_at)} />
-            {!uaeBased && <Row label="International addendum" value={uae?.signed_agreement_version
-              ? `${uae.signed_agreement_version} · signed ${fmtDate(uae.signed_at)}`
-              : "Not signed"} />}
+            {!uaeBased && <Row label="UAE sales" value={!uaeApproved ? UAE_NOT_APPROVED_MESSAGE : uae?.signed_agreement_version
+              ? `International addendum ${uae.signed_agreement_version} · signed ${fmtDate(uae.signed_at)}`
+              : "International addendum not signed"} />}
             <Row label="Agreement text" value={<Link href="/dashboard/agreement" style={{ color: RED, fontWeight: 700, textDecoration: "none" }}>View agreement →</Link>} />
             <Row label="Seller since" value={fmtDate(seller.created_at)} />
           </dl>

@@ -1,5 +1,7 @@
 // Shape of one landing-page mode. Edit copy in in.ts / ae.ts; components only read these.
 
+import type { Currency } from "@/app/lib/currency";
+
 export type ModeCode = "in" | "ae";
 
 /** Field of GET /seller/commission-rates used on the landing page. Rates are never written into copy. */
@@ -40,7 +42,7 @@ export interface ModeContent {
     points: { title: string; desc: string }[];
     calc: {
       rate: RateKey;
-      currency: "INR" | "AED";
+      currency: Currency;
       /** Prefilled price. Leave out to start empty. */
       defaultPrice?: number;
       note: string;

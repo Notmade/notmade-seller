@@ -6,7 +6,7 @@ import { clearToken, getSellerId } from "../../lib/auth";
 import { supabase } from "../../lib/supabase";
 
 const COMPANY = {
-  name:    "House of Notmade Studio Private Limited",
+  name:    "House of Notmade Studio",
   cin:     "U62099UW2026PTC256850",
   gstin:   "09ABAFH8658N",
   address: "GK-II/41/C-2, Second Floor, Gyan Khand-2, Shipra Sun City, Indirapuram, Ghaziabad, Uttar Pradesh 201014",

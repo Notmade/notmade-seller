@@ -545,7 +545,7 @@ function PricingNote({ showRates = false }: { showRates?: boolean }) {
   }, [showRates]);
   const parts = rates ? [
     rates.india_pct != null && `India sales ${rates.india_pct}%`,
-    rates.international_pct != null && `international ${rates.international_pct}%`,
+    rates.international_pct != null && `UAE sales ${rates.international_pct}% (once approved for the UAE)`,
   ].filter(Boolean) : [];
   return (
     <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid #E5E5E5", background: "#FAFAFA" }}>

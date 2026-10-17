@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, fmtDateTime, type DeliveryInfo, type DeliveryRules, type DeliveryStage, type Order } from "../../lib/seller-api";
 import { Alert, Button, Card, EmptyState, FullPageSpinner, PageHeader, RED } from "../../components/portal-ui";
+import { useSellerCurrency } from "../seller-context";
 
 type Row = Order & { delivery: DeliveryInfo };
 type Filter = "open" | "delayed" | "all";
@@ -59,6 +60,7 @@ function Stages({ stages, now }: { stages: DeliveryStage[]; now: number }) {
 }
 
 export default function DeliveryTimelinePage() {
+  const { country, uaeApproved } = useSellerCurrency();
   const now = useNow();
   const [filter, setFilter] = useState<Filter>("open");
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -118,8 +120,10 @@ export default function DeliveryTimelinePage() {
         <Card style={{ padding: "14px 18px", marginBottom: 18 }}>
           <p style={{ fontSize: 13, color: "#555555", lineHeight: 1.6 }}>
             <strong style={{ color: "#111111" }}>Delivery promises</strong> (set by NOTMADE):{" "}
-            {rules.ncr_express.enabled && <>Delhi NCR {rules.ncr_express.hours}-hour delivery for orders between {rules.ncr_express.window_start} and {rules.ncr_express.window_end} · </>}
-            Pan-India {rules.pan_india.min_days}–{rules.pan_india.max_days} days · UAE {rules.uae.min_days}–{rules.uae.max_days} days.{" "}
+            {country === "AE" ? <>UAE {rules.uae.min_days}–{rules.uae.max_days} days.{" "}</> : <>
+              {rules.ncr_express.enabled && <>Delhi NCR {rules.ncr_express.hours}-hour delivery for orders between {rules.ncr_express.window_start} and {rules.ncr_express.window_end} · </>}
+              Pan-India {rules.pan_india.min_days}–{rules.pan_india.max_days} days{uaeApproved && <> · UAE {rules.uae.min_days}–{rules.uae.max_days} days</>}.{" "}
+            </>}
             <strong style={{ color: "#111111" }}>Your deadlines:</strong> accept within {rules.sla_hours.accept} h, ready to ship within {rules.sla_hours.ready} h of accepting, handed to the courier within {rules.sla_hours.pickup} h of ready.
           </p>
         </Card>
