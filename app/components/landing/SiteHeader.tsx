@@ -1,16 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation";
 import { MODES, type ModeCode } from "@/app/landing/content";
 import type { Cta } from "@/app/landing/content/types";
+import { NAV, getPage } from "@/app/lib/public-pages";
 
-export const SECTIONS = [
-  { id: "how", label: "How it works" },
-  { id: "delivery", label: "Delivery" },
-  { id: "commission", label: "Commission" },
-  { id: "returns", label: "Returns" },
-  { id: "faq", label: "FAQ" },
-];
+const LINKS = NAV.map(({ key, label }) => ({ href: getPage(key).path, label }));
 
 export function MarketSwitch({ value, onChange }: { value: ModeCode; onChange: (c: ModeCode) => void }) {
   return (
@@ -24,9 +20,11 @@ export function MarketSwitch({ value, onChange }: { value: ModeCode; onChange: (
   );
 }
 
+/** Public site header. The market switch shows only where the page can switch market in place (the landing). */
 export default function SiteHeader({ code, onMarket, login, primary }: {
-  code: ModeCode; onMarket: (c: ModeCode) => void; login: Cta; primary: Cta;
+  code?: ModeCode; onMarket?: (c: ModeCode) => void; login: Cta; primary: Cta;
 }) {
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -52,16 +50,16 @@ export default function SiteHeader({ code, onMarket, login, primary }: {
   return (
     <header className={`n-head${scrolled || open ? " is-raised" : ""}`}>
       <div className="n-wrap n-head-row">
-        <a href={`/?market=${code}`} className="n-logo" aria-label="NOTMADE Seller home">
-          NOT<span>MADE</span><small>Seller</small>
+        <a href={code ? `/?market=${code}` : "/"} className="n-logo">
+          NOT<span>MADE</span><small>Seller</small><span className="n-sr"> home</span>
         </a>
 
-        <nav className="n-head-nav" aria-label="Sections">
-          {SECTIONS.map((s) => <a key={s.id} href={`#${s.id}`}>{s.label}</a>)}
+        <nav className="n-head-nav" aria-label="Main">
+          {LINKS.map((l) => <a key={l.href} href={l.href} aria-current={pathname === l.href ? "page" : undefined}>{l.label}</a>)}
         </nav>
 
         <div className="n-head-end">
-          <MarketSwitch value={code} onChange={onMarket} />
+          {code && onMarket && <MarketSwitch value={code} onChange={onMarket} />}
           <a href={login.href} className="n-head-login">{login.label}</a>
           <a href={primary.href} className="n-btn n-btn-red n-btn-sm n-head-cta">{primary.label}</a>
           <button type="button" className="n-menu-btn" aria-expanded={open} aria-controls="n-menu"
@@ -73,7 +71,9 @@ export default function SiteHeader({ code, onMarket, login, primary }: {
 
       <div id="n-menu" className="n-menu" hidden={!open}>
         <nav className="n-wrap" aria-label="Menu">
-          {SECTIONS.map((s) => <a key={s.id} href={`#${s.id}`} onClick={close}>{s.label}</a>)}
+          {LINKS.map((l) => (
+            <a key={l.href} href={l.href} onClick={close} aria-current={pathname === l.href ? "page" : undefined}>{l.label}</a>
+          ))}
           <div className="n-menu-cta">
             <a href={primary.href} className="n-btn n-btn-red" onClick={close}>{primary.label}</a>
             <a href={login.href} className="n-btn n-btn-line" onClick={close}>{login.label}</a>

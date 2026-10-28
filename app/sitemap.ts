@@ -1,12 +1,13 @@
 import type { MetadataRoute } from "next";
-import { SITE_URL } from "./lib/seller-config";
+import { PUBLIC_PAGES } from "./lib/public-pages";
+import { absoluteUrl } from "./lib/seo";
 
-// Public pages only; /login, /onboarding and /dashboard are noindex.
+// Public pages only (app/lib/public-pages.ts). /login, /onboarding and /dashboard are noindex.
 export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    { path: "/", priority: 1 },
-    { path: "/terms", priority: 0.5 },
-    { path: "/privacy-policy", priority: 0.3 },
-    { path: "/refund-policy", priority: 0.3 },
-  ].map(({ path, priority }) => ({ url: `${SITE_URL}${path === "/" ? "" : path}`, changeFrequency: "monthly", priority }));
+  return PUBLIC_PAGES.map((p) => ({
+    url: absoluteUrl(p.path),
+    lastModified: p.lastModified,
+    changeFrequency: "monthly",
+    priority: p.priority,
+  }));
 }

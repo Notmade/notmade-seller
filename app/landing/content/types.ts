@@ -22,8 +22,6 @@ export interface Fact {
 export interface ModeContent {
   code: ModeCode;
   label: string;
-  meta: { title: string; description: string };
-
   hero: {
     kicker: string;
     /** Headline lines; the last line is set in red. */

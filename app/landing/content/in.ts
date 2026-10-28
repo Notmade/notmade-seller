@@ -7,11 +7,6 @@ const host = MAIN_SITE_URL.replace(/^https?:\/\//, "");
 const india: ModeContent = {
   code: "in",
   label: "India",
-  meta: {
-    title: "Sell on NOTMADE across India | Seller portal",
-    description: `Sell streetwear on ${host}. 3-hour delivery across Delhi NCR, 3 to 5 days across India, ${formatMoney(0, INR)} listing fee, and payout ${PAYOUT_DAYS} days after delivery.`,
-  },
-
   hero: {
     kicker: "For streetwear labels",
     headline: ["Make it.", "We'll move it."],

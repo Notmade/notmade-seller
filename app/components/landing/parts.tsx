@@ -57,11 +57,12 @@ export function Calculator({ calc, rates }: { calc: Calc; rates: RatesState }) {
 
 /* ── FAQ ── */
 
-export function Faq({ items }: { items: { q: string; a: string }[] }) {
+/** `open` starts every answer expanded (the FAQ page), so all answers are visible without a click. */
+export function Faq({ items, open = false }: { items: { q: string; a: string }[]; open?: boolean }) {
   return (
     <div className="n-faq">
       {items.map((f) => (
-        <details key={f.q} className="n-faq-item">
+        <details key={f.q} className="n-faq-item" open={open}>
           <summary><span>{f.q}</span><span className="n-faq-plus" aria-hidden /></summary>
           <p>{f.a}</p>
         </details>

@@ -13,6 +13,8 @@ type Props = { initial: ModeCode; uaeSignupOpen: boolean };
 
 export default function Landing({ initial, uaeSignupOpen }: Props) {
   const [code, setCode] = useState<ModeCode>(initial);
+  // Fade the page in only on a market switch, never on first paint (it would delay LCP)
+  const [switched, setSwitched] = useState(false);
   const mode = getMode(code);
   const rates = useRates();
   const mainRef = useRef<HTMLElement>(null);
@@ -28,6 +30,7 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
   const choose = (next: ModeCode) => {
     if (next === code) return;
     setCode(next);
+    setSwitched(true);
     writeMarketCookie(next);
     const url = new URL(window.location.href);
     url.searchParams.set("market", next);
@@ -44,7 +47,7 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
       <a href="#main" className="n-skip">Skip to content</a>
       <SiteHeader code={code} onMarket={choose} login={mode.login} primary={primary} />
 
-      <main id="main" ref={mainRef} key={code} className="n-main">
+      <main id="main" ref={mainRef} key={code} className={switched ? "n-main n-main-switch" : "n-main"}>
         {/* Hero */}
         <section className="n-hero" id="top">
           <div className="n-wrap">
@@ -81,6 +84,7 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
                 </li>
               ))}
             </ol>
+            <p className="n-more nr"><a href={mode.code === "ae" ? "/sell-in-uae" : "/sell-in-india"}>Selling in {mode.label}: documents, fees and delivery</a></p>
           </div>
         </section>
 
@@ -114,6 +118,7 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
                   <li key={pt.title} className="nr"><h3>{pt.title}</h3><p>{pt.desc}</p></li>
                 ))}
               </ul>
+              <p className="n-more nr"><a href="/fees-and-payouts">Fees and payouts in detail</a></p>
             </div>
             <Calculator key={code} calc={mode.money.calc} rates={rates} />
           </div>
@@ -128,6 +133,7 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
             <ul className="n-checks nr">
               {mode.returns.points.map((r) => <li key={r}>{r}</li>)}
             </ul>
+            <p className="n-more nr"><a href="/policies">Seller policies</a></p>
           </div>
         </section>
 
@@ -137,6 +143,7 @@ export default function Landing({ initial, uaeSignupOpen }: Props) {
             <div>
               <p className="n-eyebrow nr">FAQ</p>
               <h2 id="faq-h" className="n-h2 nr">Questions, answered.</h2>
+              <p className="n-more nr"><a href="/faq">All seller questions</a></p>
             </div>
             <div className="nr"><Faq items={mode.faq} /></div>
           </div>
