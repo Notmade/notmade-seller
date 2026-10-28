@@ -1,6 +1,6 @@
-// UAE copy. Only state what the app or backend already configures for the UAE; anything else
-// (payout timing, fees, delivery times, emirates covered) is "shared during onboarding".
-import { UAE_SITE_URL } from "@/app/lib/seller-config";
+// UAE copy. Only state what the app, the backend or the UAE seller agreement (uae-local-v2) already sets
+// for the UAE; anything else (fees beyond commission, emirates covered) is "shared during onboarding".
+import { RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_SITE_URL } from "@/app/lib/seller-config";
 import { AED } from "@/app/lib/currency";
 import type { ModeContent } from "./types";
 
@@ -9,11 +9,6 @@ const host = UAE_SITE_URL.replace(/^https?:\/\//, "");
 const uae: ModeContent = {
   code: "ae",
   label: "UAE",
-  meta: {
-    title: "Sell on NOTMADE in the UAE | Seller portal",
-    description: `Sell to customers in the UAE on ${host}. Cash on delivery, delivery handled with our partner couriers, and one seller panel for your orders.`,
-  },
-
   hero: {
     kicker: "For UAE-based labels",
     headline: ["Sell to customers", "in the UAE."],
@@ -36,7 +31,7 @@ const uae: ModeContent = {
       { title: "Add products", desc: `Add photos, variants with photos for each option, and your price in ${AED}.` },
       { title: "Accept or reject orders", desc: "Every new order waits for you. Accept it if you can fulfil it, reject it if you cannot." },
       { title: "Mark ready", desc: "Pack the order and tap Mark as ready. Our partner courier collects it." },
-      { title: "Get paid", desc: "Payouts go to your UAE bank account. The payout schedule is shared during onboarding." },
+      { title: "Get paid", desc: `Paid to your UAE IBAN within ${PAYOUT_DAYS} days after the ${RETURN_WINDOW_DAYS}-day return window closes.` },
     ],
   },
 
@@ -55,7 +50,7 @@ const uae: ModeContent = {
     sub: "A commission on each completed sale. The rate is read live from NOTMADE.",
     points: [
       { title: "You set the price", desc: `Prices are set by you in ${AED} in the panel.` },
-      { title: "Payout to your UAE bank", desc: "Paid to the IBAN on your account. Payout schedule shared during onboarding." },
+      { title: "Payout to your UAE bank", desc: `Paid to your UAE IBAN within ${PAYOUT_DAYS} days after the ${RETURN_WINDOW_DAYS}-day return window closes.` },
       { title: "Other fees", desc: "Any fees beyond commission are shared during onboarding." },
     ],
     calc: {
@@ -67,11 +62,11 @@ const uae: ModeContent = {
 
   returns: {
     title: "Returns.",
-    sub: "Customers return with an unboxing video. The return window is shared during onboarding.",
+    sub: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video.`,
     points: [
+      `${RETURN_WINDOW_DAYS}-day return window from delivery`,
       "An unboxing video is required for every return",
       "Watch the video from the order in your panel",
-      "Return window shared during onboarding",
     ],
   },
 
@@ -79,10 +74,11 @@ const uae: ModeContent = {
     { q: "Who can sell on the UAE store?", a: "UAE-based businesses with a trade licence." },
     { q: "Where are my products sold?", a: `On NOTMADE's UAE store at ${host}.` },
     { q: "Who sets the price?", a: `You do, in ${AED}, in the seller panel.` },
+    { q: "How do returns work?", a: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery, only with an unboxing video. NOTMADE reviews the video and decides the claim, and you can watch it from the order in your panel.` },
     { q: "Who handles delivery?", a: "Our partner couriers. You pack the order and mark it ready in your panel." },
     { q: "Which emirates do you cover?", a: "Coverage is set emirate by emirate. The emirates covered and delivery times are shared during onboarding." },
     { q: "Can customers pay cash on delivery?", a: "Yes. Cash on delivery is available to customers in the UAE." },
-    { q: "When do I get paid?", a: "Payouts go to your UAE bank account. The payout schedule is shared during onboarding." },
+    { q: "When do I get paid?", a: `Paid to your UAE IBAN within ${PAYOUT_DAYS} days after the ${RETURN_WINDOW_DAYS}-day return window closes. Each payout comes with a settlement statement.` },
     { q: "What is the commission?", a: "The current UAE rate is shown live on this page and in your agreement before you sign." },
   ],
 

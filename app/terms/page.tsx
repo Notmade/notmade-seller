@@ -1,14 +1,13 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import JsonLd from "../components/public/JsonLd";
+import { breadcrumbLd, crumbsFor, metadataFor } from "../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Terms & Conditions — NOTMADE",
-  description: "Seller terms and conditions for the NOTMADE platform.",
-};
+export const metadata = metadataFor("terms");
 
 export default function Terms() {
   return (
     <main className="bg-[#080808] text-white min-h-screen">
+      <JsonLd data={breadcrumbLd(crumbsFor("terms"))} />
       <nav className="sticky top-0 z-50 flex items-center justify-between px-6 md:px-12 py-5 bg-[#080808]/95 backdrop-blur-sm border-b border-[#111111]">
         <Link
           href="/"
@@ -18,7 +17,7 @@ export default function Terms() {
         </Link>
         <Link
           href="/"
-          className="text-xs text-gray-500 hover:text-white transition-colors tracking-widest uppercase font-semibold"
+          className="text-xs text-gray-400 hover:text-white transition-colors tracking-widest uppercase font-semibold"
         >
           ← Back
         </Link>
@@ -26,7 +25,7 @@ export default function Terms() {
 
       <div className="max-w-2xl mx-auto px-6 py-20">
         <div className="mb-12">
-          <p className="font-bebas text-[#CC0000] tracking-[0.4em] text-sm mb-3">
+          <p className="font-bebas text-[#FF4D4D] tracking-[0.4em] text-sm mb-3">
             LEGAL
           </p>
           <h1 className="font-bebas text-5xl md:text-6xl tracking-wider leading-none mb-4">
@@ -35,7 +34,7 @@ export default function Terms() {
           <p className="text-gray-400 text-base leading-relaxed">
             The rules. Plain English.
           </p>
-          <p className="text-gray-600 text-xs mt-3">
+          <p className="text-gray-400 text-xs mt-3">
             Last updated: July 2026
           </p>
         </div>
@@ -98,7 +97,7 @@ export default function Terms() {
                 "NOTMADE reserves the right to remove any listing that doesn't meet quality standards — we'll tell you why",
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <span className="text-[#CC0000] flex-shrink-0 mt-0.5">—</span>
+                  <span className="text-[#FF4D4D] flex-shrink-0 mt-0.5">—</span>
                   {item}
                 </li>
               ))}
@@ -114,14 +113,14 @@ export default function Terms() {
               else — contact us first:{" "}
               <a
                 href="mailto:admin@notmade.in"
-                className="text-[#CC0000] hover:underline"
+                className="text-[#FF4D4D] underline"
               >
                 admin@notmade.in
               </a>{" "}
               or{" "}
               <a
                 href="tel:+919354852701"
-                className="text-[#CC0000] hover:underline"
+                className="text-[#FF4D4D] underline"
               >
                 +91 93548 52701
               </a>
@@ -152,8 +151,8 @@ export default function Terms() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-[#111111] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <p className="text-gray-600 text-xs">© 2026 NOTMADE. ALL RIGHTS RESERVED.</p>
-          <div className="flex gap-6 text-xs text-gray-600">
+          <p className="text-gray-400 text-xs">© 2026 NOTMADE. ALL RIGHTS RESERVED.</p>
+          <div className="flex gap-6 text-xs text-gray-400">
             <Link href="/privacy-policy" className="hover:text-white transition-colors">
               Privacy Policy
             </Link>

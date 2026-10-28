@@ -1,14 +1,13 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import JsonLd from "../components/public/JsonLd";
+import { breadcrumbLd, crumbsFor, metadataFor } from "../lib/seo";
 
-export const metadata: Metadata = {
-  title: "Privacy Policy — NOTMADE",
-  description: "How NOTMADE collects and uses your information.",
-};
+export const metadata = metadataFor("privacy-policy");
 
 export default function PrivacyPolicy() {
   return (
     <main className="bg-[#080808] text-white min-h-screen">
+      <JsonLd data={breadcrumbLd(crumbsFor("privacy-policy"))} />
       <nav className="sticky top-0 z-50 flex items-center justify-between px-6 md:px-12 py-5 bg-[#080808]/95 backdrop-blur-sm border-b border-[#111111]">
         <Link
           href="/"
@@ -18,7 +17,7 @@ export default function PrivacyPolicy() {
         </Link>
         <Link
           href="/"
-          className="text-xs text-gray-500 hover:text-white transition-colors tracking-widest uppercase font-semibold"
+          className="text-xs text-gray-400 hover:text-white transition-colors tracking-widest uppercase font-semibold"
         >
           ← Back
         </Link>
@@ -26,7 +25,7 @@ export default function PrivacyPolicy() {
 
       <div className="max-w-2xl mx-auto px-6 py-20">
         <div className="mb-12">
-          <p className="font-bebas text-[#CC0000] tracking-[0.4em] text-sm mb-3">
+          <p className="font-bebas text-[#FF4D4D] tracking-[0.4em] text-sm mb-3">
             LEGAL
           </p>
           <h1 className="font-bebas text-5xl md:text-6xl tracking-wider leading-none mb-4">
@@ -35,7 +34,7 @@ export default function PrivacyPolicy() {
           <p className="text-gray-400 text-base leading-relaxed">
             We keep it simple. Here&apos;s what we collect and why.
           </p>
-          <p className="text-gray-600 text-xs mt-3">
+          <p className="text-gray-400 text-xs mt-3">
             Last updated: July 2026
           </p>
         </div>
@@ -58,7 +57,7 @@ export default function PrivacyPolicy() {
                 "Information about your brand you share in the application",
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <span className="text-[#CC0000] flex-shrink-0 mt-0.5">—</span>
+                  <span className="text-[#FF4D4D] flex-shrink-0 mt-0.5">—</span>
                   {item}
                 </li>
               ))}
@@ -77,7 +76,7 @@ export default function PrivacyPolicy() {
                 "To send monthly payout reports and operational updates",
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <span className="text-[#CC0000] flex-shrink-0 mt-0.5">—</span>
+                  <span className="text-[#FF4D4D] flex-shrink-0 mt-0.5">—</span>
                   {item}
                 </li>
               ))}
@@ -95,7 +94,7 @@ export default function PrivacyPolicy() {
                 "We don't use your data for anything outside running NOTMADE",
               ].map((item, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <span className="text-[#CC0000] flex-shrink-0 mt-0.5">—</span>
+                  <span className="text-[#FF4D4D] flex-shrink-0 mt-0.5">—</span>
                   {item}
                 </li>
               ))}
@@ -122,7 +121,7 @@ export default function PrivacyPolicy() {
               Questions about privacy? Email us:{" "}
               <a
                 href="mailto:admin@notmade.in"
-                className="text-[#CC0000] hover:underline"
+                className="text-[#FF4D4D] underline"
               >
                 admin@notmade.in
               </a>
@@ -131,8 +130,8 @@ export default function PrivacyPolicy() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-[#111111] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <p className="text-gray-600 text-xs">© 2026 NOTMADE. ALL RIGHTS RESERVED.</p>
-          <div className="flex gap-6 text-xs text-gray-600">
+          <p className="text-gray-400 text-xs">© 2026 NOTMADE. ALL RIGHTS RESERVED.</p>
+          <div className="flex gap-6 text-xs text-gray-400">
             <Link href="/terms" className="hover:text-white transition-colors">
               Terms & Conditions
             </Link>

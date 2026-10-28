@@ -1,14 +1,14 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import JsonLd from "../components/public/JsonLd";
+import { breadcrumbLd, crumbsFor, metadataFor } from "../lib/seo";
+import { RETURN_WINDOW_DAYS } from "../lib/seller-config";
 
-export const metadata: Metadata = {
-  title: "Refund Policy — NOTMADE",
-  description: "How returns and refunds work on NOTMADE.",
-};
+export const metadata = metadataFor("refund-policy");
 
 export default function RefundPolicy() {
   return (
     <main className="bg-[#080808] text-white min-h-screen">
+      <JsonLd data={breadcrumbLd(crumbsFor("refund-policy"))} />
       <nav className="sticky top-0 z-50 flex items-center justify-between px-6 md:px-12 py-5 bg-[#080808]/95 backdrop-blur-sm border-b border-[#111111]">
         <Link
           href="/"
@@ -18,7 +18,7 @@ export default function RefundPolicy() {
         </Link>
         <Link
           href="/"
-          className="text-xs text-gray-500 hover:text-white transition-colors tracking-widest uppercase font-semibold"
+          className="text-xs text-gray-400 hover:text-white transition-colors tracking-widest uppercase font-semibold"
         >
           ← Back
         </Link>
@@ -26,7 +26,7 @@ export default function RefundPolicy() {
 
       <div className="max-w-2xl mx-auto px-6 py-20">
         <div className="mb-12">
-          <p className="font-bebas text-[#CC0000] tracking-[0.4em] text-sm mb-3">
+          <p className="font-bebas text-[#FF4D4D] tracking-[0.4em] text-sm mb-3">
             LEGAL
           </p>
           <h1 className="font-bebas text-5xl md:text-6xl tracking-wider leading-none mb-4">
@@ -35,7 +35,7 @@ export default function RefundPolicy() {
           <p className="text-gray-400 text-base leading-relaxed">
             Returns on NOTMADE are handled by us — not by sellers directly.
           </p>
-          <p className="text-gray-600 text-xs mt-3">Last updated: July 2026</p>
+          <p className="text-gray-400 text-xs mt-3">Last updated: July 2026</p>
         </div>
 
         <div className="space-y-10 text-sm text-gray-400 leading-relaxed">
@@ -87,7 +87,7 @@ export default function RefundPolicy() {
                 },
               ].map(({ label, text }, i) => (
                 <li key={i} className="flex items-start gap-3">
-                  <span className="text-[#CC0000] flex-shrink-0 mt-0.5">—</span>
+                  <span className="text-[#FF4D4D] flex-shrink-0 mt-0.5">—</span>
                   <span>
                     <span className="text-white font-medium">{label}: </span>
                     {text}
@@ -118,7 +118,7 @@ export default function RefundPolicy() {
               RETURN WINDOW
             </h2>
             <p>
-              Customers have 48 hours from delivery to raise a return request
+              Customers have {RETURN_WINDOW_DAYS} days from delivery to raise a return request
               for quality or wrong-item issues. Change-of-mind returns are
               subject to our platform policy at the time of the order.
             </p>
@@ -132,14 +132,14 @@ export default function RefundPolicy() {
               For return-related queries as a seller, reach us at:{" "}
               <a
                 href="mailto:admin@notmade.in"
-                className="text-[#CC0000] hover:underline"
+                className="text-[#FF4D4D] underline"
               >
                 admin@notmade.in
               </a>{" "}
               or{" "}
               <a
                 href="tel:+919354852701"
-                className="text-[#CC0000] hover:underline"
+                className="text-[#FF4D4D] underline"
               >
                 +91 93548 52701
               </a>
@@ -148,10 +148,10 @@ export default function RefundPolicy() {
         </div>
 
         <div className="mt-16 pt-8 border-t border-[#111111] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <p className="text-gray-600 text-xs">
+          <p className="text-gray-400 text-xs">
             © 2026 NOTMADE. ALL RIGHTS RESERVED.
           </p>
-          <div className="flex gap-6 text-xs text-gray-600">
+          <div className="flex gap-6 text-xs text-gray-400">
             <Link
               href="/privacy-policy"
               className="hover:text-white transition-colors"

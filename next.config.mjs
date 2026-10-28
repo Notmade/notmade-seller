@@ -8,7 +8,7 @@ const nextConfig = {
   },
   // Portal pages are never indexed
   async headers() {
-    return ['/login', '/dashboard/:path*', '/onboarding/:path*'].map((source) => ({
+    return ['/login', '/dashboard/:path*', '/onboarding/:path*', '/api/:path*'].map((source) => ({
       source,
       headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
     }));
