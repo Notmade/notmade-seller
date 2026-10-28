@@ -59,7 +59,7 @@ export default function SellerAgreement() {
             <div className="n-card">
               <h3>Who you contract with</h3>
               <EntityDetails entity={c.entity} agreement={c.agreement} />
-              <p className="n-more"><a href={c.href}>Sell in {c.name}</a></p>
+              <p className="n-more"><a href={c.href}>More about {c.name}</a></p>
             </div>
           </div>
         </Section>

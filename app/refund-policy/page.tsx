@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { legalCountry } from "../legal/country";
+import { RETURN_WINDOW_DAYS } from "../lib/seller-config";
 
 
 function IndiaRefundPolicy() {
@@ -116,7 +117,7 @@ function IndiaRefundPolicy() {
               RETURN WINDOW
             </h2>
             <p>
-              Customers have 48 hours from delivery to raise a return request
+              Customers have {RETURN_WINDOW_DAYS} days from delivery to raise a return request
               for quality or wrong-item issues. Change-of-mind returns are
               subject to our platform policy at the time of the order.
             </p>
