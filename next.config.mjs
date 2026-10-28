@@ -8,18 +8,23 @@ const nextConfig = {
   },
   // Portal pages are never indexed
   async headers() {
-    return ['/login', '/dashboard/:path*', '/onboarding/:path*'].map((source) => ({
+    return ['/login', '/dashboard/:path*', '/onboarding/:path*', '/api/:path*'].map((source) => ({
       source,
       headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
     }));
   },
   // Pages kept in the repo but not backed by the seller API yet (returns live in Orders → Returns); old links go home
   async redirects() {
-    return ['warehouse', 'contract', 'returns', 'uae'].map((p) => ({
-      source: `/dashboard/${p}`,
-      destination: '/dashboard',
-      permanent: false,
-    }));
+    return [
+      ...['warehouse', 'contract', 'returns', 'uae'].map((p) => ({
+        source: `/dashboard/${p}`,
+        destination: '/dashboard',
+        permanent: false,
+      })),
+      // The country landing pages are / and /uae
+      { source: '/sell-in-india', destination: '/', permanent: true },
+      { source: '/sell-in-uae', destination: '/uae', permanent: true },
+    ];
   },
   images: {
     remotePatterns: [

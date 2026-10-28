@@ -16,7 +16,8 @@ export function CountrySwitch({ value }: { value: ModeCode }) {
 }
 
 export default function SiteHeader({ code, sections, login, primary }: {
-  code: ModeCode; sections: Section[]; login: Cta; primary: Cta;
+  /** Left out on pages that are about neither country in particular. */
+  code?: ModeCode; sections: Section[]; login: Cta; primary: Cta;
 }) {
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -43,7 +44,7 @@ export default function SiteHeader({ code, sections, login, primary }: {
   return (
     <header className={`n-head${scrolled || open ? " is-raised" : ""}`}>
       <div className="n-wrap n-head-row">
-        <a href={code === "ae" ? "/uae" : "/?market=in"} className="n-logo" aria-label="NOTMADE Seller home">
+        <a href={code === "ae" ? "/uae" : code ? "/?market=in" : "/"} className="n-logo" aria-label="NOTMADE Seller home">
           NOT<span>MADE</span><small>Seller</small>
         </a>
 
@@ -52,7 +53,7 @@ export default function SiteHeader({ code, sections, login, primary }: {
         </nav>
 
         <div className="n-head-end">
-          <CountrySwitch value={code} />
+          {code && <CountrySwitch value={code} />}
           <a href={login.href} className="n-head-login">{login.label}</a>
           <a href={primary.href} className="n-btn n-btn-red n-btn-sm n-head-cta">{primary.label}</a>
           <button type="button" className="n-menu-btn" aria-expanded={open} aria-controls="n-menu"

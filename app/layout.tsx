@@ -10,10 +10,12 @@ const bebasNeue = Bebas_Neue({
   display: "swap",
 });
 
+// Archivo and Space Mono are only used in the portal, so public pages do not preload them (LCP)
 const archivo = Archivo({
   subsets: ["latin"],
   variable: "--font-archivo",
   display: "swap",
+  preload: false,
 });
 
 const inter = Inter({
@@ -27,6 +29,7 @@ const spaceMono = Space_Mono({
   subsets: ["latin"],
   variable: "--font-space-mono",
   display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {

@@ -72,11 +72,11 @@ export function Calculator({ rates, currency, defaultPrice, note }: {
   );
 }
 
-export function Faq({ items }: { items: { q: string; a: string }[] }) {
+export function Faq({ items, open = false }: { items: { q: string; a: string }[]; open?: boolean }) {
   return (
     <div className="n-faq">
       {items.map((f) => (
-        <details key={f.q} className="n-faq-item">
+        <details key={f.q} className="n-faq-item" open={open}>
           <summary><span>{f.q}</span><span className="n-faq-plus" aria-hidden /></summary>
           <p>{f.a}</p>
         </details>
