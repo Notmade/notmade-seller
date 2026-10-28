@@ -84,7 +84,7 @@ export const PUBLIC_PAGES: PublicPage[] = [
     description: "What NOTMADE collects when you apply to sell, how it is used, and how to ask for your data to be deleted.",
   },
   {
-    key: "refund-policy", path: "/refund-policy", name: "Refund policy", priority: 0.3, lastModified: "2026-07-25", locale: "en_IN",
+    key: "refund-policy", path: "/refund-policy", name: "Refund policy", priority: 0.3, lastModified: "2026-10-28", locale: "en_IN",
     title: "Refund and returns policy for sellers | NOTMADE",
     description: "How returns and refunds work on NOTMADE, and what a seller is responsible for when a product is damaged, wrong or not as listed.",
   },

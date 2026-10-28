@@ -1,6 +1,7 @@
 import Link from "next/link";
 import JsonLd from "../components/public/JsonLd";
 import { breadcrumbLd, crumbsFor, metadataFor } from "../lib/seo";
+import { RETURN_WINDOW_DAYS } from "../lib/seller-config";
 
 export const metadata = metadataFor("refund-policy");
 
@@ -117,7 +118,7 @@ export default function RefundPolicy() {
               RETURN WINDOW
             </h2>
             <p>
-              Customers have 48 hours from delivery to raise a return request
+              Customers have {RETURN_WINDOW_DAYS} days from delivery to raise a return request
               for quality or wrong-item issues. Change-of-mind returns are
               subject to our platform policy at the time of the order.
             </p>
