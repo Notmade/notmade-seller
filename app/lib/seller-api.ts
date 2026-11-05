@@ -11,6 +11,7 @@ const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const TOKEN_KEY = "nm_seller_token";
 // Presence-only cookie so middleware can gate routes; the JWT itself never goes in a cookie.
 const COOKIE = "nm_seller";
+const COUNTRY_COOKIE = "nm_seller_country";
 
 // ─── Session ────────────────────────────────────────────────────────────────
 
@@ -27,6 +28,12 @@ export function setToken(token: string): void {
 export function clearSession(): void {
   try { localStorage.removeItem(TOKEN_KEY); } catch { /* storage blocked */ }
   document.cookie = `${COOKIE}=; path=/; max-age=0; samesite=lax`;
+  document.cookie = `${COUNTRY_COOKIE}=; path=/; max-age=0; samesite=lax`;
+}
+
+/** Tells server-rendered legal pages which country's text to show. Display hint only. */
+export function rememberSellerCountry(country: string): void {
+  document.cookie = `${COUNTRY_COOKIE}=${country}; path=/; max-age=${30 * 24 * 60 * 60}; samesite=lax`;
 }
 
 // ─── Types (mirror backend responses) ─────────────────────────────────────────

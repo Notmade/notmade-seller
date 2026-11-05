@@ -5,12 +5,12 @@ import type { Cta, ModeCode } from "@/app/landing/content/types";
 
 export interface Section { id: string; label: string }
 
-/** The country switch. Links, so each country is its own server-rendered page. */
+/** Current country and a way to change it. Only /country names both, so neither landing page does. */
 export function CountrySwitch({ value }: { value: ModeCode }) {
   return (
     <nav className="n-switch" aria-label="Country" data-country-switch>
-      <a href="/?market=in" aria-current={value === "in" ? "page" : undefined}>India</a>
-      <a href="/uae" aria-current={value === "ae" ? "page" : undefined}>UAE</a>
+      <span aria-current="true">{value === "ae" ? "UAE" : "India"}</span>
+      <a href="/country">Change country</a>
     </nav>
   );
 }
@@ -68,6 +68,7 @@ export default function SiteHeader({ code, sections, login, primary }: {
           <div className="n-menu-cta">
             <a href={primary.href} className="n-btn n-btn-red" onClick={close}>{primary.label}</a>
             <a href={login.href} className="n-btn n-btn-line" onClick={close}>{login.label}</a>
+            <a href="/country" className="n-btn n-btn-line" onClick={close}>Change country</a>
           </div>
         </nav>
       </div>

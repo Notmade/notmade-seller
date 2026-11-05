@@ -7,7 +7,7 @@ export default function SiteFooter({ code, entity, login, primary, links }: {
   const cols = [
     { title: "Sell", links: [primary, login, ...links] },
     { title: "Support", links: [{ label: "FAQ", href: "#faq" }, { label: "Email us", href: `mailto:${CONTACT_EMAIL}` }] },
-    { title: "Legal", links: [{ label: "Terms", href: "/terms" }, { label: "Privacy", href: "/privacy-policy" }, { label: "Refunds", href: "/refund-policy" }] },
+    { title: "Legal", links: [{ label: "Terms", href: `/terms?market=${code}` }, { label: "Privacy", href: `/privacy-policy?market=${code}` }, { label: "Refunds", href: `/refund-policy?market=${code}` }] },
   ];
   return (
     <footer className="n-foot">

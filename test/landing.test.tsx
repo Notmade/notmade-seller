@@ -14,11 +14,7 @@ const uaeHtml = (methods: ConfigPaymentMethod[] = [], signupOpen = true) =>
   renderToStaticMarkup(<UaeLanding rates={rates} methods={methods} signupOpen={signupOpen} />);
 const indiaHtml = () => renderToStaticMarkup(<IndiaLanding />);
 
-/** Page text without the country switch, whose job is to name both countries. */
-const text = (html: string) => html
-  .replace(/<nav class="n-switch"[\s\S]*?<\/nav>/g, "")
-  .replace(/<style[\s\S]*?<\/style>/g, "")
-  .replace(/&#x27;/g, "'");
+const text = (html: string) => html.replace(/&#x27;/g, "'");
 
 describe("landing selection by country", () => {
   it("prefers ?market=, then the cookie, then India", () => {
@@ -36,9 +32,11 @@ describe("landing selection by country", () => {
     expect(selectMode(undefined, "xx")).toBe("in");
   });
 
-  it("offers a clear switch on both pages, marking the current country", () => {
-    expect(indiaHtml()).toMatch(/<a href="\/\?market=in" aria-current="page">India<\/a>/);
-    expect(uaeHtml()).toMatch(/<a href="\/uae" aria-current="page">UAE<\/a>/);
+  it("shows the current country and a way to change it", () => {
+    expect(indiaHtml()).toContain('<span aria-current="true">India</span>');
+    expect(uaeHtml()).toContain('<span aria-current="true">UAE</span>');
+    expect(indiaHtml()).toContain('href="/country"');
+    expect(uaeHtml()).toContain('href="/country"');
   });
 
   it("each page has its own SEO copy and structured data", () => {
@@ -71,7 +69,7 @@ describe("India page", () => {
   });
 
   it("names nothing from the other country", () => {
-    expect(page).not.toMatch(/\bUAE\b|\bAED\b|Dubai|Emirat|dirham|Tabby|Tamara|FZE/i);
+    expect(page).not.toMatch(/\bUAE\b|\bAED\b|\bVAT\b|\bTRN\b|Dubai|Emirat|dirham|Tabby|Tamara|FZE/i);
   });
 
   it("has no rate card or shipping modes", () => {
@@ -84,7 +82,7 @@ describe("UAE page", () => {
   const page = text(uaeHtml());
 
   it("names nothing from the other country", () => {
-    expect(page).not.toMatch(/\bIndia|\bINR\b|₹|rupee|Private Limited|Delhi|GST\b|Aadhaar|\bPAN\b/i);
+    expect(page).not.toMatch(/\bIndia|\bINR\b|₹|rupee|Private Limited|Delhi|\bGST|Aadhaar|\bPAN\b|\+91/i);
   });
 
   it("shows the rate card with AED examples", () => {
