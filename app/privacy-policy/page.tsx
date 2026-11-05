@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import UaeLegalPage from "../components/legal/UaeLegalPage";
+import { redirect } from "next/navigation";
 import { legalCountry } from "../legal/country";
-import { UAE_PRIVACY } from "../legal/uae";
-import { NOINDEX } from "../lib/seo";
 
 
 function IndiaPrivacyPolicy() {
@@ -146,15 +144,12 @@ function IndiaPrivacyPolicy() {
   );
 }
 
-type Props = { searchParams: { market?: string | string[] } };
+export const metadata: Metadata = {
+  title: "Privacy Policy — NOTMADE",
+  description: "How NOTMADE collects and uses your information.",
+};
 
-export function generateMetadata({ searchParams }: Props): Metadata {
-  // UAE text carries LAWYER REVIEW placeholders, so it stays out of search until they are cleared
-  return legalCountry(searchParams.market) === "AE"
-    ? { title: { absolute: UAE_PRIVACY.metaTitle }, description: UAE_PRIVACY.description, ...NOINDEX }
-    : { title: "Privacy Policy — NOTMADE", description: "How NOTMADE collects and uses your information." };
-}
-
-export default function PrivacyPolicyPage({ searchParams }: Props) {
-  return legalCountry(searchParams.market) === "AE" ? <UaeLegalPage doc={UAE_PRIVACY} path="/privacy-policy" /> : <IndiaPrivacyPolicy />;
+export default function PrivacyPolicyPage({ searchParams }: { searchParams: { market?: string | string[] } }) {
+  if (legalCountry(searchParams.market) === "AE") redirect("/uae/privacy-policy");
+  return <IndiaPrivacyPolicy />;
 }

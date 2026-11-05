@@ -6,6 +6,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { path: "/", priority: 1 },
     { path: "/uae", priority: 1 },
+    { path: "/uae/terms", priority: 0.5 },
+    { path: "/uae/privacy-policy", priority: 0.3 },
+    { path: "/uae/refund-policy", priority: 0.3 },
     { path: "/terms", priority: 0.5 },
     { path: "/privacy-policy", priority: 0.3 },
     { path: "/refund-policy", priority: 0.3 },

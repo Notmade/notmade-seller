@@ -2,16 +2,26 @@ import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import { selectLegalCountry } from "@/app/legal/country";
-import { ENTITY, REVIEW_LABEL, UAE_PRIVACY, UAE_REFUNDS, UAE_TERMS } from "@/app/legal/uae";
-import Terms, { generateMetadata } from "@/app/terms/page";
+import { ENTITY, UAE_PRIVACY, UAE_REFUNDS, UAE_TERMS } from "@/app/legal/uae";
+import sitemap from "@/app/sitemap";
+import Terms from "@/app/terms/page";
 import Privacy from "@/app/privacy-policy/page";
 import Refunds from "@/app/refund-policy/page";
+import UaeTerms, { metadata as uaeTermsMeta } from "@/app/uae/terms/page";
+import UaePrivacy, { metadata as uaePrivacyMeta } from "@/app/uae/privacy-policy/page";
+import UaeRefunds, { metadata as uaeRefundsMeta } from "@/app/uae/refund-policy/page";
 
 const jar = vi.hoisted(() => new Map<string, string>());
 vi.mock("next/headers", () => ({ cookies: () => ({ get: (k: string) => (jar.has(k) ? { value: jar.get(k) } : undefined) }) }));
+vi.mock("next/navigation", () => ({ redirect: (to: string) => { throw new Error(`redirect:${to}`); } }));
 
-const PAGES = [["terms", Terms], ["privacy", Privacy], ["refunds", Refunds]] as const;
-const html = (Page: (typeof PAGES)[number][1], market?: string) => renderToStaticMarkup(<Page searchParams={{ market }} />);
+const PAGES = [
+  ["terms", Terms, UaeTerms, uaeTermsMeta],
+  ["privacy-policy", Privacy, UaePrivacy, uaePrivacyMeta],
+  ["refund-policy", Refunds, UaeRefunds, uaeRefundsMeta],
+] as const;
+const india = (Page: (typeof PAGES)[number][1], market?: string) => renderToStaticMarkup(<Page searchParams={{ market }} />);
+const uae = (Page: (typeof PAGES)[number][2]) => renderToStaticMarkup(<Page />).replace(/&#x27;/g, "'");
 
 /** The whole rendered page, including links and attributes. Emails on the notmade.in domain are not country text. */
 const NOT_ON_UAE = /\bIndia\b|\bIndian\b|\bGST|\bINR\b|₹|Private Limited|Delhi|\+91/;
@@ -33,57 +43,80 @@ describe("legal country selection", () => {
     expect(selectLegalCountry("XX", ["ae"], "zz")).toBe("IN");
   });
 
-  it("serves the seller's own version from cookies", () => {
-    jar.set("nm_seller_country", "AE");
-    expect(html(Terms, "in")).toContain(ENTITY.name);
-    jar.clear();
+  it("sends UAE visitors from the shared URL to the UAE page", () => {
+    expect(() => india(Terms, "ae")).toThrow("redirect:/uae/terms");
     jar.set("nm_market", "ae");
-    expect(html(Terms)).toContain(ENTITY.name);
+    expect(() => india(Privacy)).toThrow("redirect:/uae/privacy-policy");
+    jar.clear();
+    jar.set("nm_seller_country", "AE");
+    expect(() => india(Refunds, "in")).toThrow("redirect:/uae/refund-policy");
+  });
+
+  it("sends a signed-in India seller from a UAE page to their own", () => {
+    jar.set("nm_seller_country", "IN");
+    expect(() => uae(UaeTerms)).toThrow("redirect:/terms");
   });
 });
 
-describe.each(PAGES)("%s page", (_, Page) => {
+describe.each(PAGES)("%s page", (slug, Page, UaePage, meta) => {
   it("UAE version has nothing from the other country", () => {
-    const page = html(Page, "ae");
+    const page = uae(UaePage);
     expect(page).not.toMatch(NOT_ON_UAE);
     expect(page).toContain(ENTITY.name);
-    expect(page).toContain(REVIEW_LABEL);
+  });
+
+  it("UAE version is finished and indexable at its own URL", () => {
+    expect(uae(UaePage)).not.toMatch(/LAWYER REVIEW|placeholder|to be confirmed/i);
+    expect(meta.robots).toBeUndefined();
+    expect(meta.alternates?.canonical).toBe(`/uae/${slug}`);
+    expect(sitemap().map((e) => e.url)).toContain(`https://seller.notmade.in/uae/${slug}`);
   });
 
   it("India version has nothing from the other country", () => {
-    expect(html(Page, "in")).not.toMatch(NOT_ON_INDIA);
-    expect(html(Page)).not.toMatch(NOT_ON_INDIA);
+    expect(india(Page, "in")).not.toMatch(NOT_ON_INDIA);
+    expect(india(Page)).not.toMatch(NOT_ON_INDIA);
   });
 });
 
-describe("UAE terms", () => {
-  const page = html(Terms, "ae");
+describe("UAE legal wording", () => {
+  const terms = uae(UaeTerms);
 
-  it("uses UAE law, leaves the courts to the lawyer", () => {
-    expect(page).toContain("governed by the laws of the United Arab Emirates");
-    expect(page).toContain("Exact courts and venue");
-    const law = UAE_TERMS.sections.find((s) => s.heading.startsWith("GOVERNING LAW"))!;
-    expect(JSON.stringify(law)).not.toMatch(/courts of|Ajman/);
+  it("uses the v2 governing law and courts", () => {
+    expect(terms).toContain("governed by the laws of the United Arab Emirates as applied in the Emirate of Ajman");
+    expect(terms).toContain("the courts of Ajman shall have jurisdiction");
   });
 
   it("covers AED, VAT and TRN", () => {
-    for (const s of ["AED", "VAT", "TRN", "IBAN"]) expect(page).toContain(s);
+    for (const s of ["AED", "VAT", "TRN", "IBAN"]) expect(terms).toContain(s);
   });
 
-  it("has no text that is not traced to the agreement or marked for review", () => {
-    for (const s of [...UAE_TERMS.sections, ...UAE_REFUNDS.sections]) expect(Boolean(s.source || s.review)).toBe(true);
-    expect(UAE_PRIVACY.sections.some((s) => s.review)).toBe(true);
+  it("says how changes take effect", () => {
+    expect(terms).toMatch(/by email or in the seller dashboard/);
+    expect(terms).toMatch(/continue to use the platform/);
   });
 
-  it("is kept out of search while placeholders remain", () => {
-    expect(generateMetadata({ searchParams: { market: "ae" } }).robots).toEqual({ index: false, follow: false });
-    expect(generateMetadata({ searchParams: {} }).robots).toBeUndefined();
+  it("cites the consumer protection law and the store's seven-day window", () => {
+    const page = uae(UaeRefunds);
+    expect(page).toContain("Federal Law No. 15 of 2020 on Consumer Protection");
+    expect(page).toContain("seven (7) days of delivery");
+  });
+
+  it("cites the data law and gives the rights contact", () => {
+    const page = uae(UaePrivacy);
+    expect(page).toContain("Federal Decree-Law No. 45 of 2021");
+    expect(page).toMatch(/access, correct or delete/);
+    expect(page).toContain("care@notmade.in");
+    for (const s of ["trade licence", "TRN", "Emirates ID", "IBAN"]) expect(page).toContain(s);
+  });
+
+  it("traces every section to a source", () => {
+    for (const s of [...UAE_TERMS.sections, ...UAE_REFUNDS.sections, ...UAE_PRIVACY.sections]) expect(s.source).not.toBe("");
   });
 });
 
 describe("India terms stay as they were", () => {
   it("keeps Indian law and courts", () => {
-    const page = html(Terms, "in");
+    const page = india(Terms, "in");
     expect(page).toContain("governed by the laws of India");
     expect(page).toContain("courts in Delhi");
     expect(page).toContain("+91 93548 52701");

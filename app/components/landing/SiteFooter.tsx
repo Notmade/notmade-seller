@@ -4,10 +4,11 @@ import type { Cta, ModeCode } from "@/app/landing/content/types";
 export default function SiteFooter({ code, entity, login, primary, links }: {
   code: ModeCode; entity: string; login: Cta; primary: Cta; links: Cta[];
 }) {
+  const legal = (page: string) => (code === "ae" ? `/uae/${page}` : `/${page}?market=in`);
   const cols = [
     { title: "Sell", links: [primary, login, ...links] },
     { title: "Support", links: [{ label: "FAQ", href: "#faq" }, { label: "Email us", href: `mailto:${CONTACT_EMAIL}` }] },
-    { title: "Legal", links: [{ label: "Terms", href: `/terms?market=${code}` }, { label: "Privacy", href: `/privacy-policy?market=${code}` }, { label: "Refunds", href: `/refund-policy?market=${code}` }] },
+    { title: "Legal", links: [{ label: "Terms", href: legal("terms") }, { label: "Privacy", href: legal("privacy-policy") }, { label: "Refunds", href: legal("refund-policy") }] },
   ];
   return (
     <footer className="n-foot">

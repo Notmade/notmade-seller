@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { ENTITY, REVIEW_LABEL, type LegalDoc } from "@/app/legal/uae";
+import { ENTITY, type LegalDoc } from "@/app/legal/uae";
 
 const OTHER = [
-  { href: "/terms?market=ae", label: "Terms & Conditions" },
-  { href: "/privacy-policy?market=ae", label: "Privacy Policy" },
-  { href: "/refund-policy?market=ae", label: "Refund Policy" },
+  { href: "/uae/terms", label: "Terms & Conditions" },
+  { href: "/uae/privacy-policy", label: "Privacy Policy" },
+  { href: "/uae/refund-policy", label: "Refund Policy" },
 ];
 
 const H2 = "font-bebas text-2xl tracking-wider text-white mb-4";
@@ -38,11 +38,6 @@ export default function UaeLegalPage({ doc, path }: { doc: LegalDoc; path: strin
                   ))}
                 </ul>
               )}
-              {s.review && (
-                <p className="mt-3 p-3 rounded border border-[#CC0000] text-white" data-lawyer-review>
-                  <strong>[{REVIEW_LABEL}]</strong> {s.review}
-                </p>
-              )}
             </section>
           ))}
           <section>
@@ -57,7 +52,7 @@ export default function UaeLegalPage({ doc, path }: { doc: LegalDoc; path: strin
         <div className="mt-16 pt-8 border-t border-[#111111] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <p className="text-gray-600 text-xs">© 2026 {ENTITY.name}. ALL RIGHTS RESERVED.</p>
           <div className="flex gap-6 text-xs text-gray-600">
-            {OTHER.filter((o) => !o.href.startsWith(path)).map((o) => (
+            {OTHER.filter((o) => o.href !== path).map((o) => (
               <Link key={o.href} href={o.href} className="hover:text-white transition-colors">{o.label}</Link>
             ))}
           </div>

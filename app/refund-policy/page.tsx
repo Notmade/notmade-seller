@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import UaeLegalPage from "../components/legal/UaeLegalPage";
+import { redirect } from "next/navigation";
 import { legalCountry } from "../legal/country";
-import { UAE_REFUNDS } from "../legal/uae";
-import { NOINDEX } from "../lib/seo";
 
 
 function IndiaRefundPolicy() {
@@ -168,15 +166,12 @@ function IndiaRefundPolicy() {
   );
 }
 
-type Props = { searchParams: { market?: string | string[] } };
+export const metadata: Metadata = {
+  title: "Refund Policy — NOTMADE",
+  description: "How returns and refunds work on NOTMADE.",
+};
 
-export function generateMetadata({ searchParams }: Props): Metadata {
-  // UAE text carries LAWYER REVIEW placeholders, so it stays out of search until they are cleared
-  return legalCountry(searchParams.market) === "AE"
-    ? { title: { absolute: UAE_REFUNDS.metaTitle }, description: UAE_REFUNDS.description, ...NOINDEX }
-    : { title: "Refund Policy — NOTMADE", description: "How returns and refunds work on NOTMADE." };
-}
-
-export default function RefundPolicyPage({ searchParams }: Props) {
-  return legalCountry(searchParams.market) === "AE" ? <UaeLegalPage doc={UAE_REFUNDS} path="/refund-policy" /> : <IndiaRefundPolicy />;
+export default function RefundPolicyPage({ searchParams }: { searchParams: { market?: string | string[] } }) {
+  if (legalCountry(searchParams.market) === "AE") redirect("/uae/refund-policy");
+  return <IndiaRefundPolicy />;
 }

@@ -8,8 +8,9 @@ export function middleware(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
 
   // Remember the country picked on the landing page; ?market= itself decides this request
-  if (pathname === '/' || pathname === '/uae') {
-    const market = pathname === '/uae' ? 'ae' : searchParams.get('market')
+  const onUae = pathname === '/uae' || pathname.startsWith('/uae/')
+  if (pathname === '/' || onUae) {
+    const market = onUae ? 'ae' : searchParams.get('market')
     const res = NextResponse.next()
     if (market === 'in' || market === 'ae') {
       res.cookies.set('nm_market', market, { path: '/', maxAge: 365 * 24 * 60 * 60, sameSite: 'lax' })
@@ -29,5 +30,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/', '/uae', '/dashboard/:path*', '/onboarding/:path*', '/login'],
+  matcher: ['/', '/uae/:path*', '/dashboard/:path*', '/onboarding/:path*', '/login'],
 }
