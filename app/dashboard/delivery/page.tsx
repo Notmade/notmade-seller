@@ -60,7 +60,7 @@ function Stages({ stages, now }: { stages: DeliveryStage[]; now: number }) {
 }
 
 export default function DeliveryTimelinePage() {
-  const { country, currency } = useSellerCurrency();
+  const { country } = useSellerCurrency();
   const now = useNow();
   const [filter, setFilter] = useState<Filter>("open");
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -72,7 +72,7 @@ export default function DeliveryTimelinePage() {
   const load = useCallback(async () => {
     try {
       const r = await api.deliveryTimeline(filter === "all" ? "all" : "open");
-      setRows(r.orders.filter((o) => o.commission.currency === currency));
+      setRows(r.orders);
       setRules(r.rules);
       setSummary(r.summary);
       setError("");
@@ -80,7 +80,7 @@ export default function DeliveryTimelinePage() {
       setError(e instanceof Error ? e.message : "Could not load the delivery timeline");
       setRows((x) => x ?? []);
     }
-  }, [filter, currency]);
+  }, [filter]);
   useEffect(() => { void load(); const t = setInterval(() => void load(), 120_000); return () => clearInterval(t); }, [load]);
 
   const markReady = async (ref: string) => {

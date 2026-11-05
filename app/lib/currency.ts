@@ -53,6 +53,11 @@ export function sellerCurrency(seller: SellerMarketFields | null | undefined): C
   return CURRENCY_BY_COUNTRY[sellerCountry(seller)];
 }
 
+/** The currency this seller does not price in. Older orders and payouts can still be in it. */
+export function otherCurrency(currency: Currency): Currency {
+  return currency === AED ? INR : AED;
+}
+
 /** Product price columns of one seller country. A seller only ever reads and writes their own pair. */
 export interface ProductPriceColumns {
   price_inr?: number | null;

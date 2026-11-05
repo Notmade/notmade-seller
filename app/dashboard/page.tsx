@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api, fmtDateTime, type Order, type Product } from "../lib/seller-api";
 import { ordersIn, revenueWindows, stockRows, stockState } from "../lib/insights";
+import { formatMoney } from "../lib/currency";
 import { lowStockThreshold } from "../lib/low-stock";
 import { useDashboardSeller, useLive, useSellerCurrency } from "./seller-context";
 import { Alert, Badge, Card, EmptyState, PageHeader, PageSkeleton, RED } from "../components/portal-ui";
@@ -31,20 +32,20 @@ export default function DashboardPage() {
   const seller = useDashboardSeller();
   const { currency, timeZone, fmt } = useSellerCurrency();
   const { data: d, error, refresh } = useLive();
-  const [orders, setOrders] = useState<Order[] | null>(null);
+  const [allOrders, setAllOrders] = useState<Order[] | null>(null);
   const [products, setProducts] = useState<Product[] | null>(null);
   const [loadError, setLoadError] = useState("");
 
   const load = useCallback(async () => {
     try {
       const [o, p] = await Promise.all([api.orders(), api.products()]);
-      setOrders(ordersIn(o.orders, currency));
+      setAllOrders(o.orders);
       setProducts(p.products);
       setLoadError("");
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Could not load your orders");
     }
-  }, [currency]);
+  }, []);
   useEffect(() => {
     void load();
     const t = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 60_000);
@@ -55,17 +56,17 @@ export default function DashboardPage() {
   const low = useMemo(() => stockRows(products ?? [])
     .filter(r => stockState(r.stock, threshold) !== "ok")
     .sort((a, b) => a.stock - b.stock), [products, threshold]);
-  const revenue = useMemo(() => revenueWindows(orders ?? [], timeZone), [orders, timeZone]);
+  const revenue = useMemo(() => revenueWindows(ordersIn(allOrders ?? [], currency), timeZone), [allOrders, currency, timeZone]);
 
   const failed = error || loadError;
-  if (failed && (!d || !orders)) {
+  if (failed && (!d || !allOrders)) {
     return <Alert>{failed} <button type="button" onClick={() => { void refresh(); void load(); }} className="sp-link">Retry</button></Alert>;
   }
-  if (!d || !orders || !products) return <PageSkeleton />;
+  if (!d || !allOrders || !products) return <PageSkeleton />;
 
   const first = seller.contact_name?.split(" ")[0] || seller.business_name || "there";
-  const recent = orders.slice(0, 6);
-  const hasNothing = products.length === 0 && orders.length === 0;
+  const recent = allOrders.slice(0, 6);
+  const hasNothing = products.length === 0 && allOrders.length === 0;
 
   return (
     <div>
@@ -121,7 +122,7 @@ export default function DashboardPage() {
                           </p>
                           <p style={{ fontSize: 12, color: "#888", marginTop: 2 }}>{o.ref_no} · {fmtDateTime(o.created_at)}</p>
                         </div>
-                        <span style={{ fontSize: 14, fontWeight: 700 }}>{fmt(o.commission.gross)}</span>
+                        <span style={{ fontSize: 14, fontWeight: 700 }}>{formatMoney(o.commission.gross, o.commission.currency)}</span>
                         <Badge status={o.bucket === "new" ? "awaiting" : o.bucket === "cancelled" ? "cancelled" : o.bucket === "delivered" ? "delivered" : "packed"} label={BUCKET[o.bucket]} />
                       </Link>
                     </li>

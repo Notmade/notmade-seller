@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { api, fmtDateTime, type SellerNotification } from "../../lib/seller-api";
+import { api, fmtDateTime, isNotLive, type SellerNotification } from "../../lib/seller-api";
 import { currencySymbol } from "../../lib/currency";
 import { ICON, readSeen, writeSeen } from "../../components/NotificationsBell";
 import { useSellerCurrency } from "../seller-context";
@@ -16,7 +16,10 @@ export default function NotificationsPage() {
 
   useEffect(() => {
     setSeen(readSeen());
-    const load = () => api.notifications().then(r => setItems(r.notifications)).catch(err => setError(err instanceof Error ? err.message : "Could not load notifications"));
+    const load = () => api.notifications().then(r => { setItems(r.notifications); setError(""); }).catch(err => {
+      if (isNotLive(err)) setItems(i => i ?? []);
+      else setError(err instanceof Error ? err.message : "Could not load notifications");
+    });
     void load();
     const t = setInterval(() => { if (document.visibilityState === "visible") void load(); }, 60_000);
     return () => clearInterval(t);

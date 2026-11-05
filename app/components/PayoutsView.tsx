@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { api, fmtDate, type Payout, type UpcomingSettlement, type Money } from "../lib/seller-api";
-import { formatMoney, formatMoneyIn, type Currency } from "../lib/currency";
+import { formatMoney, formatMoneyIn, otherCurrency, type Currency } from "../lib/currency";
 import { Alert, Badge, Card, PageHeader, PageSkeleton } from "./portal-ui";
 
 interface Data { payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }
 
 interface Props {
-  /** Only settlements in this currency are listed and totalled. */
+  /** The seller's currency. Settlements in any other currency get their own section below. */
   currency: Currency;
   title: string;
   /** Commission rate for the header, e.g. "17%". */
@@ -17,24 +17,41 @@ interface Props {
 
 /** Payouts for the signed-in seller. */
 export default function PayoutsView({ currency, title, rates }: Props) {
-  const amount = (n: number | null | undefined) => formatMoney(n, currency);
-  const total = (m: Money) => formatMoneyIn(m, currency);
   const [d, setD] = useState<Data | null>(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    api.payouts()
-      .then(r => setD({ ...r, payouts: r.payouts.filter(p => p.currency === currency), upcoming: r.upcoming.filter(u => u.currency === currency) }))
-      .catch(err => setError(err instanceof Error ? err.message : "Could not load payouts"));
-  }, [currency]);
+    api.payouts().then(setD).catch(err => setError(err instanceof Error ? err.message : "Could not load payouts"));
+  }, []);
 
   if (error) return <Alert>{error}</Alert>;
   if (!d) return <PageSkeleton stats={3} />;
 
+  const other = otherCurrency(currency);
+  const hasOther = d.payouts.some(p => p.currency === other) || d.upcoming.some(u => u.currency === other);
+
   return (
     <div>
       <PageHeader title={title} sub={`Settled ${d.settlement_days} days after delivery${rates ? ` · Commission ${rates}` : ""}`} />
+      <Settlements d={d} currency={currency} />
+      {hasOther && (
+        <section style={{ marginTop: 28 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 12 }}>Payouts in {other}</h2>
+          <Settlements d={d} currency={other} />
+        </section>
+      )}
+    </div>
+  );
+}
 
+/** Totals, upcoming settlements and history in one currency. */
+function Settlements({ d: all, currency }: { d: Data; currency: Currency }) {
+  const amount = (n: number | null | undefined) => formatMoney(n, currency);
+  const total = (m: Money) => formatMoneyIn(m, currency);
+  const d = { ...all, payouts: all.payouts.filter(p => p.currency === currency), upcoming: all.upcoming.filter(u => u.currency === currency) };
+
+  return (
+    <>
       <div className="sp-stats" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
         <div className="sp-stat sp-stat-dark"><p className="sp-stat-label">Upcoming (delivered)</p><p className="sp-stat-value">{total(d.totals.upcoming)}</p><p className="sp-stat-sub">{d.upcoming.length} order{d.upcoming.length === 1 ? "" : "s"} in the {d.settlement_days}-day window</p></div>
         <div className="sp-stat"><p className="sp-stat-label">Scheduled</p><p className="sp-stat-value">{total(d.totals.scheduled)}</p><p className="sp-stat-sub">Settlement created, transfer pending</p></div>
@@ -90,6 +107,6 @@ export default function PayoutsView({ currency, title, rates }: Props) {
           </div>
         )}
       </Card>
-    </div>
+    </>
   );
 }

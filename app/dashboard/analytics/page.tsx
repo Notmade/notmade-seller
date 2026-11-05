@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api, ApiError, type Order, type SellerAnalytics } from "../../lib/seller-api";
 import { orderFunnel, ordersByStatus, ordersIn, salesSeries, topProducts } from "../../lib/insights";
+import { featureOn } from "../../lib/features";
 import { useSellerCurrency } from "../seller-context";
 import { Alert, Card, EmptyState, PageHeader, PageSkeleton } from "../../components/portal-ui";
 
@@ -26,6 +27,7 @@ export default function AnalyticsPage() {
   }, [currency]);
   useEffect(() => {
     // Store traffic is optional: without it the page shows order-side conversion only
+    if (!featureOn("store_analytics")) return;
     api.analytics(days).then(setTraffic).catch((err: unknown) => { if (err instanceof ApiError) setTraffic(null); });
   }, [days]);
 
@@ -69,7 +71,7 @@ export default function AnalyticsPage() {
         <div className="sp-stat sp-stat-dark"><p className="sp-stat-label">Sales</p><p className="sp-stat-value">{fmt(total)}</p><p className="sp-stat-sub">Last {days} days</p></div>
         <div className="sp-stat"><p className="sp-stat-label">Orders</p><p className="sp-stat-value">{count}</p><p className="sp-stat-sub">Excludes cancelled</p></div>
         <div className="sp-stat"><p className="sp-stat-label">Accepted</p><p className="sp-stat-value">{funnel.acceptRate != null ? `${funnel.acceptRate}%` : "—"}</p><p className="sp-stat-sub">{funnel.accepted} of {funnel.received} orders</p></div>
-        <div className="sp-stat"><p className="sp-stat-label">Store conversion</p><p className="sp-stat-value">{conversion != null ? `${conversion}%` : "—"}</p><p className="sp-stat-sub">{conversion != null ? `${traffic!.orders} orders from ${traffic!.product_views} views` : "Shows once store views are available"}</p></div>
+        <div className="sp-stat"><p className="sp-stat-label">Store conversion</p><p className="sp-stat-value">{conversion != null ? `${conversion}%` : "—"}</p><p className="sp-stat-sub">{conversion != null ? `${traffic!.orders} orders from ${traffic!.product_views} views` : "Coming soon"}</p></div>
       </div>
 
       <Card style={{ padding: 0, marginBottom: 14 }}>

@@ -420,7 +420,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
-    const msg = typeof data.error === "string" ? data.error : `Request failed (${res.status})`;
+    const msg = typeof data.error === "string" ? data.error : "Something went wrong on our side. Please try again.";
     throw new ApiError(res.status, msg, data);
   }
   return data as T;

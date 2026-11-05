@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import Link from "next/link";
 import { api, ApiError, fmtDate, isNotLive, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
 import { productPrice, productPriceFields } from "../../lib/currency";
+import { featureOn } from "../../lib/features";
 import ValueGallery from "../../components/ValueGallery";
 import CategoryPicker from "../../components/CategoryPicker";
 import { useDashboardSeller, useSellerCurrency } from "../seller-context";
@@ -16,6 +17,7 @@ const MAX_BYTES = 8 * 1024 * 1024;
 
 type Filter = "all" | "draft" | "live" | "pending" | "rejected";
 const FILTER_LABEL: Record<Filter, string> = { all: "All", draft: "Draft", live: "Live", pending: "In review", rejected: "Rejected" };
+const filters = () => (Object.keys(FILTER_LABEL) as Filter[]).filter(f => f !== "draft" || featureOn("drafts"));
 
 function productStatus(p: Product): { key: string; label: string } {
   if (p.status === "draft") return { key: "draft", label: "Draft" };
@@ -95,9 +97,9 @@ export default function ProductsPage() {
       ) : (
         <>
           <div className="sp-toolbar">
-            <input className="sp-search" placeholder="Search name or SKU" aria-label="Search catalogue" value={query} onChange={e => setQuery(e.target.value)} />
+            <input className="sp-search" placeholder={featureOn("sku") ? "Search name or SKU" : "Search by name"} aria-label="Search catalogue" value={query} onChange={e => setQuery(e.target.value)} />
             <div className="sp-pills" role="group" aria-label="Status filter">
-              {(Object.keys(FILTER_LABEL) as Filter[]).map(f => (
+              {filters().map(f => (
                 <button key={f} type="button" className="sp-pill" aria-pressed={filter === f} onClick={() => setFilter(f)}>{FILTER_LABEL[f]}</button>
               ))}
             </div>
@@ -276,7 +278,7 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     fd.append("name", name.trim());
     fd.append("description", description.trim());
     fd.append("category_id", categoryId);
-    fd.append("sku", sku.trim());
+    if (featureOn("sku")) fd.append("sku", sku.trim());
     for (const [k, v] of Object.entries(productPriceFields(country, price, mrp))) fd.append(k, v);
     if (extra) {
       // Options mode: Size (if any) + the extra option; one variant per value × size, ids kept on edit
@@ -340,9 +342,11 @@ function ProductForm({ product, categories, onClose, onSaved }: {
           <Field label="Category" htmlFor="p-cat">
             <CategoryPicker id="p-cat" categories={categories} value={categoryId} onChange={setCategoryId} />
           </Field>
-          <Field label="Your product ID / SKU (optional)" htmlFor="p-sku" hint="Your own reference. Shoppers don't see it.">
-            <input id="p-sku" className="field-input" value={sku} onChange={e => setSku(e.target.value)} maxLength={64} autoComplete="off" />
-          </Field>
+          {featureOn("sku") && (
+            <Field label="Your product ID / SKU (optional)" htmlFor="p-sku" hint="Your own reference. Shoppers don't see it.">
+              <input id="p-sku" className="field-input" value={sku} onChange={e => setSku(e.target.value)} maxLength={64} autoComplete="off" />
+            </Field>
+          )}
 
           {agreementMissing && <Alert kind="warn">Products can be listed once your seller agreement is on file.</Alert>}
 
@@ -485,7 +489,7 @@ function ProductForm({ product, categories, onClose, onSaved }: {
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
-            {(!isEdit || product?.status === "draft") && <Button variant="secondary" disabled={saving} onClick={() => void save(true)}>Save as draft</Button>}
+            {featureOn("drafts") && (!isEdit || product?.status === "draft") && <Button variant="secondary" disabled={saving} onClick={() => void save(true)}>Save as draft</Button>}
             <Button type="submit">{saving ? "Saving…" : isEdit && product?.status !== "draft" ? "Save & submit for review" : "Submit for review"}</Button>
           </div>
         </fieldset>
