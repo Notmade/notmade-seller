@@ -7,6 +7,10 @@ export const UAE_SITE_URL = "https://uae.notmade.in";
 export const INSTAGRAM_URL = "https://instagram.com/notmade.in";
 export const CONTACT_EMAIL = "admin@notmade.in";
 
+/** Legal entities that sign the seller agreement (from the backend agreement templates). */
+export const LEGAL_ENTITY_INDIA = "House of Notmade Studio Private Limited";
+export const LEGAL_ENTITY_UAE = "House of Notmade Studio FZE LLC";
+
 /** NOTMADE's commission on each completed sale in India, in percent. */
 export const COMMISSION_PCT_INDIA = 17;
 /** Days after delivery that a seller's settlement is paid. */

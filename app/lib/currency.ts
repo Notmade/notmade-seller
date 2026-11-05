@@ -34,16 +34,12 @@ export function formatMoneyIn(m: Money | null | undefined, currency: Currency): 
   return formatMoney(m?.[currency] ?? 0, currency);
 }
 
-// ─── Seller market access ────────────────────────────────────────────────────
-
-export const SELLER_SUPPORT_EMAIL = "seller@notmade.in";
-export const UAE_NOT_APPROVED_MESSAGE = `You are not approved for UAE yet. Please contact ${SELLER_SUPPORT_EMAIL}`;
+// ─── Seller country ──────────────────────────────────────────────────────────
 
 /** Fields of the GET /seller/me seller this file reads. */
 export interface SellerMarketFields {
   seller_country?: string | null;
-  sell_in_uae?: boolean | null;
-  uae?: { seller_country?: string | null; approved?: boolean | null } | null;
+  uae?: { seller_country?: string | null } | null;
   agreement?: { seller_country?: string | null } | null;
 }
 
@@ -57,18 +53,34 @@ export function sellerCurrency(seller: SellerMarketFields | null | undefined): C
   return CURRENCY_BY_COUNTRY[sellerCountry(seller)];
 }
 
-/**
- * India-based seller that NOTMADE has approved for the UAE store. Uses uae.approved when the backend
- * sends it, else the seller-level sell_in_uae flag. Always false for UAE-based sellers, who have no
- * India-to-UAE section.
- */
-export function isUaeApproved(seller: SellerMarketFields | null | undefined): boolean {
-  if (!seller || sellerCountry(seller) !== "IN") return false;
-  return seller.uae?.approved ?? !!seller.sell_in_uae;
+/** The currency this seller does not price in. Older orders and payouts can still be in it. */
+export function otherCurrency(currency: Currency): Currency {
+  return currency === AED ? INR : AED;
 }
 
-/** Dashboard routes that only make sense for India-based sellers (India pickup, India contract, India-to-UAE). */
-const INDIA_ONLY_ROUTES = ["/dashboard/uae", "/dashboard/contract", "/dashboard/warehouse"];
+/** Product price columns of one seller country. A seller only ever reads and writes their own pair. */
+export interface ProductPriceColumns {
+  price_inr?: number | null;
+  original_price_inr?: number | null;
+  price_aed?: number | null;
+  original_price_aed?: number | null;
+}
+
+export function productPrice(p: ProductPriceColumns, country: SellerCountryCode): { price: number | null; mrp: number | null } {
+  return country === "AE"
+    ? { price: p.price_aed ?? null, mrp: p.original_price_aed ?? null }
+    : { price: p.price_inr ?? null, mrp: p.original_price_inr ?? null };
+}
+
+/** Form fields of POST / PUT /seller/products for a price. Only the seller's own currency is ever sent. */
+export function productPriceFields(country: SellerCountryCode, price: string, mrp: string): Record<string, string> {
+  return country === "AE"
+    ? { sell_in_uae: "true", price_aed: price, mrp_aed: mrp }
+    : { price_inr: price, mrp };
+}
+
+/** Dashboard routes only India-based sellers have (pickup address, India contract). */
+const INDIA_ONLY_ROUTES = ["/dashboard/contract", "/dashboard/warehouse"];
 
 /** False for a dashboard route this seller must not see; the layout sends them to /dashboard. */
 export function canOpenRoute(seller: SellerMarketFields | null | undefined, pathname: string): boolean {
@@ -76,7 +88,7 @@ export function canOpenRoute(seller: SellerMarketFields | null | undefined, path
   return !INDIA_ONLY_ROUTES.some((r) => pathname === r || pathname.startsWith(`${r}/`));
 }
 
-/** Order region ("in" | "ae") whose amounts are in this currency. */
-export function regionForCurrency(currency: Currency): "in" | "ae" {
-  return currency === AED ? "ae" : "in";
+/** IANA zone used for "today" and date bucketing in the seller's panel. */
+export function sellerTimeZone(country: SellerCountryCode): string {
+  return country === "AE" ? "Asia/Dubai" : "Asia/Kolkata";
 }

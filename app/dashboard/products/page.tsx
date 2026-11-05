@@ -1,21 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
-import { api, ApiError, fmtDate, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
-import { AED, INR, UAE_NOT_APPROVED_MESSAGE, currencySymbol, formatMoney, isUaeApproved, sellerCountry } from "../../lib/currency";
+import { api, ApiError, fmtDate, isNotLive, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
+import { productPrice, productPriceFields } from "../../lib/currency";
+import { featureOn } from "../../lib/features";
 import ValueGallery from "../../components/ValueGallery";
+import CategoryPicker from "../../components/CategoryPicker";
 import { useDashboardSeller, useSellerCurrency } from "../seller-context";
-import { Alert, Badge, Button, Card, EmptyState, Field, FullPageSpinner, Modal, PageHeader, RED } from "../../components/portal-ui";
+import { Alert, Badge, Button, Card, EmptyState, Field, Modal, PageHeader, PageSkeleton, PriceInput, RED } from "../../components/portal-ui";
 
 const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
 const MAX_IMAGES = 10;      // per product (backend)
 const MAX_UPLOAD = 8;       // per request (backend)
 const MAX_BYTES = 8 * 1024 * 1024;
 
-type Filter = "all" | "live" | "pending" | "rejected";
+type Filter = "all" | "draft" | "live" | "pending" | "rejected";
+const FILTER_LABEL: Record<Filter, string> = { all: "All", draft: "Draft", live: "Live", pending: "In review", rejected: "Rejected" };
+const filters = () => (Object.keys(FILTER_LABEL) as Filter[]).filter(f => f !== "draft" || featureOn("drafts"));
 
 function productStatus(p: Product): { key: string; label: string } {
+  if (p.status === "draft") return { key: "draft", label: "Draft" };
   if (p.approval_status === "rejected") return { key: "rejected", label: "Rejected" };
   if (p.approval_status === "pending") return { key: "pending", label: "In review" };
   if (p.is_live) return { key: "live", label: "Live" };
@@ -26,12 +31,12 @@ export default function ProductsPage() {
   // Adding / editing waits for the updated agreement; delete and orders are unaffected
   const me = useDashboardSeller();
   const locked = !!me.agreement?.resign_required;
-  const { country, uaeApproved, fmt } = useSellerCurrency();
-  const aeSeller = country === "AE";
+  const { country, fmt } = useSellerCurrency();
   const [products, setProducts] = useState<Product[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<Product | "new" | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -46,13 +51,16 @@ export default function ProductsPage() {
 
   useEffect(() => {
     void load();
+    if (new URLSearchParams(window.location.search).get("new") === "1" && !locked) setEditing("new");
     api.categories().then(r => setCategories(r.categories)).catch(() => { /* form shows empty dropdown */ });
-  }, [load]);
+  }, [load, locked]);
 
-  const shown = useMemo(() => (products ?? []).filter(p => {
-    const k = productStatus(p).key;
-    return filter === "all" || (filter === "pending" ? k === "pending" : filter === "live" ? k === "live" : k === "rejected");
-  }), [products, filter]);
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (products ?? [])
+      .filter(p => filter === "all" || productStatus(p).key === filter)
+      .filter(p => !q || p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q));
+  }, [products, filter, query]);
 
   const remove = async (id: string) => {
     setDeleting(true);
@@ -69,7 +77,7 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <PageHeader title="Products" sub="New products and edits go to NOTMADE for review before going live."
+      <PageHeader title="Catalogue" sub="New products and edits go to NOTMADE for review before going live."
         action={<Button disabled={locked} onClick={() => setEditing("new")}>+ Add product</Button>} />
 
       {locked && (
@@ -83,27 +91,25 @@ export default function ProductsPage() {
 
       {error && <div style={{ marginBottom: 14 }}><Alert>{error}</Alert></div>}
 
-      {!products ? (!error && <FullPageSpinner />) : products.length === 0 ? (
+      {!products ? (!error && <PageSkeleton stats={0} />) : products.length === 0 ? (
         <EmptyState title="No products yet" sub="Add your first product to start selling on NOTMADE."
           action={<Button disabled={locked} onClick={() => setEditing("new")}>+ Add product</Button>} />
       ) : (
         <>
-          <div role="tablist" style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap" }}>
-            {(["all", "live", "pending", "rejected"] as Filter[]).map(f => (
-              <button key={f} role="tab" aria-selected={filter === f} onClick={() => setFilter(f)} style={{
-                padding: "7px 14px", borderRadius: 100, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "inherit",
-                border: `1.5px solid ${filter === f ? "#111111" : "#E0E0E0"}`,
-                background: filter === f ? "#111111" : "#FFFFFF", color: filter === f ? "#FFFFFF" : "#555555",
-              }}>
-                {f === "pending" ? "In review" : f[0].toUpperCase() + f.slice(1)}
-              </button>
-            ))}
+          <div className="sp-toolbar">
+            <input className="sp-search" placeholder={featureOn("sku") ? "Search name or SKU" : "Search by name"} aria-label="Search catalogue" value={query} onChange={e => setQuery(e.target.value)} />
+            <div className="sp-pills" role="group" aria-label="Status filter">
+              {filters().map(f => (
+                <button key={f} type="button" className="sp-pill" aria-pressed={filter === f} onClick={() => setFilter(f)}>{FILTER_LABEL[f]}</button>
+              ))}
+            </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
             {shown.length === 0 && <p style={{ fontSize: 14, color: "#888888", padding: "20px 0" }}>Nothing here.</p>}
             {shown.map(p => {
               const st = productStatus(p);
+              const { price, mrp } = productPrice(p, country);
               return (
                 <Card key={p.id} style={{ padding: 14 }}>
                   <div style={{ display: "flex", gap: 14, alignItems: "flex-start", flexWrap: "wrap" }}>
@@ -117,19 +123,13 @@ export default function ProductsPage() {
                       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                         <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>{p.name}</p>
                         <Badge status={st.key} label={st.label} />
-                        {p.sell_in_uae && (aeSeller || uaeApproved) && (
-                          <span className="sp-chip" title="Shown on uae.notmade.in only after NOTMADE approves it">
-                            {st.key === "live" ? "Live in UAE" : st.key === "pending" ? "UAE · awaiting approval" : "UAE"}
-                          </span>
-                        )}
                       </div>
                       <p style={{ fontSize: 13, color: "#777777", marginTop: 4 }}>
-                        {aeSeller ? (p.price_aed ? fmt(p.price_aed) : `No ${AED} price`) : fmt(p.price_inr)}
-                        {!aeSeller && p.original_price_inr && p.original_price_inr > p.price_inr && (
-                          <span style={{ textDecoration: "line-through", color: "#AAAAAA", marginLeft: 6 }}>{fmt(p.original_price_inr)}</span>
-                        )}
-                        {/* India seller's UAE price is part of the UAE section: only once approved for UAE */}
-                        {!aeSeller && uaeApproved && p.sell_in_uae && p.price_aed ? <>{" · "}UAE {formatMoney(p.price_aed, AED)}</> : null}
+                        {price ? fmt(price) : "No price set"}
+                        {mrp && price && mrp > price ? (
+                          <span style={{ textDecoration: "line-through", color: "#AAAAAA", marginLeft: 6 }}>{fmt(mrp)}</span>
+                        ) : null}
+                        {p.sku && <>{" · "}SKU {p.sku}</>}
                         {" · "}{p.category ?? "Uncategorised"}{" · "}Stock {p.stock ?? 0}
                         {p.sizes && p.sizes.length > 0 && ` (${p.sizes.join(", ")})`}
                       </p>
@@ -190,7 +190,9 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   product: Product | null; categories: Category[]; onClose: () => void; onSaved: (p: Product) => void;
 }) {
   const seller = useDashboardSeller();
+  const { country, fmt } = useSellerCurrency();
   const isEdit = !!product;
+  const initialPrice = product ? productPrice(product, country) : { price: null, mrp: null };
 
   const initialSizes: SizeRow[] = product?.sizes?.length
     ? product.sizes.map(s => ({ size: s, stock: String(product.product_variants?.find(v => v.size === s)?.stock ?? 0) }))
@@ -199,8 +201,9 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
   const [categoryId, setCategoryId] = useState(product?.category_id ?? "");
-  const [price, setPrice] = useState(product ? String(product.price_inr) : "");
-  const [mrp, setMrp] = useState(product?.original_price_inr ? String(product.original_price_inr) : "");
+  const [price, setPrice] = useState(initialPrice.price ? String(initialPrice.price) : "");
+  const [mrp, setMrp] = useState(initialPrice.mrp ? String(initialPrice.mrp) : "");
+  const [sku, setSku] = useState(product?.sku ?? "");
   const [hasSizes, setHasSizes] = useState(initialSizes.length > 0 || !product);
   const [sizes, setSizes] = useState<SizeRow[]>(initialSizes.length ? initialSizes : [{ size: "M", stock: "" }]);
   const [customSize, setCustomSize] = useState("");
@@ -221,20 +224,15 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     return out;
   });
   const extraActive = !!extra;
-  // UAE listing needs the signed UAE agreement for the seller's country (backend: isUaeReady). Until then the
-  // UAE fields are not shown. UAE-based sellers sell in the UAE only, priced in their currency (no India price).
-  // India-based sellers see UAE fields only once NOTMADE approved them for the UAE.
-  const aeSeller = sellerCountry(seller) === "AE";
-  const uaeApproved = isUaeApproved(seller);
-  const uaeReady = !!seller.uae?.ready && (aeSeller || uaeApproved);
-  const uaePct = seller.uae?.commission_pct ?? null;
-  const [sellInUae, setSellInUae] = useState(aeSeller || (!!product?.sell_in_uae && uaeReady));
-  const [priceAed, setPriceAed] = useState(product?.price_aed ? String(product.price_aed) : "");
+  // UAE-based sellers can list once their signed agreement is on file (backend: isUaeReady)
+  const agreementMissing = country === "AE" && !seller.uae?.ready;
+  const indiaPct = country === "IN" ? seller.commission?.india_pct ?? null : null;
   const [existingImages, setExistingImages] = useState<string[]>(product?.images ?? []);
   const [newImages, setNewImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
     const urls = newImages.map(f => URL.createObjectURL(f));
@@ -265,9 +263,12 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     setCustomSize("");
   };
 
-  const submit = async (e: FormEvent) => {
-    e.preventDefault();
+  const submit = async (e: FormEvent) => { e.preventDefault(); await save(false); };
+
+  /** Draft: POST /seller/products/drafts, so a backend without drafts can never submit it for review. */
+  const save = async (draft: boolean) => {
     setError("");
+    if (draft && !(formRef.current?.reportValidity() ?? true)) return;
     if (totalImages === 0) { setError("Add at least one image"); return; }
     if (hasSizes && sizes.length === 0) { setError("Add at least one size, or switch off sizes"); return; }
     if (extra && (!extra.name.trim() || isSizeName(extra.name))) { setError("Name the extra option, e.g. Colour"); return; }
@@ -277,10 +278,8 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     fd.append("name", name.trim());
     fd.append("description", description.trim());
     fd.append("category_id", categoryId);
-    if (!aeSeller) {
-      fd.append("price_inr", price);
-      fd.append("mrp", mrp);
-    }
+    if (featureOn("sku")) fd.append("sku", sku.trim());
+    for (const [k, v] of Object.entries(productPriceFields(country, price, mrp))) fd.append(k, v);
     if (extra) {
       // Options mode: Size (if any) + the extra option; one variant per value × size, ids kept on edit
       const name = extra.name.trim();
@@ -303,10 +302,6 @@ function ProductForm({ product, categories, onClose, onSaved }: {
       fd.append("sizes", "[]");
       fd.append("stock", stock || "0");
     }
-    // Always sent, so a UAE flag left over from before the UAE agreement is switched off on save
-    const uae = uaeReady && (aeSeller || sellInUae);
-    fd.append("sell_in_uae", String(uae));
-    if (uae) fd.append("price_aed", priceAed);
     // Only touch images on edit when they actually changed, so unchanged products skip re-conversion
     const imagesChanged = !isEdit || newImages.length > 0 || existingImages.length !== (product?.images?.length ?? 0);
     if (isEdit && imagesChanged) fd.append("existing_images", JSON.stringify(existingImages));
@@ -314,9 +309,14 @@ function ProductForm({ product, categories, onClose, onSaved }: {
 
     setSaving(true);
     try {
-      const res = isEdit ? await api.updateProduct(product!.id, fd) : await api.createProduct(fd);
+      const res = draft ? await api.saveDraft(fd) : isEdit ? await api.updateProduct(product!.id, fd) : await api.createProduct(fd);
       onSaved(res.product);
     } catch (err) {
+      if (draft && isNotLive(err)) {
+        setError("Drafts are not switched on yet. Nothing was saved or submitted.");
+        setSaving(false);
+        return;
+      }
       const list = err instanceof ApiError && Array.isArray(err.data.errors) ? (err.data.errors as string[]) : null;
       setError(list && list.length > 1 ? list.join(" · ") : err instanceof Error ? err.message : "Could not save product");
       setSaving(false);
@@ -327,7 +327,7 @@ function ProductForm({ product, categories, onClose, onSaved }: {
 
   return (
     <Modal title={isEdit ? "Edit product" : "Add product"} onClose={saving ? () => undefined : onClose} width={720}>
-      <form onSubmit={submit}>
+      <form ref={formRef} onSubmit={submit}>
         <fieldset disabled={saving} style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 16 }}>
           {isEdit && product?.approval_status !== "pending" && (
             <Alert kind="warn">Saving changes sends this product back for review{product?.is_live ? " and takes it offline until approved" : ""}.</Alert>
@@ -340,24 +340,29 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             <textarea id="p-desc" className="field-input" rows={4} value={description} onChange={e => setDescription(e.target.value)} required minLength={10} maxLength={5000} />
           </Field>
           <Field label="Category" htmlFor="p-cat">
-            <select id="p-cat" className="field-input" value={categoryId} onChange={e => setCategoryId(e.target.value)} required>
-              <option value="">Select category</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+            <CategoryPicker id="p-cat" categories={categories} value={categoryId} onChange={setCategoryId} />
           </Field>
-
-          {aeSeller && !uaeReady && (
-            <Alert kind="warn">Products can be listed once your UAE seller agreement is on file.</Alert>
+          {featureOn("sku") && (
+            <Field label="Your product ID / SKU (optional)" htmlFor="p-sku" hint="Your own reference. Shoppers don't see it.">
+              <input id="p-sku" className="field-input" value={sku} onChange={e => setSku(e.target.value)} maxLength={64} autoComplete="off" />
+            </Field>
           )}
 
-          {!aeSeller && <div style={grid2}>
-            <Field label={`Selling price (${currencySymbol(INR)})`} htmlFor="p-price">
-              <input id="p-price" className="field-input" type="number" min="1" step="0.01" max="1000000" value={price} onChange={e => setPrice(e.target.value)} required />
+          {agreementMissing && <Alert kind="warn">Products can be listed once your seller agreement is on file.</Alert>}
+
+          <div style={grid2}>
+            <Field label="Selling price" htmlFor="p-price">
+              <PriceInput id="p-price" country={country} value={price} onChange={setPrice} required />
+              {indiaPct !== null && Number(price) > 0 && (
+                <p aria-live="polite" style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, marginTop: 6 }}>
+                  You receive {fmt(netAfterCommission(Number(price), indiaPct))} after {indiaPct}% commission
+                </p>
+              )}
             </Field>
-            <Field label={`MRP (${currencySymbol(INR)}, optional)`} htmlFor="p-mrp" hint="Shown struck-through if higher than price">
-              <input id="p-mrp" className="field-input" type="number" min={price || "1"} step="0.01" max="1000000" value={mrp} onChange={e => setMrp(e.target.value)} />
+            <Field label="MRP (optional)" htmlFor="p-mrp" hint="Shown struck-through if higher than price">
+              <PriceInput id="p-mrp" country={country} value={mrp} onChange={setMrp} min={price || "1"} />
             </Field>
-          </div>}
+          </div>
 
           <div>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer", marginBottom: 10 }}>
@@ -460,40 +465,6 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             )}
           </div>
 
-          {uaeReady ? (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              <div style={grid2}>
-                {aeSeller ? (
-                  <p style={{ fontSize: 14, fontWeight: 600, color: "#333333", alignSelf: "center" }}>Sell in UAE · priced in {AED}</p>
-                ) : (
-                  <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer" }}>
-                    <input type="checkbox" checked={sellInUae} onChange={e => setSellInUae(e.target.checked)} style={{ width: 18, height: 18, accentColor: RED }} />
-                    Sell in UAE
-                  </label>
-                )}
-                {(aeSeller || sellInUae) && (
-                  <Field label={`UAE price (${AED})`} htmlFor="p-aed">
-                    <input id="p-aed" className="field-input" type="number" min="1" step="0.01" max="1000000" value={priceAed} onChange={e => setPriceAed(e.target.value)} required />
-                    {uaePct !== null && Number(priceAed) > 0 && (
-                      <p aria-live="polite" style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, marginTop: 6 }}>
-                        You receive {formatMoney(netAfterCommission(Number(priceAed), uaePct), AED)} after {uaePct}% commission
-                      </p>
-                    )}
-                  </Field>
-                )}
-              </div>
-              {(aeSeller || sellInUae) && (
-                <p style={{ fontSize: 13, color: "#888888" }}>Shown on uae.notmade.in only after NOTMADE approves it.</p>
-              )}
-            </div>
-          ) : !aeSeller && (uaeApproved ? (
-            <p style={{ fontSize: 13, color: "#888888" }}>
-              Want to sell in the UAE? Sign the <Link href="/dashboard/uae" style={{ color: RED, fontWeight: 700 }}>UAE sales addendum</Link> first.
-            </p>
-          ) : (
-            <p style={{ fontSize: 13, color: "#888888" }}>{UAE_NOT_APPROVED_MESSAGE}</p>
-          ))}
-
           <Field label={`Images (${totalImages}/${MAX_IMAGES})`} hint="JPG, PNG or WEBP, up to 8 MB each. The first image is the cover.">
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               {existingImages.map(url => (
@@ -518,7 +489,8 @@ function ProductForm({ product, categories, onClose, onSaved }: {
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
-            <Button type="submit">{saving ? "Saving…" : isEdit ? "Save & submit for review" : "Submit for review"}</Button>
+            {featureOn("drafts") && (!isEdit || product?.status === "draft") && <Button variant="secondary" disabled={saving} onClick={() => void save(true)}>Save as draft</Button>}
+            <Button type="submit">{saving ? "Saving…" : isEdit && product?.status !== "draft" ? "Save & submit for review" : "Submit for review"}</Button>
           </div>
         </fieldset>
       </form>

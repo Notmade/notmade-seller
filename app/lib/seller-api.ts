@@ -2,6 +2,7 @@
 // Auth is a 30-day seller JWT sent as a Bearer token.
 
 import type { Currency, Money } from "./currency";
+import type { ElectronicsFulfilment, RateCardSource } from "./rate-card";
 
 export type { Currency, Money } from "./currency";
 
@@ -10,6 +11,7 @@ const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const TOKEN_KEY = "nm_seller_token";
 // Presence-only cookie so middleware can gate routes; the JWT itself never goes in a cookie.
 const COOKIE = "nm_seller";
+const COUNTRY_COOKIE = "nm_seller_country";
 
 // ─── Session ────────────────────────────────────────────────────────────────
 
@@ -26,6 +28,12 @@ export function setToken(token: string): void {
 export function clearSession(): void {
   try { localStorage.removeItem(TOKEN_KEY); } catch { /* storage blocked */ }
   document.cookie = `${COOKIE}=; path=/; max-age=0; samesite=lax`;
+  document.cookie = `${COUNTRY_COOKIE}=; path=/; max-age=0; samesite=lax`;
+}
+
+/** Tells server-rendered legal pages which country's text to show. Display hint only. */
+export function rememberSellerCountry(country: string): void {
+  document.cookie = `${COUNTRY_COOKIE}=${country}; path=/; max-age=${30 * 24 * 60 * 60}; samesite=lax`;
 }
 
 // ─── Types (mirror backend responses) ─────────────────────────────────────────
@@ -37,7 +45,7 @@ export type OtpPurpose = "login" | "signup" | "agreement";
 
 export type SellerCountry = "IN" | "AE";
 
-/** UAE selling status from GET /seller/me. commission_pct is the seller's effective UAE rate (settings or override). */
+/** Agreement and rate status of a UAE-based seller, from GET /seller/me. */
 export interface UaeStatus {
   seller_country: SellerCountry;
   ready: boolean;
@@ -45,8 +53,6 @@ export interface UaeStatus {
   signed_agreement_version: string | null;
   signed_at: string | null;
   commission_pct: number | null;
-  /** NOTMADE approved this India-based seller for the UAE store (when the backend sends it). */
-  approved?: boolean | null;
 }
 
 /** Main agreement state from GET /seller/me. resign_required: signed an older version than the current one for their country. */
@@ -59,17 +65,15 @@ export interface AgreementStatus {
   resign_required: boolean;
 }
 
-/** Effective rates from GET /seller/me. international_pct: UAE store rate for UAE-based sellers. */
+/** Effective rates from GET /seller/me. */
 export interface SellerCommission {
   pricing: "seller_controlled";
   india_pct: number | null;
-  international_pct: number | null;
 }
 
 /** GET /seller/commission-rates — shown at registration. */
-export interface CommissionRates {
+export interface CommissionRates extends RateCardSource {
   india_pct: number | null;
-  international_pct: number | null;
   uae_local_pct: number | null;
 }
 
@@ -90,7 +94,6 @@ export interface Seller {
   pan_number: string | null;
   aadhaar_last4: string | null;
   pricing_model: "managed" | "seller_controlled" | null;
-  sell_in_uae: boolean | null;
   commission_rate: number | null;
   uae_commission_rate: number | null;
   onboarding_status: OnboardingStatus | null;
@@ -106,6 +109,10 @@ export interface Seller {
   emirates_id_last4?: string | null;
   emirate?: string | null;
   iban?: string | null;
+  /** Who ships this UAE seller's electronics orders. Absent until the backend stores it. */
+  electronics_fulfilment?: ElectronicsFulfilment | null;
+  /** Saved low-stock alert level. Absent until the backend stores it. */
+  low_stock_threshold?: number | null;
   // Migration 048
   agreement_version?: string | null;
   /** Merged in from GET /seller/me */
@@ -161,10 +168,6 @@ export interface Agreement {
   signed: boolean;
 }
 
-export interface UaeAgreementResponse extends UaeStatus {
-  agreement: Agreement | null;
-}
-
 export type SignBody = { code: string; signer_name: string; agreement_hash: string };
 
 export interface SignedAgreement {
@@ -178,7 +181,11 @@ export interface SignedAgreement {
   plain_text: string;
 }
 
-export interface Category { id: string; name: string; slug: string }
+export interface Category {
+  id: string; name: string; slug: string;
+  /** Picker group. Optional: categories are grouped by keyword until the backend sends it. */
+  group?: string | null;
+}
 
 export interface Product {
   id: string;
@@ -188,10 +195,14 @@ export interface Product {
   category_id: string | null;
   sizes: string[] | null;
   stock: number | null;
-  price_inr: number;
+  price_inr: number | null;
   original_price_inr: number | null;
   price_aed: number | null;
-  sell_in_uae: boolean | null;
+  original_price_aed?: number | null;
+  /** Seller's own product ID. Absent until the backend stores it. */
+  sku?: string | null;
+  /** "draft" products are private to the seller. Absent until the backend supports drafts. */
+  status?: "draft" | null;
   images: string[] | null;
   is_live: boolean | null;
   approval_status: "pending" | "approved" | "rejected" | null;
@@ -202,7 +213,7 @@ export interface Product {
   product_variants: { size: string; stock: number; is_active: boolean }[] | null;
   /** Options beyond Size (migration 047). Values of non-Size options may carry an ordered gallery. */
   options?: ProductOption[] | null;
-  variants?: { id: string; option_values: Record<string, string>; stock: number; stock_uae: number | null; is_active: boolean }[] | null;
+  variants?: { id: string; label?: string | null; sku?: string | null; option_values: Record<string, string>; stock: number; is_active: boolean }[] | null;
 }
 
 export interface OptionImage { url: string; jpg_url: string | null }
@@ -253,9 +264,9 @@ export type StageKey = "placed" | "accepted" | "ready" | "awb" | "picked_up" | "
 
 export interface TimelineStep { key: StageKey; label: string; done: boolean; current: boolean; at: string | null }
 
-/** Commission on this seller's lines: India 17%, UAE local 17%, India to UAE 45% (rates from the backend). */
+/** Commission on this seller's lines. Rates come from the backend. */
 export interface OrderCommission {
-  type: "india" | "uae_local" | "uae_from_india";
+  type: string;
   label: string;
   pct: number | null;
   currency: Currency;
@@ -302,6 +313,8 @@ export interface Order {
   manual_courier?: boolean;
   pickup_note?: string | null;
   handed_over_at?: string | null;
+  /** Tracking entered by a seller who ships the order themselves. */
+  seller_tracking?: { courier: string; tracking_number: string; tracking_url?: string | null; at: string } | null;
   commission: OrderCommission;
   settlement_days: number;
   settlement_date: string | null;
@@ -371,6 +384,16 @@ export interface UnboxingVideo {
   uploaded_at: string | null;
 }
 
+export type StockUpdate =
+  | { stock: number }
+  | { variant_id: string; stock: number }
+  | { size: string; stock: number };
+
+export interface TrackingInput { courier: string; tracking_number: string; tracking_url?: string }
+
+/** Store traffic for the seller's products. Everything else on Analytics is computed from orders. */
+export interface SellerAnalytics { product_views: number; orders: number }
+
 // ─── Request helper ─────────────────────────────────────────────────────────
 
 export class ApiError extends Error {
@@ -397,11 +420,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
   const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
   if (!res.ok) {
-    const msg = typeof data.error === "string" ? data.error : `Request failed (${res.status})`;
+    const msg = typeof data.error === "string" ? data.error : "Something went wrong on our side. Please try again.";
     throw new ApiError(res.status, msg, data);
   }
   return data as T;
 }
+
+/** True when the backend does not serve this endpoint yet. */
+export const isNotLive = (err: unknown) => err instanceof ApiError && err.status === 404;
 
 const post = <T>(path: string, body?: unknown) =>
   request<T>(path, { method: "POST", body: body instanceof FormData ? body : JSON.stringify(body ?? {}) });
@@ -436,9 +462,6 @@ export const api = {
   signAgreement: (body: SignBody) =>
     post<{ agreement: { id: string; version: string; signed_at: string }; onboarding_status: OnboardingStatus }>(
       "/seller/agreement/sign", body),
-  uaeAgreement: () => request<UaeAgreementResponse>("/seller/uae-agreement"),
-  signUaeAgreement: (body: SignBody) =>
-    post<{ agreement: { id: string; version: string; signed_at: string }; uae: UaeStatus }>("/seller/uae-agreement/sign", body),
 
   categories: () => request<{ categories: Category[] }>("/seller/categories"),
   products: () => request<{ products: Product[] }>("/seller/products"),
@@ -446,6 +469,16 @@ export const api = {
   updateProduct: (id: string, fd: FormData) =>
     request<{ product: Product }>(`/seller/products/${id}`, { method: "PUT", body: fd }),
   deleteProduct: (id: string) => request<{ success: true }>(`/seller/products/${id}`, { method: "DELETE" }),
+
+  // Endpoints in the seller API contract that the backend does not serve yet. A 404 means "not
+  // switched on" (see isNotLive) and nothing was changed, which is why stock never falls back to
+  // PUT /seller/products/:id: that takes a live product offline for review.
+  saveDraft: (fd: FormData) => post<{ product: Product }>("/seller/products/drafts", fd),
+  updateStock: (id: string, body: StockUpdate) => post<{ product: Product }>(`/seller/products/${id}/stock`, body),
+  saveSettings: (body: { low_stock_threshold: number }) => post<{ low_stock_threshold: number }>("/seller/settings", body),
+  saveTracking: (refNo: string, body: TrackingInput) =>
+    post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/tracking`, body),
+  analytics: (days: number) => request<SellerAnalytics>(`/seller/analytics?days=${days}`),
 
   orders: () => request<{ orders: Order[]; counts: Record<OrderBucket, number>; sla_hours: number }>("/seller/orders"),
   acceptOrder: (refNo: string) => post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/accept`),

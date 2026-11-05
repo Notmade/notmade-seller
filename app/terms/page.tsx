@@ -1,12 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { legalCountry } from "../legal/country";
 
-export const metadata: Metadata = {
-  title: "Terms & Conditions — NOTMADE",
-  description: "Seller terms and conditions for the NOTMADE platform.",
-};
 
-export default function Terms() {
+function IndiaTerms() {
   return (
     <main className="bg-[#080808] text-white min-h-screen">
       <nav className="sticky top-0 z-50 flex items-center justify-between px-6 md:px-12 py-5 bg-[#080808]/95 backdrop-blur-sm border-b border-[#111111]">
@@ -165,4 +163,14 @@ export default function Terms() {
       </div>
     </main>
   );
+}
+
+export const metadata: Metadata = {
+  title: "Terms & Conditions — NOTMADE",
+  description: "Seller terms and conditions for the NOTMADE platform.",
+};
+
+export default function TermsPage({ searchParams }: { searchParams: { market?: string | string[] } }) {
+  if (legalCountry(searchParams.market) === "AE") redirect("/uae/terms");
+  return <IndiaTerms />;
 }

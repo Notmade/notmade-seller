@@ -13,9 +13,9 @@ const nextConfig = {
       headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }],
     }));
   },
-  // Pages kept in the repo but not backed by the seller API yet (returns live in Orders → Returns)
+  // Pages kept in the repo but not backed by the seller API yet (returns live in Orders → Returns); old links go home
   async redirects() {
-    return ['warehouse', 'contract', 'returns'].map((p) => ({
+    return ['warehouse', 'contract', 'returns', 'uae'].map((p) => ({
       source: `/dashboard/${p}`,
       destination: '/dashboard',
       permanent: false,

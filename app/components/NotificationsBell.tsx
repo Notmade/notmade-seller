@@ -7,14 +7,14 @@ import { currencySymbol } from "../lib/currency";
 import { useSellerCurrency } from "../dashboard/seller-context";
 
 const SEEN_KEY = "nm_seller_notifs_seen";
-const ICON: Record<Exclude<SellerNotification["type"], "payout">, string> = {
+export const ICON: Record<Exclude<SellerNotification["type"], "payout">, string> = {
   new_order: "N", reminder: "!", awb_ready: "A", cancelled: "×", product: "✓",
 };
 
-function readSeen(): Set<string> {
+export function readSeen(): Set<string> {
   try { return new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || "[]") as string[]); } catch { return new Set(); }
 }
-function writeSeen(ids: Set<string>) {
+export function writeSeen(ids: Set<string>) {
   try { localStorage.setItem(SEEN_KEY, JSON.stringify(Array.from(ids).slice(-300))); } catch { /* storage blocked */ }
 }
 
@@ -92,6 +92,7 @@ export default function NotificationsBell({ dark = false }: { dark?: boolean }) 
               })}
             </ul>
           )}
+          <Link href="/dashboard/notifications" onClick={() => setOpen(false)} className="sp-notif-all">View all</Link>
         </div>
       )}
     </div>

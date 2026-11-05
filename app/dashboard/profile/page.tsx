@@ -4,8 +4,8 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { api, DOC_LABELS, fmtDate, type SellerDocument } from "../../lib/seller-api";
 import { useDashboardSeller, useSellerCurrency } from "../seller-context";
-import { UAE_NOT_APPROVED_MESSAGE } from "../../lib/currency";
-import { Alert, Button, Card, PageHeader, RED, Spinner } from "../../components/portal-ui";
+import { CountryBadge } from "../../components/market";
+import { Alert, Button, Card, PageHeader, RED, Skeleton, Spinner } from "../../components/portal-ui";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -18,8 +18,7 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function ProfilePage() {
   const seller = useDashboardSeller();
-  const uae = seller.uae;
-  const { country, uaeApproved } = useSellerCurrency();
+  const { country } = useSellerCurrency();
   const uaeBased = country === "AE";
   const agreement = seller.agreement;
   const commission = seller.commission;
@@ -61,7 +60,7 @@ export default function ProfilePage() {
             <Row label="Legal name" value={seller.legal_name} />
             <Row label="Contact person" value={seller.contact_name} />
             <Row label="Email" value={seller.email} />
-            <Row label="Business based in" value={uaeBased ? "UAE" : "India"} />
+            <Row label="Country and currency" value={<CountryBadge country={country} />} />
             <Row label="Mobile" value={seller.phone && (uaeBased ? seller.phone : `+91 ${seller.phone}`)} />
             <Row label={uaeBased ? "Business address" : "Pickup address"} value={[seller.address_line, seller.city, uaeBased ? seller.emirate : seller.state, seller.pincode].filter(Boolean).join(", ")} />
           </dl>
@@ -82,21 +81,13 @@ export default function ProfilePage() {
               <Row label="PAN" value={seller.pan_number} />
             </>}
             <Row label="Pricing" value="Seller-controlled. You set your own prices; NOTMADE never changes your price." />
-            {uaeBased
-              ? <Row label="UAE store commission" value={pct(commission?.international_pct ?? uae?.commission_pct)} />
-              : <>
-                <Row label="India store commission" value={pct(commission?.india_pct ?? seller.commission_rate)} />
-                {uaeApproved && <Row label="UAE store commission" value={pct(uae?.commission_pct ?? commission?.international_pct)} />}
-              </>}
+            <Row label="Commission" value={uaeBased ? "As set out in your agreement" : pct(commission?.india_pct ?? seller.commission_rate)} />
             <Row label="Seller agreement" value={agreement?.signed_version
               ? <>
                 {agreement.signed_version} · signed {fmtDate(agreement.signed_at)}
                 {agreement.resign_required && <span style={{ color: RED, fontWeight: 700 }}> · update to {agreement.required_version} needs your signature</span>}
               </>
               : fmtDate(seller.agreement_signed_at)} />
-            {!uaeBased && <Row label="UAE sales" value={!uaeApproved ? UAE_NOT_APPROVED_MESSAGE : uae?.signed_agreement_version
-              ? `International addendum ${uae.signed_agreement_version} · signed ${fmtDate(uae.signed_at)}`
-              : "International addendum not signed"} />}
             <Row label="Agreement text" value={<Link href="/dashboard/agreement" style={{ color: RED, fontWeight: 700, textDecoration: "none" }}>View agreement →</Link>} />
             <Row label="Seller since" value={fmtDate(seller.created_at)} />
           </dl>
@@ -111,7 +102,7 @@ export default function ProfilePage() {
             </Button>
           </div>
           {logoMsg && <div style={{ marginBottom: 10 }}><Alert kind={logoMsg.kind}>{logoMsg.text}</Alert></div>}
-          {docsErr ? <Alert>{docsErr}</Alert> : !docs ? <Spinner /> : docs.length === 0 ? (
+          {docsErr ? <Alert>{docsErr}</Alert> : !docs ? <Skeleton height={60} /> : docs.length === 0 ? (
             <p style={{ fontSize: 14, color: "#888888" }}>No documents on file.</p>
           ) : (
             <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>

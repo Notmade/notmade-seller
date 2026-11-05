@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, ApiError, clearSession, getToken, type Seller } from "./seller-api";
+import { api, ApiError, clearSession, getToken, rememberSellerCountry, type Seller } from "./seller-api";
+import { sellerCountry } from "./currency";
 
 type State =
   | { status: "loading" }
@@ -23,6 +24,7 @@ export function useSeller() {
     if (!getToken()) { signOut(); return; }
     try {
       const { seller } = await api.me();
+      if (seller) rememberSellerCountry(sellerCountry(seller));
       setState({ status: "ready", seller });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) { signOut(); return; }

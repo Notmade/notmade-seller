@@ -6,21 +6,11 @@ import { usePathname } from "next/navigation";
 const NAV = [
   {
     href: "/dashboard",
-    label: "Dashboard",
+    label: "Overview",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" />
         <rect x="14" y="14" width="7" height="7" /><rect x="3" y="14" width="7" height="7" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/products",
-    label: "Products",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
-        <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
       </svg>
     ),
   },
@@ -31,6 +21,35 @@ const NAV = [
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
         <line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 01-8 0" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/inventory",
+    label: "Inventory",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z" />
+        <polyline points="3.27 6.96 12 12.01 20.73 6.96" /><line x1="12" y1="22.08" x2="12" y2="12" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/products",
+    label: "Catalogue",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="8" y1="6" x2="21" y2="6" /><line x1="8" y1="12" x2="21" y2="12" /><line x1="8" y1="18" x2="21" y2="18" />
+        <circle cx="4" cy="6" r="1" /><circle cx="4" cy="12" r="1" /><circle cx="4" cy="18" r="1" />
+      </svg>
+    ),
+  },
+  {
+    href: "/dashboard/analytics",
+    label: "Analytics",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="6" y1="20" x2="6" y2="12" /><line x1="12" y1="20" x2="12" y2="4" /><line x1="18" y1="20" x2="18" y2="9" />
       </svg>
     ),
   },
@@ -49,16 +68,6 @@ const NAV = [
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /><line x1="6" y1="15" x2="10" y2="15" />
-      </svg>
-    ),
-  },
-  {
-    href: "/dashboard/uae",
-    label: "UAE sales",
-    icon: (
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" />
-        <path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" />
       </svg>
     ),
   },
@@ -89,11 +98,37 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onLogout: () => void;
-  /** India-based sellers get the India-to-UAE section; UAE-based sellers sell only in their own market. */
-  showUae: boolean;
+  /** Orders waiting to be accepted; shown as a badge on Orders. */
+  newOrders: number;
 }
 
-export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogout, showUae }: Props) {
+const BOTTOM = ["/dashboard", "/dashboard/orders", "/dashboard/inventory", "/dashboard/products"];
+
+/** Phone navigation: the four pages a seller opens most, and the full menu. */
+export function BottomNav({ newOrders, onMore }: { newOrders: number; onMore: () => void }) {
+  const pathname = usePathname();
+  return (
+    <nav className="sp-bottom" aria-label="Main">
+      {NAV.filter(n => BOTTOM.includes(n.href)).map(({ href, label, icon }) => {
+        const active = href === "/dashboard" ? pathname === href : pathname.startsWith(href);
+        return (
+          <Link key={href} href={href} className={active ? "active" : ""} aria-current={active ? "page" : undefined}>
+            {icon}{label}
+            {href === "/dashboard/orders" && newOrders > 0 && <span className="sp-nav-badge">{newOrders}</span>}
+          </Link>
+        );
+      })}
+      <button type="button" onClick={onMore}>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden>
+          <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+        More
+      </button>
+    </nav>
+  );
+}
+
+export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogout, newOrders }: Props) {
   const pathname = usePathname();
 
   const isActive = (href: string) =>
@@ -126,7 +161,7 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogo
         </div>
 
         <nav style={{ flex: 1, padding: "10px 0", overflowY: "auto" }}>
-          {NAV.filter(n => showUae || n.href !== "/dashboard/uae").map(({ href, label, icon }) => {
+          {NAV.map(({ href, label, icon }) => {
             const active = isActive(href);
             return (
               <Link
@@ -152,6 +187,9 @@ export default function Sidebar({ sellerName, brandName, isOpen, onClose, onLogo
                   {icon}
                 </span>
                 {label}
+                {href === "/dashboard/orders" && newOrders > 0 && (
+                  <span className="sp-nav-badge" aria-label={`${newOrders} new`}>{newOrders}</span>
+                )}
               </Link>
             );
           })}

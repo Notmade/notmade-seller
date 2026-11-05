@@ -1,14 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { api, type DashboardData } from "../lib/seller-api";
 import { useSeller } from "../lib/useSeller";
 import { canOpenRoute, sellerCountry } from "../lib/currency";
-import { SellerContext, SellerReloadContext } from "./seller-context";
-import Sidebar from "../components/Sidebar";
+import { LiveContext, SellerContext, SellerReloadContext } from "./seller-context";
+import Sidebar, { BottomNav } from "../components/Sidebar";
 import NotificationsBell from "../components/NotificationsBell";
-import { Alert, Button, Spinner } from "../components/portal-ui";
+import { CountryBadge } from "../components/market";
+import { Alert, Button, PageSkeleton } from "../components/portal-ui";
+
+/** One poll for the whole panel: the new-order badge and Overview read the same numbers. */
+function useLivePanel(enabled: boolean) {
+  const [data, setData] = useState<DashboardData | null>(null);
+  const [error, setError] = useState("");
+  const refresh = useCallback(async () => {
+    try { setData(await api.dashboard()); setError(""); }
+    catch (err) { setError(err instanceof Error ? err.message : "Could not load dashboard"); }
+  }, []);
+  useEffect(() => {
+    if (!enabled) return;
+    void refresh();
+    const t = setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 60_000);
+    return () => clearInterval(t);
+  }, [enabled, refresh]);
+  return { data, error, refresh };
+}
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -18,8 +37,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const seller = state.status === "ready" ? state.seller : null;
   const approved = seller?.onboarding_status === "approved";
-  // UAE-based sellers have no India-only pages (India-to-UAE, India contract, India pickup address)
   const routeOk = canOpenRoute(seller, pathname);
+  const live = useLivePanel(!!approved);
 
   // Anyone not yet approved finishes (or waits on) onboarding first
   useEffect(() => {
@@ -41,16 +60,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   if (!seller || !approved || !routeOk) {
-    return (
-      <div style={{ display: "flex", height: "100vh", alignItems: "center", justifyContent: "center", background: "#F5F5F5" }}>
-        <Spinner size={32} />
-      </div>
-    );
+    return <div style={{ minHeight: "100vh", background: "#F5F5F5", color: "#111111", padding: "28px 16px", maxWidth: 1180, margin: "0 auto" }}><PageSkeleton /></div>;
   }
+
+  const country = sellerCountry(seller);
+  const newOrders = live.data?.counts.new ?? 0;
 
   return (
     <SellerReloadContext.Provider value={reload}>
     <SellerContext.Provider value={seller}>
+    <LiveContext.Provider value={live}>
       {/* body text is the landing page's cream (#E8E4DC); the light panel sets its own ink */}
       <div style={{ display: "flex", minHeight: "100vh", background: "#F5F5F5", color: "#111111" }}>
         <Sidebar
@@ -59,33 +78,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
           onLogout={signOut}
-          showUae={sellerCountry(seller) === "IN"}
+          newOrders={newOrders}
         />
 
         <div className="lg:ml-60" style={{ flex: 1, minWidth: 0 }}>
           {/* Mobile top bar */}
           <div
-            className="lg:hidden"
-            style={{
-              position: "sticky", top: 0, zIndex: 20, background: "#FFFFFF", borderBottom: "1px solid #EEEEEE",
-              padding: "0 16px", height: 56, display: "flex", alignItems: "center", justifyContent: "space-between",
-            }}
+            className="sp-topbar"
           >
-            <button onClick={() => setSidebarOpen(true)} aria-label="Open menu"
-              style={{ padding: "4px", background: "none", border: "none", cursor: "pointer", display: "flex" }}>
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#111" strokeWidth="2" strokeLinecap="round">
-                <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
-              </svg>
-            </button>
             <span style={{ fontSize: "1rem", fontWeight: 900, letterSpacing: "-0.02em" }}>
               <span style={{ color: "#111111" }}>NOT</span>
               <span style={{ color: "#CC0000" }}>MADE</span>
             </span>
-            <NotificationsBell />
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <CountryBadge country={country} />
+              <NotificationsBell />
+            </div>
           </div>
 
-          <div style={{ padding: "28px 16px", maxWidth: 1180 }} className="lg:px-6">
-            <div className="hidden lg:flex" style={{ justifyContent: "flex-end", marginBottom: 4, marginTop: -12 }}>
+          <div style={{ padding: "28px 16px", maxWidth: 1180 }} className="lg:px-6 sp-page">
+            <div className="hidden lg:flex" style={{ justifyContent: "flex-end", alignItems: "center", gap: 10, marginBottom: 4, marginTop: -12 }}>
+              <CountryBadge country={country} />
               <NotificationsBell />
             </div>
             {seller.agreement?.resign_required && pathname !== "/dashboard/agreement" && (
@@ -107,7 +120,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             {children}
           </div>
         </div>
+        <BottomNav newOrders={newOrders} onMore={() => setSidebarOpen(true)} />
       </div>
+    </LiveContext.Provider>
     </SellerContext.Provider>
     </SellerReloadContext.Provider>
   );
