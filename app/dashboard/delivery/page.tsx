@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api, fmtDateTime, type DeliveryInfo, type DeliveryRules, type DeliveryStage, type Order } from "../../lib/seller-api";
-import { Alert, Button, Card, EmptyState, FullPageSpinner, PageHeader, RED } from "../../components/portal-ui";
+import { Alert, Button, Card, EmptyState, PageHeader, PageSkeleton, RED } from "../../components/portal-ui";
 import { useSellerCurrency } from "../seller-context";
 
 type Row = Order & { delivery: DeliveryInfo };
@@ -60,7 +60,7 @@ function Stages({ stages, now }: { stages: DeliveryStage[]; now: number }) {
 }
 
 export default function DeliveryTimelinePage() {
-  const { country, uaeApproved } = useSellerCurrency();
+  const { country, currency } = useSellerCurrency();
   const now = useNow();
   const [filter, setFilter] = useState<Filter>("open");
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -72,7 +72,7 @@ export default function DeliveryTimelinePage() {
   const load = useCallback(async () => {
     try {
       const r = await api.deliveryTimeline(filter === "all" ? "all" : "open");
-      setRows(r.orders);
+      setRows(r.orders.filter((o) => o.commission.currency === currency));
       setRules(r.rules);
       setSummary(r.summary);
       setError("");
@@ -80,7 +80,7 @@ export default function DeliveryTimelinePage() {
       setError(e instanceof Error ? e.message : "Could not load the delivery timeline");
       setRows((x) => x ?? []);
     }
-  }, [filter]);
+  }, [filter, currency]);
   useEffect(() => { void load(); const t = setInterval(() => void load(), 120_000); return () => clearInterval(t); }, [load]);
 
   const markReady = async (ref: string) => {
@@ -90,7 +90,7 @@ export default function DeliveryTimelinePage() {
     finally { setBusy(null); }
   };
 
-  if (!rows) return <FullPageSpinner />;
+  if (!rows) return <PageSkeleton stats={3} />;
   const shown = filter === "delayed" ? rows.filter((r) => r.delivery.delayed) : rows;
 
   const stat = (label: string, value: number, color = "#111111") => (
@@ -122,7 +122,7 @@ export default function DeliveryTimelinePage() {
             <strong style={{ color: "#111111" }}>Delivery promises</strong> (set by NOTMADE):{" "}
             {country === "AE" ? <>UAE {rules.uae.min_days}–{rules.uae.max_days} days.{" "}</> : <>
               {rules.ncr_express.enabled && <>Delhi NCR {rules.ncr_express.hours}-hour delivery for orders between {rules.ncr_express.window_start} and {rules.ncr_express.window_end} · </>}
-              Pan-India {rules.pan_india.min_days}–{rules.pan_india.max_days} days{uaeApproved && <> · UAE {rules.uae.min_days}–{rules.uae.max_days} days</>}.{" "}
+              Pan-India {rules.pan_india.min_days}–{rules.pan_india.max_days} days.{" "}
             </>}
             <strong style={{ color: "#111111" }}>Your deadlines:</strong> accept within {rules.sla_hours.accept} h, ready to ship within {rules.sla_hours.ready} h of accepting, handed to the courier within {rules.sla_hours.pickup} h of ready.
           </p>
@@ -153,7 +153,7 @@ export default function DeliveryTimelinePage() {
                   <div style={{ minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <span style={{ fontFamily: "ui-monospace, monospace", fontWeight: 800, fontSize: 15, color: "#111111" }}>{o.ref_no}</span>
-                      <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 999, background: o.region === "ae" ? "#111111" : "#F3F3F3", color: o.region === "ae" ? "#FFFFFF" : "#333333" }}>{LANE[d.lane]}</span>
+                      <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 999, background: "#F3F3F3", color: "#333333" }}>{LANE[d.lane]}</span>
                       {late && <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 999, background: RED, color: "#FFFFFF" }}>DELAYED</span>}
                     </div>
                     <p style={{ fontSize: 13, color: "#777777", marginTop: 4 }}>

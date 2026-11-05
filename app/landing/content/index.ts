@@ -1,15 +1,15 @@
-import india from "./in";
-import uae from "./ae";
-import type { ModeCode, ModeContent } from "./types";
+import type { ModeCode } from "./types";
 
-export type { ModeCode, ModeContent } from "./types";
+export type { ModeCode, PageContent } from "./types";
 
-/** Switcher order. */
-export const MODES: ModeContent[] = [india, uae];
 export const DEFAULT_MODE: ModeCode = "in";
+/** Set by middleware from ?market=, read back when a seller returns to /. */
+export const MARKET_COOKIE = "nm_market";
 
 export const isModeCode = (v: unknown): v is ModeCode => v === "in" || v === "ae";
 
-/** Unknown or missing codes (including the retired "global") fall back to India. */
-export const getMode = (code: string | null | undefined): ModeContent =>
-  MODES.find((m) => m.code === code) ?? india;
+/** Which landing page to show: an explicit ?market= wins, then the saved cookie, then India. */
+export function selectMode(query: string | string[] | undefined, cookie: string | undefined): ModeCode {
+  if (isModeCode(query)) return query;
+  return isModeCode(cookie) ? cookie : DEFAULT_MODE;
+}

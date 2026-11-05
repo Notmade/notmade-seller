@@ -32,7 +32,7 @@ const spaceMono = Space_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: "Sell on NOTMADE | Seller portal",
-  description: "Open a NOTMADE seller account. Sell on notmade.in and get paid within 7 days after each order is delivered.",
+  description: "Open a NOTMADE seller account and manage your orders, stock and payouts in one panel.",
   robots: { index: true, follow: true },
   openGraph: { siteName: "NOTMADE Seller", url: SITE_URL },
   icons: {

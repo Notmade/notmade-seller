@@ -2,12 +2,25 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { MARKETS, MARKET_COOKIE, DEFAULT_MARKET, getMarket, isMarketCode, type Market, type MarketCode } from "@/src/config/markets";
+import { MARKETS, MARKET_COOKIE, DEFAULT_MARKET, getMarket, isMarketCode, marketForCountry, type Market, type MarketCode } from "@/src/config/markets";
+import type { SellerCountryCode } from "../lib/currency";
 
 export function Flag({ market, size = 20 }: { market: Market; size?: number }) {
   return (
     <svg width={size * 1.5} height={size} viewBox="0 0 30 20" aria-hidden className="s-flag"
       dangerouslySetInnerHTML={{ __html: market.flag }} />
+  );
+}
+
+/** Flag and currency. Shown wherever a seller needs to see which country they are working in. */
+export function CountryBadge({ country, compact = false }: { country: SellerCountryCode; compact?: boolean }) {
+  const market = marketForCountry(country)!;
+  const label = `${market.name} · ${market.currency}`;
+  return (
+    <span className="sp-country" title={label} aria-label={label}>
+      <Flag market={market} size={compact ? 10 : 12} />
+      {compact ? market.currency : label}
+    </span>
   );
 }
 

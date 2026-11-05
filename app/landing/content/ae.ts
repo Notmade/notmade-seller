@@ -1,103 +1,93 @@
-// UAE copy. Only state what the app or backend already configures for the UAE; anything else
-// (payout timing, fees, delivery times, emirates covered) is "shared during onboarding".
-import { UAE_SITE_URL } from "@/app/lib/seller-config";
+// UAE seller page. Only UAE facts live here. The legal entity comes from the backend UAE agreement;
+// rates come from app/lib/rate-card.ts and are never written into this copy.
+import { LEGAL_ENTITY_UAE, UAE_SITE_URL } from "@/app/lib/seller-config";
 import { AED } from "@/app/lib/currency";
-import type { ModeContent } from "./types";
+import type { Item, PageContent } from "./types";
 
 const host = UAE_SITE_URL.replace(/^https?:\/\//, "");
 
-const uae: ModeContent = {
+export const CONCIERGE = {
+  title: "Our team helps shoppers buy.",
+  sub: "Not every sale starts at a checkout. When a shopper needs a hand, our team steps in.",
+  channels: ["Instagram", "WhatsApp", "Other channels"],
+  items: [
+    { title: "Answer questions", desc: "Shoppers message us about your products and get a reply from a person." },
+    { title: "Help them order", desc: "Our team helps shoppers place the order with the right variant and address." },
+    { title: "Help them pay", desc: "We guide shoppers through the secure payment option that suits them." },
+  ] satisfies Item[],
+};
+
+export const CHANNEL = {
+  title: "A new sales channel for UAE brands.",
+  sub: "Keep your own store. Add NOTMADE as another way to reach shoppers across the UAE.",
+  items: [
+    { title: "Your prices, in AED", desc: "You set every price. NOTMADE never changes it." },
+    { title: "Your brand on the page", desc: `Your products and brand name on ${host}.` },
+    { title: "One seller panel", desc: "Orders, stock, products and payouts in one place on any device." },
+  ] satisfies Item[],
+};
+
+export const AGREEMENT = {
+  title: "Executed under UAE terms.",
+  body: `Your seller agreement is executed under UAE terms with ${LEGAL_ENTITY_UAE}. You read it in the panel and sign it with a code sent to your email.`,
+  payout: `AED payouts to your UAE bank account by IBAN. Settlement timing is set out in the agreement.`,
+};
+
+export const RATES = {
+  title: "Commission rate card.",
+  sub: "One simple card. Pick who ships your electronics when you register.",
+  newSellers: "These terms apply to new sellers.",
+  electronicsExample: 1000,
+  fashionExample: 200,
+};
+
+const uae: PageContent = {
   code: "ae",
   label: "UAE",
   meta: {
-    title: "Sell on NOTMADE in the UAE | Seller portal",
-    description: `Sell to customers in the UAE on ${host}. Cash on delivery, delivery handled with our partner couriers, and one seller panel for your orders.`,
+    title: "Sell on NOTMADE UAE | A New Sales Channel for UAE Brands",
+    description: `A new sales channel for UAE brands on ${host}. Secure card and Tabby pay-later payments for shoppers, team support on Instagram and WhatsApp, a clear rate card and AED payouts.`,
   },
-
   hero: {
-    kicker: "For UAE-based labels",
-    headline: ["Sell to customers", "in the UAE."],
-    sub: `List on ${host} at prices you set. Customers can pay cash on delivery, and delivery is handled with our partner couriers.`,
+    kicker: "For UAE brands",
+    headline: ["Your next", "sales channel."],
+    sub: `Reach more shoppers across the UAE on ${host}. Secure payments, real people helping shoppers buy, and AED payouts to your bank.`,
     proof: [
-      { value: "COD", label: "cash on delivery for customers" },
-      { value: "Partner couriers", label: "handle delivery" },
-      { value: "Emirate-wise", label: "coverage, shared during onboarding" },
+      { value: "Tabby", label: "pay-later and cards for shoppers" },
+      { value: AED, label: "prices and payouts" },
+      { value: "Instagram", label: "and WhatsApp order help from our team" },
     ],
   },
-
   steps: {
-    title: "UAE seller onboarding.",
-    sub: "From sign-up to your first order, in one seller panel.",
+    title: "Onboard in five steps.",
+    sub: "Register with your email. No password, ever.",
     items: [
-      { title: "Sign up with OTP", desc: "Enter your email and the one-time code we send. No password." },
-      { title: "Business details and documents", desc: "Add your business details and emirate, then upload your trade licence, Emirates ID or passport, TRN if you are VAT registered, and the IBAN for your UAE bank account." },
-      { title: "Sign the UAE agreement", desc: "Read the UAE seller agreement in the panel and sign it with a code sent to your email." },
-      { title: "Account review", desc: "Our team reviews your account. You can follow the status in your panel." },
-      { title: "Add products", desc: `Add photos, variants with photos for each option, and your price in ${AED}.` },
-      { title: "Accept or reject orders", desc: "Every new order waits for you. Accept it if you can fulfil it, reject it if you cannot." },
-      { title: "Mark ready", desc: "Pack the order and tap Mark as ready. Our partner courier collects it." },
-      { title: "Get paid", desc: "Payouts go to your UAE bank account. The payout schedule is shared during onboarding." },
+      { title: "Register", desc: "Enter your email and the one-time code we send." },
+      { title: "Choose how you ship", desc: "See the commission rate for your electronics and pick who ships them." },
+      { title: "Add business details", desc: "Your trade licence, Emirates ID or passport, TRN if VAT registered, and IBAN." },
+      { title: "Sign the agreement", desc: "Executed under UAE terms, signed online with an email code." },
+      { title: "List and sell", desc: "Add products with AED prices. Accept orders, pack and ship from your panel." },
     ],
   },
-
-  delivery: {
-    title: "Delivery in the UAE.",
-    sub: "You pack and mark ready. Our partner couriers take it from there.",
-    items: [
-      { value: "Partner couriers", label: "Delivery", note: "Collected from you and delivered to the customer" },
-      { value: "Emirate-wise", label: "Coverage", note: "Emirates covered and delivery times are shared during onboarding" },
-      { value: "COD", label: "Cash on delivery", note: "Customers in the UAE can pay on delivery" },
-    ],
-  },
-
-  money: {
-    title: "Commission and payout.",
-    sub: "A commission on each completed sale. The rate is read live from NOTMADE.",
-    points: [
-      { title: "You set the price", desc: `Prices are set by you in ${AED} in the panel.` },
-      { title: "Payout to your UAE bank", desc: "Paid to the IBAN on your account. Payout schedule shared during onboarding." },
-      { title: "Other fees", desc: "Any fees beyond commission are shared during onboarding." },
-    ],
-    calc: {
-      rate: "uae_local_pct",
-      currency: AED,
-      note: "Your exact rate is shown in the UAE seller agreement before you sign.",
-    },
-  },
-
-  returns: {
-    title: "Returns.",
-    sub: "Customers return with an unboxing video. The return window is shared during onboarding.",
-    points: [
-      "An unboxing video is required for every return",
-      "Watch the video from the order in your panel",
-      "Return window shared during onboarding",
-    ],
-  },
-
   faq: [
-    { q: "Who can sell on the UAE store?", a: "UAE-based businesses with a trade licence." },
-    { q: "Where are my products sold?", a: `On NOTMADE's UAE store at ${host}.` },
-    { q: "Who sets the price?", a: `You do, in ${AED}, in the seller panel.` },
-    { q: "Who handles delivery?", a: "Our partner couriers. You pack the order and mark it ready in your panel." },
-    { q: "Which emirates do you cover?", a: "Coverage is set emirate by emirate. The emirates covered and delivery times are shared during onboarding." },
-    { q: "Can customers pay cash on delivery?", a: "Yes. Cash on delivery is available to customers in the UAE." },
-    { q: "When do I get paid?", a: "Payouts go to your UAE bank account. The payout schedule is shared during onboarding." },
-    { q: "What is the commission?", a: "The current UAE rate is shown live on this page and in your agreement before you sign." },
+    { q: "Who can sell?", a: "UAE-based businesses with a valid trade licence." },
+    { q: "What does it cost?", a: "Commission follows the rate card on this page. Your rate is shown again before you register and is set out in your agreement." },
+    { q: "How do shoppers pay?", a: "By card or with Tabby pay-later, using secure online payment options." },
+    { q: "How do shoppers get help?", a: "Our team helps shoppers on Instagram, WhatsApp and other channels to order and pay." },
+    { q: "Who sets the price?", a: `You do, in ${AED}, in your seller panel.` },
+    { q: "How am I paid?", a: "In AED, to your UAE bank account by IBAN. Settlement timing is set out in the agreement." },
+    { q: "Who is the agreement with?", a: `${LEGAL_ENTITY_UAE}, under UAE terms. You can read it in full before you sign.` },
   ],
-
-  final: { title: "Start selling in the UAE.", sub: `Get your products on ${host}.` },
-  signup: {
-    label: "Start selling",
-    href: "/login?market=ae&apply=1",
-    waitlist: {
-      label: "Join the waitlist",
-      note: "UAE seller sign-up is not open yet. This adds your email to the UAE seller waitlist; it is not an application.",
-      done: "You're on the UAE seller waitlist. We will email you when UAE seller sign-up opens.",
-      waitlistMarket: "ae",
-    },
-  },
+  final: { title: "Open your UAE seller account.", sub: "Register with your email and finish onboarding in your seller panel." },
+  signup: { label: "Register to sell", href: "/login?market=ae&apply=1" },
   login: { label: "Log in", href: "/login?market=ae" },
 };
+
+export const WAITLIST = {
+  label: "Join the waitlist",
+  note: "Seller registration is opening soon. This adds your email to the seller waitlist; it is not an application.",
+  done: "You're on the seller waitlist. We will email you when registration opens.",
+  market: "ae",
+} as const;
 
 export default uae;

@@ -3,7 +3,7 @@
 // once accounts open there).
 
 import { CURRENCY_BY_COUNTRY, type Currency } from "@/app/lib/currency";
-import { COMMISSION_PCT_INDIA, MAIN_SITE_URL, SETTLEMENT_DAYS_AFTER_DELIVERY, UAE_SITE_URL } from "@/app/lib/seller-config";
+import { MAIN_SITE_URL, SETTLEMENT_DAYS_AFTER_DELIVERY, UAE_SITE_URL } from "@/app/lib/seller-config";
 
 export type MarketCode = "in" | "ae";
 
@@ -19,8 +19,6 @@ export interface Market {
   storeUrl: string;
   documents: string[];
   delivery: string;
-  /** Fallback commission for the registration step when the API has no seller-specific rate yet. */
-  commissionPct: number | null;
   /** Seller accounts can be created for this market (NEXT_PUBLIC_SELLER_MARKETS_OPEN). */
   open: boolean;
 }
@@ -30,8 +28,6 @@ const OPEN = new Set(
   (process.env.NEXT_PUBLIC_SELLER_MARKETS_OPEN || "in,ae").split(",").map((s) => s.trim().toLowerCase())
     .filter((s) => s === "in" || s === "ae"),
 );
-
-const envPct = (v: string | undefined) => (v && Number.isFinite(Number(v)) ? Number(v) : null);
 
 export const SETTLEMENT_DAYS = SETTLEMENT_DAYS_AFTER_DELIVERY;
 
@@ -53,7 +49,6 @@ export const MARKETS: Market[] = [
     storeUrl: MAIN_SITE_URL,
     documents: ["GST certificate, or PAN and Aadhaar", "Product photos", "Bank account in your business name"],
     delivery: "Delivery in 3 hours across Delhi NCR and 3 to 5 days across India",
-    commissionPct: COMMISSION_PCT_INDIA,
     open: OPEN.has("in"),
   },
   {
@@ -66,7 +61,6 @@ export const MARKETS: Market[] = [
     storeUrl: UAE_SITE_URL,
     documents: ["Trade licence", "TRN, if you are VAT registered", "Emirates ID or passport", "IBAN for your UAE bank account"],
     delivery: "Delivered in 3 to 5 days across the UAE",
-    commissionPct: envPct(process.env.NEXT_PUBLIC_UAE_COMMISSION_PCT),
     open: OPEN.has("ae"),
   },
 ];
@@ -85,18 +79,3 @@ export function getMarket(code: string | null | undefined): Market {
 export function marketForCountry(country: string | null | undefined): Market | undefined {
   return MARKETS.find((m) => m.sellerCountry === country);
 }
-
-export const OPEN_MARKETS = MARKETS.filter((m) => m.open);
-
-/** "Seller accounts are open to India-based sellers for now." built from the open list. */
-export function openMarketsSentence(): string {
-  const names = OPEN_MARKETS.map((m) => `${m.name}-based`);
-  if (!names.length) return "Seller accounts are not open yet.";
-  const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-  return `Seller accounts are open to ${list} sellers for now.`;
-}
-
-export function signupHref(m: Market): string {
-  return `/login?market=${m.code}`;
-}
-

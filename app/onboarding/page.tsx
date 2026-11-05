@@ -4,15 +4,19 @@ import { Suspense, useCallback, useEffect, useRef, useState, type ChangeEvent, t
 import { useRouter } from "next/navigation";
 import {
   api, ApiError, setToken, DOC_LABELS, fmtDate,
-  type CommissionRates, type DocType, type OnboardingState, type Seller, type SellerCountry,
+  type DocType, type OnboardingState, type Seller, type SellerCountry,
 } from "../lib/seller-api";
 import { useSeller } from "../lib/useSeller";
-import { Alert, Button, Card, Field, FullPageSpinner, RED, Spinner } from "../components/portal-ui";
+import { Alert, Button, Card, Field, PageSkeleton, RED, Skeleton, Spinner } from "../components/portal-ui";
 import { AgreementSigner, Pill } from "../components/AgreementSigner";
-import { Flag, MarketSwitcher, Waitlist, useMarket } from "../components/market";
+import { CountryBadge, Flag, Waitlist, useMarket } from "../components/market";
+import { MARKETS, SETTLEMENT_DAYS, marketForCountry, type Market, type MarketCode } from "@/src/config/markets";
+import { sellerCountry } from "../lib/currency";
+import { COMMISSION_PCT_INDIA } from "../lib/seller-config";
 import {
-  MARKETS, SETTLEMENT_DAYS, marketForCountry, openMarketsSentence, type Market,
-} from "@/src/config/markets";
+  FULFILMENT_LABEL, electronicsRate, resolveRateCard, type ElectronicsFulfilment, type UaeRateCard,
+} from "../lib/rate-card";
+import { validateDetails, type DetailsErrors, type DetailsInput } from "../lib/validate";
 
 type StepKey = "details" | "documents" | "agreement" | "review";
 const STEPS: { key: StepKey; label: string }[] = [
@@ -37,16 +41,7 @@ const EMIRATES = ["Abu Dhabi", "Dubai", "Sharjah", "Ajman", "Umm Al Quwain", "Ra
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
-  return <Suspense fallback={<FullPageSpinner />}><Onboarding /></Suspense>;
-}
-
-const SELLER_MARKETS = MARKETS.filter(m => m.sellerCountry);
-
-/** Commission for a business country: the seller's own rate from the API when we have it, else the market config. */
-function commissionFor(m: Market, seller: Seller | null): number | null {
-  if (m.sellerCountry === "IN" && seller?.commission_rate != null) return seller.commission_rate;
-  if (m.sellerCountry === "AE" && seller?.seller_country === "AE") return seller.uae?.commission_pct ?? seller.commission_rate ?? m.commissionPct;
-  return m.commissionPct;
+  return <Suspense fallback={<PageSkeleton stats={0} />}><Onboarding /></Suspense>;
 }
 
 function Onboarding() {
@@ -79,7 +74,7 @@ function Onboarding() {
   let body: React.ReactNode;
   let current: StepKey = "details";
   if (state.status === "loading" || (seller && !status && !statusErr)) {
-    body = <FullPageSpinner />;
+    body = <PageSkeleton stats={0} />;
   } else if (state.status === "error" || statusErr) {
     body = (
       <Alert>
@@ -89,7 +84,7 @@ function Onboarding() {
     );
   } else if (!seller) {
     // Signed up by email but no seller row yet
-    body = <DetailsStep seller={null} onSaved={refresh} market={market} />;
+    body = <DetailsStep seller={null} onSaved={refresh} market={market} onMarket={setMarket} />;
   } else if (status) {
     const ns = status.next_step;
     const sellerMarket = marketForCountry(seller.seller_country === "AE" ? "AE" : "IN");
@@ -97,14 +92,14 @@ function Onboarding() {
     if (ns === "rejected" || ns === "suspended") {
       body = <ClosedState kind={ns} />;
     } else if (editing && sellerMarket && !sellerMarket.open && view !== "details") {
-      body = <WaitlistState market={sellerMarket} onChangeCountry={() => setView("details")} />;
+      body = <WaitlistState market={sellerMarket} />;
     } else {
       const derived: StepKey = ns === "details" || ns === "documents" || ns === "agreement" ? ns : "review";
       current = view ?? derived;
       const editable = EDITABLE.includes(seller.onboarding_status ?? "pending_details");
       body = (
         <>
-          {current === "details" && <DetailsStep seller={seller} onSaved={refresh} readOnly={!editable} market={market} />}
+          {current === "details" && <DetailsStep seller={seller} onSaved={refresh} readOnly={!editable} market={market} onMarket={setMarket} />}
           {current === "documents" && <DocumentsStep status={status} onChanged={loadStatus} onContinue={refresh} />}
           {current === "agreement" && <AgreementStep seller={seller} onSigned={refresh} />}
           {current === "review" && <ReviewState seller={seller} status={status} />}
@@ -130,7 +125,7 @@ function Onboarding() {
             <span style={{ fontSize: 10, color: "#888888", fontWeight: 600, letterSpacing: "0.12em", marginLeft: 8 }}>SELLER</span>
           </a>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <MarketSwitcher value={market} onChange={setMarket} compact />
+            {seller && <CountryBadge country={sellerCountry(seller)} />}
             {seller?.email && <span style={{ fontSize: 13, color: "#777777", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{seller.email}</span>}
             <Button variant="ghost" onClick={signOut} style={{ padding: "8px 10px" }}>Log out</Button>
           </div>
@@ -174,15 +169,8 @@ function Onboarding() {
 
 // ─── Step 1: details ──────────────────────────────────────────────────────────
 
-interface DetailsForm {
+interface DetailsForm extends DetailsInput {
   seller_country: "" | SellerCountry;
-  legal_name: string; business_name: string; contact_name: string; phone: string;
-  address_line: string; city: string; state: string; pincode: string;
-  gst_registered: "" | "yes" | "no"; gstin: string; pan_number: string; aadhaar_number: string;
-  sell_in_uae: boolean;
-  // UAE path
-  emirate: string; trade_licence_number: string; trn: string;
-  uae_id_type: "" | "emirates_id" | "passport"; emirates_id_number: string; iban: string;
 }
 
 function fromSeller(s: Seller | null): DetailsForm {
@@ -194,27 +182,30 @@ function fromSeller(s: Seller | null): DetailsForm {
     address_line: s?.address_line ?? "", city: s?.city ?? "", state: s?.state ?? "",
     pincode: s?.pincode ?? "",
     gst_registered: s?.gst_registered == null ? "" : s.gst_registered ? "yes" : "no",
-    gstin: s?.gstin ?? "", pan_number: s?.pan_number ?? "", aadhaar_number: "", sell_in_uae: !!s?.sell_in_uae,
+    gstin: s?.gstin ?? "", pan_number: s?.pan_number ?? "", aadhaar_number: "",
     emirate: s?.emirate ?? "", trade_licence_number: s?.trade_licence_number ?? "", trn: s?.trn ?? "",
     uae_id_type: s?.uae_id_type ?? "", emirates_id_number: "", iban: s?.iban ?? "",
+    electronics_fulfilment: s?.electronics_fulfilment ?? "",
   };
 }
 
 const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 };
 
-function DetailsStep({ seller, onSaved, readOnly = false, market }: {
-  seller: Seller | null; onSaved: () => Promise<void>; readOnly?: boolean; market: Market;
+function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
+  seller: Seller | null; onSaved: () => Promise<void>; readOnly?: boolean; market: Market; onMarket: (code: MarketCode) => void;
 }) {
-  const [f, setF] = useState<DetailsForm>(() => {
-    const init = fromSeller(seller);
-    // New sellers start on the country they picked in the switcher
-    return !seller && market.sellerCountry && market.open ? { ...init, seller_country: market.sellerCountry } : init;
-  });
+  // A new seller answers the country first; an existing seller's country never changes here
+  const [f, setF] = useState<DetailsForm>(() => fromSeller(seller));
+  // After a failed submit, messages clear as each field is fixed
+  const [tried, setTried] = useState(false);
+  const fe: DetailsErrors = tried && f.seller_country ? validateDetails(f.seller_country, f) : {};
 
-  // Switching country in the header moves a new seller's choice along with it
-  useEffect(() => {
-    if (!seller && market.sellerCountry) setF(p => ({ ...p, seller_country: market.sellerCountry! }));
-  }, [market, seller]);
+  const chooseCountry = (m: Market) => {
+    onMarket(m.code);
+    // Nothing typed for one country carries over to the other
+    setF({ ...fromSeller(null), seller_country: m.sellerCountry });
+    setTried(false);
+  };
 
   const chosen = f.seller_country ? marketForCountry(f.seller_country) : undefined;
   const blocked = !!chosen && !chosen.open && !readOnly;
@@ -229,7 +220,16 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    setSaving(true); setError(""); setErrors([]);
+    if (!f.seller_country) return;
+    const problems = validateDetails(f.seller_country, f);
+    setTried(true);
+    setError(""); setErrors([]);
+    if (Object.keys(problems).length) {
+      setError("Please fix the highlighted fields.");
+      document.getElementById(Object.keys(problems)[0])?.focus();
+      return;
+    }
+    setSaving(true);
     try {
       let body: Record<string, unknown>;
       if (f.seller_country === "AE") {
@@ -239,6 +239,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
           address_line: f.address_line, city: f.city, emirate: f.emirate,
           trade_licence_number: f.trade_licence_number.toUpperCase(), trn: f.trn, uae_id_type: f.uae_id_type,
           iban: f.iban.replace(/\s+/g, "").toUpperCase(),
+          electronics_fulfilment: f.electronics_fulfilment,
         };
         if (f.uae_id_type === "emirates_id") body.emirates_id_number = f.emirates_id_number;
       } else {
@@ -248,7 +249,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
           legal_name: f.legal_name, business_name: f.business_name, contact_name: f.contact_name, phone: f.phone,
           address_line: f.address_line, city: f.city, state: f.state, pincode: f.pincode,
           gst_registered: f.gst_registered === "" ? "" : gst,
-          gstin: gst ? f.gstin.toUpperCase() : "", pan_number: f.pan_number.toUpperCase(), sell_in_uae: f.sell_in_uae,
+          gstin: gst ? f.gstin.toUpperCase() : "", pan_number: f.pan_number.toUpperCase(),
         };
         if (!gst) body.aadhaar_number = f.aadhaar_number;
       }
@@ -256,7 +257,8 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
       if (res.token) setToken(res.token);
       await onSaved();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save details");
+      // The backend's 403 names the open countries; a seller only needs to know theirs is not open
+      setError(err instanceof ApiError && err.status === 403 ? "Seller registration is not open for your country yet." : err instanceof Error ? err.message : "Could not save details");
       if (err instanceof ApiError && Array.isArray(err.data.errors)) setErrors(err.data.errors as string[]);
       setSaving(false);
     }
@@ -265,43 +267,47 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
   // Aadhaar is never returned by the backend, so re-editing a non-GST seller needs it re-entered.
   const needsAadhaar = f.gst_registered === "no";
 
+  if (!f.seller_country) return <CountryStep market={market} onChoose={chooseCountry} />;
+
   return (
     <Card>
-      <form onSubmit={submit}>
+      <form onSubmit={submit} noValidate>
         <fieldset disabled={readOnly || saving} style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 22 }}>
           {readOnly && <Alert kind="info">Your details are locked while your application is being processed.</Alert>}
 
-          <section>
-            <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Where is your business based?</h2>
-            <div style={grid2}>
-              {SELLER_MARKETS.map(m => (
-                <Choice key={m.code} name="seller_country" checked={f.seller_country === m.sellerCountry}
-                  onChange={() => setF(p => ({ ...p, seller_country: m.sellerCountry! }))}
-                  title={<span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Flag market={m} size={12} />{m.name}</span>}
-                  sub={m.open ? m.documents.slice(0, 2).join(", ") : "Waitlist only for now"} />
-              ))}
+          <section style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>Business based in</span>
+              <CountryBadge country={f.seller_country} />
             </div>
-            {chosen && chosen.open && <CountryTerms market={chosen} seller={seller} />}
+            {!seller && (
+              <button type="button" onClick={() => setF({ ...fromSeller(null) })} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13 }}>
+                Change country
+              </button>
+            )}
           </section>
+          {chosen && chosen.open && (f.seller_country === "AE"
+            ? <UaeRateStep value={f.electronics_fulfilment} error={fe.electronics_fulfilment} onChange={v => setF(p => ({ ...p, electronics_fulfilment: v }))} />
+            : <IndiaTerms />)}
 
           {blocked && chosen && <WaitlistNote market={chosen} />}
 
-          {!blocked && f.seller_country === "AE" && <UaeDetailsFields f={f} setF={setF} set={set} />}
+          {!blocked && f.seller_country === "AE" && <UaeDetailsFields f={f} setF={setF} set={set} fe={fe} />}
 
           {!blocked && f.seller_country === "IN" && <>
           <section>
             <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Business</h2>
             <div style={grid2}>
-              <Field label="Legal name" hint="As on PAN / GST registration" htmlFor="legal_name">
+              <Field label="Legal name" hint="As on PAN / GST registration" htmlFor="legal_name" error={fe.legal_name}>
                 <input id="legal_name" className="field-input" value={f.legal_name} onChange={set("legal_name")} required minLength={2} maxLength={200} />
               </Field>
-              <Field label="Brand / store name" hint="Shown to customers" htmlFor="business_name">
+              <Field label="Brand / store name" hint="Shown to customers" htmlFor="business_name" error={fe.business_name}>
                 <input id="business_name" className="field-input" value={f.business_name} onChange={set("business_name")} required minLength={2} maxLength={200} />
               </Field>
-              <Field label="Contact person" htmlFor="contact_name">
+              <Field label="Contact person" htmlFor="contact_name" error={fe.contact_name}>
                 <input id="contact_name" className="field-input" value={f.contact_name} onChange={set("contact_name")} required minLength={2} maxLength={120} autoComplete="name" />
               </Field>
-              <Field label="Mobile number" htmlFor="phone">
+              <Field label="Mobile number" htmlFor="phone" error={fe.phone}>
                 <div className="phone-field">
                   <span className="phone-prefix">+91</span>
                   <input id="phone" className="phone-input" value={f.phone} inputMode="numeric" maxLength={10} pattern="[6-9][0-9]{9}"
@@ -315,21 +321,21 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
           <section>
             <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Pickup address</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Field label="Address" htmlFor="address_line">
+              <Field label="Address" htmlFor="address_line" error={fe.address_line}>
                 <textarea id="address_line" className="field-input" rows={2} value={f.address_line} onChange={set("address_line")} required minLength={2} maxLength={400} autoComplete="street-address" />
               </Field>
               <div style={{ ...grid2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-                <Field label="City" htmlFor="city">
+                <Field label="City" htmlFor="city" error={fe.city}>
                   <input id="city" className="field-input" value={f.city} onChange={set("city")} required minLength={2} maxLength={100} autoComplete="address-level2" />
                 </Field>
-                <Field label="State" htmlFor="state">
+                <Field label="State" htmlFor="state" error={fe.state}>
                   <select id="state" className="field-input" value={f.state} onChange={set("state")} required>
                     <option value="">Select state</option>
                     {INDIAN_STATES.map(s => <option key={s} value={s}>{s}</option>)}
                     {f.state && !INDIAN_STATES.includes(f.state) && <option value={f.state}>{f.state}</option>}
                   </select>
                 </Field>
-                <Field label="Pincode" htmlFor="pincode">
+                <Field label="Pincode" htmlFor="pincode" error={fe.pincode}>
                   <input id="pincode" className="field-input" value={f.pincode} inputMode="numeric" maxLength={6} pattern="[1-9][0-9]{5}" required autoComplete="postal-code"
                     onChange={e => setF(p => ({ ...p, pincode: e.target.value.replace(/\D/g, "") }))} />
                 </Field>
@@ -340,7 +346,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
           <section>
             <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Tax & KYC</h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <Field label="Are you GST registered?">
+              <Field label="Are you GST registered?" error={fe.gst_registered}>
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {(["yes", "no"] as const).map(v => (
                     <Choice key={v} name="gst_registered" checked={f.gst_registered === v} onChange={() => setF(p => ({ ...p, gst_registered: v }))}
@@ -350,11 +356,11 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
               </Field>
               {f.gst_registered === "yes" && (
                 <div style={grid2}>
-                  <Field label="GSTIN" htmlFor="gstin" hint="15 characters, e.g. 27ABCDE1234F1Z5">
+                  <Field label="GSTIN" htmlFor="gstin" error={fe.gstin} hint="15 characters, e.g. 27ABCDE1234F1Z5">
                     <input id="gstin" className="field-input" value={f.gstin} maxLength={15} required style={{ textTransform: "uppercase" }}
                       pattern="[0-9]{2}[A-Za-z]{5}[0-9]{4}[A-Za-z][1-9A-Za-z][Zz][0-9A-Za-z]" onChange={set("gstin")} />
                   </Field>
-                  <Field label="PAN (optional)" htmlFor="pan_number">
+                  <Field label="PAN (optional)" htmlFor="pan_number" error={fe.pan_number}>
                     <input id="pan_number" className="field-input" value={f.pan_number} maxLength={10} style={{ textTransform: "uppercase" }}
                       pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" onChange={set("pan_number")} />
                   </Field>
@@ -362,11 +368,11 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
               )}
               {needsAadhaar && (
                 <div style={grid2}>
-                  <Field label="PAN" htmlFor="pan_number" hint="e.g. ABCDE1234F">
+                  <Field label="PAN" htmlFor="pan_number" error={fe.pan_number} hint="e.g. ABCDE1234F">
                     <input id="pan_number" className="field-input" value={f.pan_number} maxLength={10} required style={{ textTransform: "uppercase" }}
                       pattern="[A-Za-z]{5}[0-9]{4}[A-Za-z]" onChange={set("pan_number")} />
                   </Field>
-                  <Field label="Aadhaar number" htmlFor="aadhaar_number"
+                  <Field label="Aadhaar number" htmlFor="aadhaar_number" error={fe.aadhaar_number}
                     hint={seller?.aadhaar_last4 ? `On file: •••• ${seller.aadhaar_last4}. Re-enter to save changes.` : "We store only the last 4 digits."}>
                     <input id="aadhaar_number" className="field-input" value={f.aadhaar_number} inputMode="numeric" maxLength={12} pattern="[2-9][0-9]{11}" required
                       autoComplete="off" onChange={e => setF(p => ({ ...p, aadhaar_number: e.target.value.replace(/\D/g, "") }))} />
@@ -376,16 +382,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
             </div>
           </section>
 
-          <section>
-            <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>How you want to sell</h2>
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <PricingNote showRates />
-              <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, color: "#333333", cursor: "pointer" }}>
-                <input type="checkbox" checked={f.sell_in_uae} onChange={set("sell_in_uae")} style={{ width: 18, height: 18, accentColor: RED }} />
-                I also want to sell in the UAE
-              </label>
-            </div>
-          </section>
+          <PricingNote />
           </>}
 
           {error && (
@@ -397,7 +394,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
 
           {!readOnly && !blocked && (
             <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <Button type="submit" disabled={saving || !f.seller_country || (f.seller_country === "IN" ? !f.gst_registered : !f.uae_id_type)}>
+              <Button type="submit" disabled={saving}>
                 {saving ? "Saving…" : "Save & continue →"}
               </Button>
             </div>
@@ -408,8 +405,9 @@ function DetailsStep({ seller, onSaved, readOnly = false, market }: {
   );
 }
 
-function UaeDetailsFields({ f, setF, set }: {
+function UaeDetailsFields({ f, setF, set, fe }: {
   f: DetailsForm;
+  fe: DetailsErrors;
   setF: React.Dispatch<React.SetStateAction<DetailsForm>>;
   set: (k: keyof DetailsForm) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
 }) {
@@ -418,16 +416,16 @@ function UaeDetailsFields({ f, setF, set }: {
       <section>
         <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Business</h2>
         <div style={grid2}>
-          <Field label="Legal name" hint="As on your trade licence" htmlFor="legal_name">
+          <Field label="Legal name" hint="As on your trade licence" htmlFor="legal_name" error={fe.legal_name}>
             <input id="legal_name" className="field-input" value={f.legal_name} onChange={set("legal_name")} required minLength={2} maxLength={200} />
           </Field>
-          <Field label="Business / brand name" hint="Shown to customers" htmlFor="business_name">
+          <Field label="Business / brand name" hint="Shown to customers" htmlFor="business_name" error={fe.business_name}>
             <input id="business_name" className="field-input" value={f.business_name} onChange={set("business_name")} required minLength={2} maxLength={200} />
           </Field>
-          <Field label="Contact person" htmlFor="contact_name">
+          <Field label="Contact person" htmlFor="contact_name" error={fe.contact_name}>
             <input id="contact_name" className="field-input" value={f.contact_name} onChange={set("contact_name")} required minLength={2} maxLength={120} autoComplete="name" />
           </Field>
-          <Field label="Mobile number" htmlFor="phone">
+          <Field label="Mobile number" htmlFor="phone" error={fe.phone}>
             <div className="phone-field">
               <span className="phone-prefix">+971</span>
               <input id="phone" className="phone-input" value={f.phone} inputMode="numeric" maxLength={9} pattern="5[0-9]{8}"
@@ -441,14 +439,14 @@ function UaeDetailsFields({ f, setF, set }: {
       <section>
         <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Business address</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <Field label="Address" htmlFor="address_line">
+          <Field label="Address" htmlFor="address_line" error={fe.address_line}>
             <textarea id="address_line" className="field-input" rows={2} value={f.address_line} onChange={set("address_line")} required minLength={2} maxLength={400} autoComplete="street-address" />
           </Field>
           <div style={{ ...grid2, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
-            <Field label="City / area" htmlFor="city">
+            <Field label="City / area" htmlFor="city" error={fe.city}>
               <input id="city" className="field-input" value={f.city} onChange={set("city")} required minLength={2} maxLength={100} autoComplete="address-level2" />
             </Field>
-            <Field label="Emirate" htmlFor="emirate">
+            <Field label="Emirate" htmlFor="emirate" error={fe.emirate}>
               <select id="emirate" className="field-input" value={f.emirate} onChange={set("emirate")} required>
                 <option value="">Select emirate</option>
                 {EMIRATES.map(e => <option key={e} value={e}>{e}</option>)}
@@ -462,58 +460,103 @@ function UaeDetailsFields({ f, setF, set }: {
         <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>Licence & KYC</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <div style={grid2}>
-            <Field label="Trade licence number" htmlFor="trade_licence_number" hint="You'll upload the licence in the next step.">
+            <Field label="Trade licence number" htmlFor="trade_licence_number" error={fe.trade_licence_number} hint="You'll upload the licence in the next step.">
               <input id="trade_licence_number" className="field-input" value={f.trade_licence_number} onChange={set("trade_licence_number")} required minLength={3} maxLength={40} style={{ textTransform: "uppercase" }} />
             </Field>
-            <Field label="TRN (optional)" htmlFor="trn" hint="Only if VAT registered — 15 digits starting 100">
+            <Field label="TRN (optional)" htmlFor="trn" error={fe.trn} hint="Only if VAT registered — 15 digits starting 100">
               <input id="trn" className="field-input" value={f.trn} inputMode="numeric" maxLength={15} pattern="100[0-9]{12}"
                 onChange={e => setF(p => ({ ...p, trn: e.target.value.replace(/\D/g, "") }))} />
             </Field>
           </div>
-          <Field label="Identity document">
+          <Field label="Identity document" error={fe.uae_id_type}>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <Choice name="uae_id_type" checked={f.uae_id_type === "emirates_id"} onChange={() => setF(p => ({ ...p, uae_id_type: "emirates_id" }))} title="Emirates ID" />
               <Choice name="uae_id_type" checked={f.uae_id_type === "passport"} onChange={() => setF(p => ({ ...p, uae_id_type: "passport" }))} title="Passport" />
             </div>
           </Field>
           {f.uae_id_type === "emirates_id" && (
-            <Field label="Emirates ID number" htmlFor="emirates_id_number" hint="15 digits starting 784. We store only the last 4 digits.">
+            <Field label="Emirates ID number" htmlFor="emirates_id_number" error={fe.emirates_id_number} hint="15 digits starting 784. We store only the last 4 digits.">
               <input id="emirates_id_number" className="field-input" value={f.emirates_id_number} inputMode="numeric" maxLength={15} pattern="784[0-9]{12}" required
                 autoComplete="off" onChange={e => setF(p => ({ ...p, emirates_id_number: e.target.value.replace(/\D/g, "") }))} />
             </Field>
           )}
-          <Field label="Bank IBAN" htmlFor="iban" hint="UAE IBAN for settlements, e.g. AE07 0331 2345 6789 0123 456">
+          <Field label="Bank IBAN" htmlFor="iban" error={fe.iban} hint="UAE IBAN for settlements, e.g. AE07 0331 2345 6789 0123 456">
             <input id="iban" className="field-input" value={f.iban} maxLength={34} required style={{ textTransform: "uppercase" }}
               pattern="[Aa][Ee][0-9 ]{21,27}" autoComplete="off" onChange={set("iban")} />
           </Field>
         </div>
       </section>
 
-      <section>
-        <h2 style={{ fontSize: 16, fontWeight: 800, marginBottom: 14, color: "#111111" }}>How you want to sell</h2>
-        <PricingNote />
-      </section>
+      <PricingNote />
     </>
   );
 }
 
-function CountryTerms({ market, seller }: { market: Market; seller: Seller | null }) {
-  const pct = commissionFor(market, seller);
+/** Step zero for a new seller: the country decides everything that follows. */
+function CountryStep({ market, onChoose }: { market: Market; onChoose: (m: Market) => void }) {
   return (
-    <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 12, background: "#F6F6F6", fontSize: 14, lineHeight: 1.6, color: "#333333" }}>
-      <p>
-        <strong>Commission:</strong>{" "}
-        {pct != null ? `${pct}% of each completed sale in ${market.name}.` : "shown in your seller agreement before you sign."}
-      </p>
-      <p>Settlement within {SETTLEMENT_DAYS} days after your order is delivered, to your bank account in {market.payoutCurrency}.</p>
+    <Card>
+      <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>Where is your business based?</h2>
+      <p style={{ fontSize: 14, color: "#666666", marginTop: 4, marginBottom: 16 }}>Your country sets your details, your agreement and your currency.</p>
+      <div style={grid2}>
+        {MARKETS.map(m => (
+          <button key={m.code} type="button" className={m.code === market.code ? "sp-country-card on" : "sp-country-card"} onClick={() => onChoose(m)}>
+            <Flag market={m} size={22} />
+            <span>
+              <strong>{m.name}</strong>
+              <small>{m.open ? `Prices and payouts in ${m.currency}` : "Waitlist only for now"}</small>
+            </span>
+          </button>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function IndiaTerms() {
+  return (
+    <div style={{ padding: "12px 14px", borderRadius: 12, background: "#F6F6F6", fontSize: 14, lineHeight: 1.6, color: "#333333" }}>
+      <p><strong>Commission:</strong> flat {COMMISSION_PCT_INDIA}% commission, no other charges.</p>
+      <p>Settlement within {SETTLEMENT_DAYS} days after your order is delivered, to your bank account in INR.</p>
     </div>
+  );
+}
+
+/** UAE rate card: electronics sellers pick who ships and see their rate before registering. */
+function UaeRateStep({ value, error, onChange }: { value: DetailsForm["electronics_fulfilment"]; error?: string; onChange: (v: ElectronicsFulfilment) => void }) {
+  const [card, setCard] = useState<UaeRateCard | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.commissionRates().then(r => { if (live) setCard(resolveRateCard(r)); }).catch(() => { if (live) setCard(resolveRateCard(null)); });
+    return () => { live = false; };
+  }, []);
+
+  if (!card) return <div role="status" aria-label="Loading rates"><Skeleton height={120} radius={12} /></div>;
+  return (
+    <section aria-labelledby="rate-card-h" style={{ padding: 16, borderRadius: 12, background: "#F6F6F6" }}>
+      <h2 id="rate-card-h" style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>Your commission rate card</h2>
+      <p style={{ fontSize: 13, color: "#666666", marginTop: 2 }}>These terms apply to new sellers. All amounts are in AED.</p>
+      <p style={{ fontSize: 14, color: "#333333", marginTop: 12 }}>
+        <strong>Fashion and accessories:</strong> {card.fashion_accessories_pct}% with shipping included.
+      </p>
+      <p style={{ fontSize: 14, fontWeight: 700, color: "#111111", margin: "12px 0 8px" }}>Electronics: who ships your orders?</p>
+      <div id="electronics_fulfilment" tabIndex={-1} style={grid2}>
+        {(["seller", "notmade"] as const).map(mode => (
+          <Choice key={mode} name="electronics_fulfilment" checked={value === mode} onChange={() => onChange(mode)}
+            title={`${FULFILMENT_LABEL[mode]} · ${electronicsRate(card, mode)}%`}
+            sub={mode === "seller" ? "You ship each order yourself" : "NOTMADE ships each order for you"} />
+        ))}
+      </div>
+      {value && <p aria-live="polite" style={{ fontSize: 14, fontWeight: 700, color: "#166534", marginTop: 10 }}>Your electronics rate: {electronicsRate(card, value)}%</p>}
+      {error && <p style={{ fontSize: 12, color: RED, marginTop: 6 }}>{error}</p>}
+    </section>
   );
 }
 
 function WaitlistNote({ market }: { market: Market }) {
   return (
     <div style={{ padding: "16px", borderRadius: 12, border: "1px solid #EEEEEE" }}>
-      <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>{openMarketsSentence()}</p>
+      <p style={{ fontSize: 15, fontWeight: 700, color: "#111111" }}>Seller registration is not open here yet.</p>
       <p style={{ fontSize: 14, color: "#666666", margin: "6px 0 14px", lineHeight: 1.6 }}>
         Join the waitlist and we will email you when seller accounts open for {market.name}-based businesses.
       </p>
@@ -522,35 +565,20 @@ function WaitlistNote({ market }: { market: Market }) {
   );
 }
 
-function WaitlistState({ market, onChangeCountry }: { market: Market; onChangeCountry: () => void }) {
+function WaitlistState({ market }: { market: Market }) {
   return (
     <Card>
       <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>Seller accounts are not open in {market.name} yet</h2>
       <div style={{ marginTop: 14 }}><WaitlistNote market={market} /></div>
-      <p style={{ fontSize: 14, color: "#666666", marginTop: 14 }}>
-        Is your business based somewhere else?{" "}
-        <button type="button" onClick={onChangeCountry} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 14 }}>
-          Change business country
-        </button>
-      </p>
     </Card>
   );
 }
 
-/** Seller-controlled pricing is the only model. India-based sellers also see their rates, read from the backend. */
-function PricingNote({ showRates = false }: { showRates?: boolean }) {
-  const [rates, setRates] = useState<CommissionRates | null>(null);
-  useEffect(() => {
-    if (showRates) api.commissionRates().then(setRates).catch(() => setRates(null));
-  }, [showRates]);
-  const parts = rates ? [
-    rates.india_pct != null && `India sales ${rates.india_pct}%`,
-    rates.international_pct != null && `UAE sales ${rates.international_pct}% (once approved for the UAE)`,
-  ].filter(Boolean) : [];
+/** Seller-controlled pricing is the only model. */
+function PricingNote() {
   return (
     <div style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid #E5E5E5", background: "#FAFAFA" }}>
       <p style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>You set your own prices. NOTMADE never changes your price.</p>
-      {parts.length > 0 && <p style={{ fontSize: 13, color: "#666666", marginTop: 4 }}>{parts.join(", ")}</p>}
     </div>
   );
 }
@@ -663,7 +691,7 @@ function AgreementStep({ seller, onSigned }: { seller: Seller; onSigned: () => P
       onSigned={onSigned}
       pills={a => (
         <>
-          <Pill>{uaeBased ? `UAE commission ${a.commission_rate}%` : `India commission ${a.commission_rate}%`}</Pill>
+          <Pill>Commission {a.commission_rate}%</Pill>
           <Pill>Seller-controlled pricing</Pill>
         </>
       )}

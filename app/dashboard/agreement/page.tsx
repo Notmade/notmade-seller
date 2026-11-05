@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, downloadAgreement, fmtDate, type SignedAgreement } from "../../lib/seller-api";
 import { useDashboardSeller, useReloadSeller } from "../seller-context";
-import { Alert, Button, Card, FullPageSpinner, PageHeader, RED } from "../../components/portal-ui";
+import { Alert, Button, Card, PageHeader, PageSkeleton, RED } from "../../components/portal-ui";
 import { AgreementDocument, AgreementSigner, Pill } from "../../components/AgreementSigner";
 
 export default function AgreementPage() {
@@ -51,7 +51,7 @@ export default function AgreementPage() {
               onSigned={onSigned}
               pills={a => (
                 <>
-                  <Pill>{seller.seller_country === "AE" ? `UAE commission ${a.commission_rate}%` : `India commission ${a.commission_rate}%`}</Pill>
+                  <Pill>Commission {a.commission_rate}%</Pill>
                   <Pill>Seller-controlled pricing</Pill>
                 </>
               )}
@@ -61,7 +61,7 @@ export default function AgreementPage() {
 
         {error ? (
           <Alert>{error} <button type="button" onClick={() => void load()} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>Retry</button></Alert>
-        ) : !signed ? <FullPageSpinner /> : signed.length === 0 ? (
+        ) : !signed ? <PageSkeleton stats={0} rows={2} /> : signed.length === 0 ? (
           <Card><p style={{ fontSize: 14, color: "#888888" }}>No signed agreements on file.</p></Card>
         ) : signed.map(a => (
           <Card key={a.id}>

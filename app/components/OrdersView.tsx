@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  api, fmtDate, fmtDateTime, REJECT_REASONS,
+  api, fmtDate, fmtDateTime, isNotLive, REJECT_REASONS,
   type Order, type OrderBucket, type RejectReason, type ReturnRequest, type UnboxingVideo,
 } from "../lib/seller-api";
 import { AED, formatMoney, type Currency } from "../lib/currency";
-import { Alert, Badge, Button, Card, EmptyState, FullPageSpinner, Modal, PageHeader, RED, Spinner } from "./portal-ui";
+import { Alert, Badge, Button, Card, EmptyState, Field, Modal, PageHeader, PageSkeleton, RED, Spinner } from "./portal-ui";
 import OrderTimeline from "./OrderTimeline";
 
 const TABS: { key: OrderBucket; label: string }[] = [
@@ -53,24 +53,28 @@ function SlaChip({ due, now }: { due: string; now: number }) {
 }
 
 interface Props {
-  /** Every amount on this view is in this currency; orders from the other market are left out. */
+  /** The seller's currency. Every amount on this view is in it. */
   currency: Currency;
   title: string;
   sub: string;
-  /** Shown above the tabs when orders from the other market exist, e.g. a link to the UAE section. */
-  otherMarketNote?: (count: number) => React.ReactNode;
 }
 
-/** Orders of one market (India or UAE) for the signed-in seller. */
-export default function OrdersView({ currency, title, sub, otherMarketNote }: Props) {
+type Payment = "all" | "cod" | "prepaid";
+type Period = "all" | "1" | "7" | "30";
+const isCod = (o: Order) => String(o.payment_method || "").toLowerCase() === "cod";
+
+/** The signed-in seller's orders. */
+export default function OrdersView({ currency, title, sub }: Props) {
   const money = (n: number | null | undefined) => formatMoney(n, currency);
   const [orders, setOrders] = useState<Order[] | null>(null);
-  const [otherCount, setOtherCount] = useState(0);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [error, setError] = useState("");
   const [tab, setTab] = useState<OrderBucket>("new");
   const [focus, setFocus] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [payment, setPayment] = useState<Payment>("all");
+  const [period, setPeriod] = useState<Period>("all");
+  const [tracking, setTracking] = useState<Order | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [rowError, setRowError] = useState<Record<string, string>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
@@ -93,10 +97,9 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
     try {
       const [o, r] = await Promise.all([api.orders(), api.returns().catch(() => ({ returns: [] as ReturnRequest[] }))]);
       const mine = o.orders.filter(x => x.commission.currency === currency);
-      const otherRefs = new Set(o.orders.filter(x => x.commission.currency !== currency).map(x => x.ref_no));
+      const hidden = new Set(o.orders.filter(x => x.commission.currency !== currency).map(x => x.ref_no));
       setOrders(mine);
-      setOtherCount(otherRefs.size);
-      setReturns(r.returns.filter(x => !x.order_ref || !otherRefs.has(x.order_ref)));
+      setReturns(r.returns.filter(x => !x.order_ref || !hidden.has(x.order_ref)));
     } catch (err) {
       if (!quiet) setError(err instanceof Error ? err.message : "Could not load orders");
     }
@@ -117,12 +120,15 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const from = period === "all" ? 0 : now - Number(period) * 86_400_000;
     return (orders ?? []).filter(o => o.bucket === tab)
       .filter(o => !q || o.ref_no.toLowerCase().includes(q) || o.items.some(i => i.product_name?.toLowerCase().includes(q)))
+      .filter(o => payment === "all" || (payment === "cod") === isCod(o))
+      .filter(o => new Date(o.created_at).getTime() >= from)
       .sort((a, b) => tab === "new"
         ? new Date(a.sla_due_at || a.created_at).getTime() - new Date(b.sla_due_at || b.created_at).getTime()
         : new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-  }, [orders, tab, query]);
+  }, [orders, tab, query, payment, period, now]);
 
   const replaceOrder = (order: Order) => setOrders(os => (os ?? []).map(o => o.ref_no === order.ref_no ? order : o));
 
@@ -158,14 +164,26 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
   };
 
   if (error) return <Alert>{error}</Alert>;
-  if (!orders) return <FullPageSpinner />;
+  if (!orders) return <PageSkeleton stats={0} />;
 
   return (
     <div>
-      <PageHeader title={title} sub={sub}
-        action={<input className="sp-search" placeholder="Search order or product" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search orders" />} />
+      <PageHeader title={title} sub={sub} />
 
-      {otherCount > 0 && otherMarketNote && <div style={{ marginBottom: 14 }}>{otherMarketNote(otherCount)}</div>}
+      <div className="sp-toolbar">
+        <input className="sp-search" placeholder="Search order or product" value={query} onChange={e => setQuery(e.target.value)} aria-label="Search orders" />
+        <select aria-label="Payment" value={payment} onChange={e => setPayment(e.target.value as Payment)}>
+          <option value="all">All payments</option>
+          <option value="cod">Cash on delivery</option>
+          <option value="prepaid">Prepaid</option>
+        </select>
+        <select aria-label="Order date" value={period} onChange={e => setPeriod(e.target.value as Period)}>
+          <option value="all">Any date</option>
+          <option value="1">Last 24 hours</option>
+          <option value="7">Last 7 days</option>
+          <option value="30">Last 30 days</option>
+        </select>
+      </div>
 
       <div role="tablist" aria-label="Order status" className="sp-tabs">
         {TABS.map(t => (
@@ -193,7 +211,8 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
       )}
 
       {shown.length === 0 ? (
-        tab === "returns" && returns.length ? null : <EmptyState title={EMPTY[tab]} />
+        tab === "returns" && returns.length ? null : <EmptyState title={(query || payment !== "all" || period !== "all") && counts[tab] > 0 ? "No orders match these filters." : EMPTY[tab]}
+          action={tab === "new" && (orders.length === 0) ? <a href="/dashboard/products" className="sp-btn-red">Check your catalogue</a> : undefined} />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {shown.map(o => {
@@ -211,8 +230,7 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
                   </div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
                     {o.bucket === "new" && o.sla_due_at && <SlaChip due={o.sla_due_at} now={now} />}
-                    <span className="sp-chip">{o.region === "ae" ? "UAE" : "India"}</span>
-                    <span className="sp-chip">{String(o.payment_method || "").toLowerCase() === "cod" ? "COD" : "Prepaid"}</span>
+                    <span className="sp-chip">{isCod(o) ? "COD" : "Prepaid"}</span>
                     <Badge status={o.bucket === "cancelled" ? "cancelled" : o.stage === "awb" ? "packed" : o.status} label={o.bucket === "ready" ? (o.manual_courier && o.courier_assigned ? "Courier assigned" : o.waybill ? "AWB ready" : "Ready for pickup") : undefined} />
                   </div>
                 </div>
@@ -272,6 +290,15 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
                   </div>
                 )}
 
+                {o.seller_tracking && (
+                  <div className="sp-awb">
+                    <div>
+                      <p style={{ fontSize: 11, color: "#888", fontWeight: 600, letterSpacing: ".06em" }}>YOUR TRACKING · {o.seller_tracking.courier}</p>
+                      <p style={{ fontSize: 16, fontWeight: 800, fontFamily: "var(--font-space-mono), monospace" }}>{o.seller_tracking.tracking_number}</p>
+                    </div>
+                  </div>
+                )}
+
                 {o.bucket === "ready" && !o.waybill && !o.courier_assigned && (
                   <p className="sp-note-line">Marked ready {o.ready_at ? fmtDateTime(o.ready_at) : ""}{o.package_weight_kg ? ` · ${o.package_weight_kg} kg` : ""}. {o.region === "ae"
                     ? "NOTMADE is assigning a UAE courier partner — the courier and pickup note will show here."
@@ -302,6 +329,9 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
                         </Button>
                       </>
                     )}
+                    {(o.bucket === "accepted" || o.bucket === "ready" || o.bucket === "shipped") && !o.waybill && !o.multi_seller && (
+                      <Button variant="secondary" onClick={() => setTracking(o)}>{o.seller_tracking ? "Edit tracking" : "Add tracking"}</Button>
+                    )}
                     {o.bucket === "accepted" && !o.multi_seller && (
                       <Button onClick={() => setReadying(o)} disabled={busy === o.ref_no}>Mark as ready</Button>
                     )}
@@ -315,7 +345,7 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
                 )}
                 {open[`v-${o.ref_no}`] && (
                   <div style={{ padding: "0 18px 18px" }}>
-                    {!video || video.loading ? <Spinner size={20} />
+                    {!video || video.loading ? <p style={{ fontSize: 13, color: "#888" }}>Loading video…</p>
                       : video.error ? <Alert>{video.error}</Alert>
                       : video.video?.url ? <video src={video.video.url} controls playsInline style={{ width: "100%", maxWidth: 420, borderRadius: 12, background: "#000" }} />
                       : <p style={{ fontSize: 13, color: "#888" }}>Video is not available right now.</p>}
@@ -331,11 +361,50 @@ export default function OrdersView({ currency, title, sub, otherMarketNote }: Pr
         <RejectModal order={rejecting} onClose={() => setRejecting(null)}
           onRejected={o => { replaceOrder(o); setRejecting(null); }} />
       )}
+      {tracking && (
+        <TrackingModal order={tracking} onClose={() => setTracking(null)}
+          onSaved={o => { replaceOrder(o); setTracking(null); }} />
+      )}
       {readying && (
         <ReadyModal order={readying} onClose={() => setReadying(null)}
           onReady={o => { replaceOrder(o); setReadying(null); setTab("ready"); }} />
       )}
     </div>
+  );
+}
+
+function TrackingModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: (o: Order) => void }) {
+  const [courier, setCourier] = useState(order.seller_tracking?.courier ?? "");
+  const [number, setNumber] = useState(order.seller_tracking?.tracking_number ?? "");
+  const [url, setUrl] = useState(order.seller_tracking?.tracking_url ?? "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const ready = courier.trim().length >= 2 && number.trim().length >= 3;
+
+  const submit = async () => {
+    setBusy(true); setError("");
+    try {
+      const { order: saved } = await api.saveTracking(order.ref_no, { courier: courier.trim(), tracking_number: number.trim(), ...(url.trim() ? { tracking_url: url.trim() } : {}) });
+      onSaved(saved);
+    } catch (err) {
+      setError(isNotLive(err) ? "Tracking entry is not switched on yet. Nothing was saved." : err instanceof Error ? err.message : "Could not save tracking");
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal title={`Tracking · ${order.ref_no}`} onClose={onClose} width={460}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <Field label="Courier" htmlFor="track-courier"><input id="track-courier" className="sp-field" value={courier} onChange={e => setCourier(e.target.value)} maxLength={60} /></Field>
+        <Field label="Tracking number" htmlFor="track-number"><input id="track-number" className="sp-field" value={number} onChange={e => setNumber(e.target.value)} maxLength={60} autoComplete="off" /></Field>
+        <Field label="Tracking link (optional)" htmlFor="track-url"><input id="track-url" className="sp-field" type="url" value={url} onChange={e => setUrl(e.target.value)} maxLength={300} /></Field>
+      </div>
+      {error && <div style={{ marginTop: 12 }}><Alert>{error}</Alert></div>}
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+        <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
+        <Button onClick={() => void submit()} disabled={busy || !ready}>{busy ? <Spinner size={14} /> : "Save tracking"}</Button>
+      </div>
+    </Modal>
   );
 }
 

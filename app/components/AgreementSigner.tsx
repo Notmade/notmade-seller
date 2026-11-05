@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, downloadAgreement, type Agreement, type Seller, type SignBody } from "../lib/seller-api";
-import { Alert, Button, Card, Field, FullPageSpinner, RED } from "./portal-ui";
+import { Alert, Button, Card, Field, PageSkeleton, RED } from "./portal-ui";
 
 const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 };
 
@@ -28,7 +28,7 @@ export function AgreementDocument({ html, maxHeight = 420, onScrolledToEnd }: {
   );
 }
 
-/** Review + OTP e-sign for any agreement (seller agreement, UAE addendum). */
+/** Review + OTP e-sign for the seller agreement. */
 export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: {
   seller: Seller;
   title: string;
@@ -90,7 +90,7 @@ export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: 
   };
 
   if (loadErr) return <Alert>{loadErr} <button type="button" onClick={() => void reload()} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>Retry</button></Alert>;
-  if (!agreement) return <FullPageSpinner />;
+  if (!agreement) return <PageSkeleton stats={0} rows={3} />;
 
   return (
     <Card>

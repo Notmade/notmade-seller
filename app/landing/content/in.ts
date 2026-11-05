@@ -1,91 +1,79 @@
-import { MAIN_SITE_URL, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS } from "@/app/lib/seller-config";
+// India seller page. Only India facts live here.
+import {
+  COMMISSION_PCT_INDIA as PCT, LEGAL_ENTITY_INDIA, MAIN_SITE_URL, MIN_PRODUCTS, RETURN_WINDOW_DAYS,
+  SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS,
+} from "@/app/lib/seller-config";
 import { INR, formatMoney } from "@/app/lib/currency";
-import type { ModeContent } from "./types";
+import type { Item, PageContent } from "./types";
 
 const host = MAIN_SITE_URL.replace(/^https?:\/\//, "");
 
-const india: ModeContent = {
+/** The commission line, word for word. */
+export const COMMISSION_LINE = `flat ${PCT}% commission, no other charges`;
+
+export const CATEGORIES = ["Fashion", "Accessories", "Home decor", "And many more categories"];
+
+export const SUPPORT: Item[] = [
+  { title: "Logistics and shipping support", desc: "Pack the order and mark it ready in your panel. We help with the AWB label and courier pickup." },
+  { title: "Delivery across India", desc: "3-hour delivery across Delhi NCR for orders between 9am and 6pm, and 3 to 5 days across the rest of India." },
+  { title: "Cash on delivery", desc: "Customers can pay on delivery, so you do not lose orders from buyers who prefer it." },
+  { title: "One seller panel", desc: "Orders, stock, products, payouts and your agreement, all in one place on any device." },
+];
+
+export const PAYOUT = {
+  title: "INR payouts to your bank.",
+  points: [
+    { title: `Paid ${PAYOUT_DAYS} days after delivery`, desc: "Payouts in your panel show each settlement and the orders in it." },
+    { title: `${formatMoney(0, INR)} listing fee`, desc: "List your products for free." },
+    { title: "You set the price", desc: "You set the price for every product. NOTMADE never changes it." },
+  ] satisfies Item[],
+};
+
+export const AGREEMENT = {
+  title: "A clear agreement.",
+  body: `Your seller agreement is executed with ${LEGAL_ENTITY_INDIA}. You read it in the panel and sign it with a code sent to your email.`,
+};
+
+const india: PageContent = {
   code: "in",
   label: "India",
   meta: {
-    title: "Sell on NOTMADE across India | Seller portal",
-    description: `Sell streetwear on ${host}. 3-hour delivery across Delhi NCR, 3 to 5 days across India, ${formatMoney(0, INR)} listing fee, and payout ${PAYOUT_DAYS} days after delivery.`,
+    title: `Sell Across India on NOTMADE | Flat ${PCT}% Commission`,
+    description: `Sell fashion, accessories, home decor and many more categories across India on ${host}. Flat ${PCT}% commission, no other charges, with logistics and shipping support and INR payouts.`,
   },
-
   hero: {
-    kicker: "For streetwear labels",
-    headline: ["Make it.", "We'll move it."],
-    sub: `List on ${host} at prices you set. We deliver, collect cash on delivery and handle returns. You get paid ${PAYOUT_DAYS} days after each delivery.`,
+    kicker: "For brands in India",
+    headline: ["Sell across", "India."],
+    sub: `Fashion, accessories, home decor and many more categories on ${host}, with a ${COMMISSION_LINE}.`,
     proof: [
+      { value: `${PCT}%`, label: "flat commission, no other charges" },
+      { value: `${PAYOUT_DAYS}-day`, label: "INR payout after delivery" },
       { value: "3-hour", label: "delivery across Delhi NCR" },
-      { value: `${PAYOUT_DAYS}-day`, label: "payout after delivery" },
-      { value: formatMoney(0, INR), label: "listing fee" },
     ],
   },
-
   steps: {
-    title: "From sign-up to payout.",
-    sub: "Everything happens in one seller panel.",
+    title: "Onboard in five steps.",
+    sub: "Register with your email. No password, ever.",
     items: [
-      { title: "Sign up with OTP", desc: "Enter your email and the one-time code we send. No password. Add your business details and KYC documents." },
-      { title: "Sign the agreement", desc: "Read the seller agreement in the panel and sign it with a code sent to your email." },
-      { title: "Add products", desc: "Add photos, your price and variants like size or colour, with photos for each option." },
-      { title: "Accept or reject orders", desc: "Every new order waits for you. Accept it if you can fulfil it, reject it if you cannot." },
-      { title: "Mark ready", desc: "Pack the order and tap Mark as ready." },
-      { title: "Courier pickup", desc: "Download the AWB label, stick it on and hand the parcel to the courier." },
-      { title: "Get paid", desc: `Your payout lands ${PAYOUT_DAYS} days after delivery, with every order listed in Payouts.` },
+      { title: "Register", desc: "Enter your email and the one-time code we send." },
+      { title: "Add business details", desc: "Your GST or PAN details, pickup address and KYC documents." },
+      { title: "Sign the agreement", desc: `Executed with ${LEGAL_ENTITY_INDIA}, signed online with an email code.` },
+      { title: "List your products", desc: `Add photos, variants and your INR price. Start with at least ${MIN_PRODUCTS} products.` },
+      { title: "Sell and get paid", desc: `Accept orders, pack, hand over. Payout ${PAYOUT_DAYS} days after delivery.` },
     ],
   },
-
-  delivery: {
-    title: "Delivery timeline.",
-    sub: "Two speeds, one routine for you: accept, pack, mark ready.",
-    items: [
-      { value: "3 hours", label: "Delhi NCR", note: "Orders placed between 9am and 6pm" },
-      { value: "3 to 5 days", label: "Pan-India", note: "Everywhere else in India" },
-      { value: "COD", label: "Cash on delivery", note: "Available to customers" },
-    ],
-  },
-
-  money: {
-    title: "Commission and payout.",
-    sub: "One commission on each completed sale. No listing fee.",
-    points: [
-      { title: `${formatMoney(0, INR)} listing fee`, desc: "List your products for free." },
-      { title: "You set the price", desc: "You set the price for every product you list." },
-      { title: `Paid in ${PAYOUT_DAYS} days`, desc: `Payout ${PAYOUT_DAYS} days after the order is delivered.` },
-    ],
-    calc: {
-      rate: "india_pct",
-      currency: INR,
-      defaultPrice: 1999,
-      note: "Your exact rate is shown in the seller agreement before you sign.",
-    },
-  },
-
-  returns: {
-    title: "Returns.",
-    sub: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video.`,
-    points: [
-      `${RETURN_WINDOW_DAYS}-day return window from delivery`,
-      "An unboxing video is required for every return",
-      "Watch the video from the order in your panel",
-    ],
-  },
-
   faq: [
-    { q: "Who sets the price?", a: "You do. You set the price for each product you list." },
-    { q: "Is there a listing fee?", a: "No. Listing is free. NOTMADE takes a commission only on completed sales." },
+    { q: "What can I sell?", a: "Fashion, accessories, home decor and many more categories. You pick the category for each product when you list it." },
+    { q: "What does it cost?", a: `A ${COMMISSION_LINE}. Listing is free.` },
+    { q: "Who sets the price?", a: "You do. You set the INR price for each product you list." },
+    { q: "How does shipping work?", a: "You pack the order and mark it ready in your panel. We support you with the AWB label and courier pickup." },
     { q: "How fast is delivery?", a: "3 hours across Delhi NCR between 9am and 6pm, and 3 to 5 days across the rest of India." },
-    { q: "Do customers get cash on delivery?", a: "Yes. Cash on delivery is available to customers." },
-    { q: "When do I get paid?", a: `${PAYOUT_DAYS} days after the order is delivered. Payouts in your panel show each settlement and the orders in it.` },
+    { q: "When do I get paid?", a: `${PAYOUT_DAYS} days after the order is delivered, in INR, to your bank account.` },
     { q: "How do returns work?", a: `Customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video, which you can watch from the order in your panel.` },
-    { q: "Can I reject an order?", a: "Yes. Every new order waits for you to accept or reject it." },
-    { q: "What is the commission?", a: "The current India rate is shown live on this page and in your agreement before you sign." },
+    { q: "Who is the agreement with?", a: `${LEGAL_ENTITY_INDIA}. You can read it in full before you sign.` },
   ],
-
-  final: { title: "Start selling on NOTMADE.", sub: "Open your India seller account with just your email." },
-  signup: { label: "Start selling", href: "/login?market=in&apply=1" },
+  final: { title: "Start selling across India.", sub: "Register with your email and finish onboarding in your seller panel." },
+  signup: { label: "Register to sell", href: "/login?market=in&apply=1" },
   login: { label: "Log in", href: "/login?market=in" },
 };
 

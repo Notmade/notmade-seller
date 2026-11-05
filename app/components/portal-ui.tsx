@@ -1,6 +1,8 @@
 "use client";
 
 import type { CSSProperties, ReactNode, ButtonHTMLAttributes } from "react";
+import { currencySymbol, CURRENCY_BY_COUNTRY, type SellerCountryCode } from "../lib/currency";
+import { CountryBadge } from "./market";
 
 // Small shared building blocks for the seller portal (light theme, matches the existing dashboard).
 
@@ -13,10 +15,38 @@ export function Spinner({ size = 28 }: { size?: number }) {
   );
 }
 
-export function FullPageSpinner() {
+export function Skeleton({ width = "100%", height = 14, radius = 8, style }: { width?: number | string; height?: number; radius?: number; style?: CSSProperties }) {
+  return <span aria-hidden className="sp-skel" style={{ display: "block", width, height, borderRadius: radius, ...style }} />;
+}
+
+/** Stand-in for a page while its data loads: a title, stat tiles and rows. */
+export function PageSkeleton({ stats = 4, rows = 5 }: { stats?: number; rows?: number }) {
   return (
-    <div style={{ display: "flex", minHeight: "60vh", alignItems: "center", justifyContent: "center" }}>
-      <Spinner size={32} />
+    <div role="status" aria-label="Loading">
+      <Skeleton width={180} height={26} />
+      <Skeleton width={280} style={{ marginTop: 10, marginBottom: 22 }} />
+      {stats > 0 && (
+        <div className="sp-stats">
+          {Array.from({ length: stats }).map((_, i) => (
+            <div key={i} className="sp-stat"><Skeleton width="55%" height={12} /><Skeleton width="70%" height={26} style={{ marginTop: 10 }} /></div>
+          ))}
+        </div>
+      )}
+      <TableSkeleton rows={rows} />
+    </div>
+  );
+}
+
+export function TableSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div style={{ background: "#FFFFFF", border: "1px solid #EEEEEE", borderRadius: 14, overflow: "hidden" }}>
+      {Array.from({ length: rows }).map((_, i) => (
+        <div key={i} style={{ display: "flex", gap: 14, alignItems: "center", padding: "14px 18px", borderBottom: i < rows - 1 ? "1px solid #F3F3F3" : undefined }}>
+          <Skeleton width={40} height={40} radius={8} style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1, minWidth: 0 }}><Skeleton width="60%" /><Skeleton width="35%" height={11} style={{ marginTop: 8 }} /></div>
+          <Skeleton width={72} />
+        </div>
+      ))}
     </div>
   );
 }
@@ -69,6 +99,19 @@ export function Field({ label, hint, error, children, htmlFor }: {
       {children}
       {hint && !error && <p style={{ fontSize: 12, color: "#999999", marginTop: 5 }}>{hint}</p>}
       {error && <p style={{ fontSize: 12, color: RED, marginTop: 5 }}>{error}</p>}
+    </div>
+  );
+}
+
+/** Price entry in the seller's own currency. The country decides the currency; there is nothing to choose. */
+export function PriceInput({ id, country, value, onChange, required = false, min = "1", placeholder }: {
+  id: string; country: SellerCountryCode; value: string; onChange: (v: string) => void; required?: boolean; min?: string; placeholder?: string;
+}) {
+  return (
+    <div className="sp-price">
+      <span className="sp-price-tag"><CountryBadge country={country} compact /><span aria-hidden>{currencySymbol(CURRENCY_BY_COUNTRY[country])}</span></span>
+      <input id={id} type="number" inputMode="decimal" min={min} step="0.01" max="1000000" value={value} required={required} placeholder={placeholder}
+        onChange={e => onChange(e.target.value)} />
     </div>
   );
 }

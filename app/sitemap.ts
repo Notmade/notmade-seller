@@ -5,6 +5,7 @@ import { SITE_URL } from "./lib/seller-config";
 export default function sitemap(): MetadataRoute.Sitemap {
   return [
     { path: "/", priority: 1 },
+    { path: "/uae", priority: 1 },
     { path: "/terms", priority: 0.5 },
     { path: "/privacy-policy", priority: 0.3 },
     { path: "/refund-policy", priority: 0.3 },

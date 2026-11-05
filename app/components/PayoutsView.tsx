@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, fmtDate, type Payout, type UpcomingSettlement, type Money } from "../lib/seller-api";
 import { formatMoney, formatMoneyIn, type Currency } from "../lib/currency";
-import { Alert, Badge, Card, FullPageSpinner, PageHeader } from "./portal-ui";
+import { Alert, Badge, Card, PageHeader, PageSkeleton } from "./portal-ui";
 
 interface Data { payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }
 
@@ -11,11 +11,11 @@ interface Props {
   /** Only settlements in this currency are listed and totalled. */
   currency: Currency;
   title: string;
-  /** Commission rates for the header, e.g. "India 17%". */
+  /** Commission rate for the header, e.g. "17%". */
   rates: string;
 }
 
-/** Payouts of one market (India or UAE) for the signed-in seller. */
+/** Payouts for the signed-in seller. */
 export default function PayoutsView({ currency, title, rates }: Props) {
   const amount = (n: number | null | undefined) => formatMoney(n, currency);
   const total = (m: Money) => formatMoneyIn(m, currency);
@@ -29,7 +29,7 @@ export default function PayoutsView({ currency, title, rates }: Props) {
   }, [currency]);
 
   if (error) return <Alert>{error}</Alert>;
-  if (!d) return <FullPageSpinner />;
+  if (!d) return <PageSkeleton stats={3} />;
 
   return (
     <div>
