@@ -965,3 +965,10 @@ a.sp-row:hover { background: #FAFAFA; }
   .sp-slip { position: absolute; inset: 0 0 auto 0; border: 0; padding: 0; }
   .sp-noprint { display: none !important; }
 }
+
+/* Onboarding: 44px tap targets, and a header that fits a 360px screen */
+.sp-onb-logo { display: inline-flex; align-items: center; min-height: 44px; white-space: nowrap; }
+.sp-onb-email { font-size: 13px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sp-onb ol button, .sp-onb header button { min-height: 44px; }
+@media (max-width: 639px) { .sp-onb-email { display: none; } }
+@media (max-width: 399px) { .sp-onb-tag { display: none; } }

@@ -7,7 +7,7 @@ import { AED, INR } from "./currency";
 import { getPage, PUBLIC_PAGES, type PageKey } from "./public-pages";
 import { absoluteUrl } from "./seo";
 import {
-  COMMISSION_STATEMENT_INDIA, CONTACT_EMAIL, ENTITY_BY_COUNTRY, MAIN_SITE_URL, MIN_PRODUCTS, RETURN_WINDOW_DAYS, REVIEW_HOURS, SELLER_SUPPORT_EMAIL,
+  COMMISSION_STATEMENT_INDIA, CONTACT_EMAIL, ENTITY_BY_COUNTRY, MAIN_SITE_URL, MIN_PRODUCTS, RETURN_WINDOW_DAYS, SELLER_SUPPORT_EMAIL,
   SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_SITE_URL,
 } from "./seller-config";
 
@@ -34,8 +34,8 @@ export function buildLlmsTxt(): string {
 ## How selling works
 1. Sign up with an email one-time code (no password), then add business details and documents.
 2. Read and sign the seller agreement in the panel with an email code.
-3. NOTMADE reviews the account, usually within ${REVIEW_HOURS} hours.
-4. List products with photos, price, stock and variants.
+3. The account is active as soon as the agreement is signed.
+4. List products with photos, price, stock and variants. NOTMADE reviews each product before it goes live.
 5. Accept or reject each new order, pack it and mark it ready for the courier.
 6. Get paid by bank transfer, with a settlement statement.
 

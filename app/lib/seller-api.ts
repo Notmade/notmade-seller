@@ -2,7 +2,7 @@
 // Auth is a 30-day seller JWT sent as a Bearer token.
 
 import type { Currency, Money } from "./currency";
-import type { ElectronicsFulfilment, RateCardSource } from "./rate-card";
+import type { FulfilmentMode, RateCard } from "./rate-card";
 
 export type { Currency, Money } from "./currency";
 
@@ -72,9 +72,12 @@ export interface SellerCommission {
 }
 
 /** GET /seller/commission-rates — shown at registration. */
-export interface CommissionRates extends RateCardSource {
+export interface CommissionRates {
   india_pct: number | null;
   uae_local_pct: number | null;
+  /** What a new seller signs, or null before migration 069. */
+  uae_rate_card: RateCard | null;
+  india_rate_card: RateCard | null;
 }
 
 export interface Seller {
@@ -109,8 +112,8 @@ export interface Seller {
   emirates_id_last4?: string | null;
   emirate?: string | null;
   iban?: string | null;
-  /** Who ships this UAE seller's electronics orders. Absent until the backend stores it. */
-  electronics_fulfilment?: ElectronicsFulfilment | null;
+  /** Who ships this UAE seller's phones and laptops. Locked once they sign. */
+  default_fulfilment_mode?: FulfilmentMode | null;
   /** Saved low-stock alert level. Absent until the backend stores it. */
   low_stock_threshold?: number | null;
   // Migration 048
@@ -119,6 +122,8 @@ export interface Seller {
   uae?: UaeStatus;
   agreement?: AgreementStatus;
   commission?: SellerCommission;
+  /** The seller's own rates. Null when the backend cannot read them. */
+  rate_card?: RateCard | null;
 }
 
 export interface VerifyOtpResponse {
@@ -150,6 +155,7 @@ export interface OnboardingState {
   agreement_signed: boolean;
   agreement_signed_at: string | null;
   seller_country?: SellerCountry;
+  bank_details_complete?: boolean;
 }
 
 export interface Agreement {
@@ -163,9 +169,25 @@ export interface Agreement {
   plain_text: string;
   agreement_hash: string;
   pricing_model: string;
-  commission_rate: number;
+  /** Null when several rates apply: read commission_terms. */
+  commission_rate?: number | null;
+  /** Null on in-v2, absent on a stored signed record. */
+  commission_terms?: AgreementTerms | null;
   includes_uae_clause: boolean;
   signed: boolean;
+  signed_at?: string | null;
+}
+
+/** The rates an agreement quotes. Several rates on `rate_card`, one in `pct` on `override` or `legacy`. */
+export interface AgreementTerms {
+  basis: "rate_card" | "override" | "legacy";
+  version: string | null;
+  effective_from: string | null;
+  pct: number | null;
+  default_fulfilment_mode?: FulfilmentMode | null;
+  phones_laptops?: number;
+  handmade?: number;
+  default?: number;
 }
 
 export type SignBody = { code: string; signer_name: string; agreement_hash: string };
@@ -181,12 +203,25 @@ export interface SignedAgreement {
   plain_text: string;
 }
 
+/** GET /seller/bank-details. Numbers come back masked; the full value is only ever sent in. */
+export interface BankDetails {
+  country: SellerCountry;
+  complete: boolean;
+  bank: { account_holder_name: string | null; bank_name: string | null; iban?: string | null; account_number?: string | null; ifsc?: string | null };
+}
+
+export type BankDetailsBody =
+  | { account_holder_name: string; account_number: string; ifsc: string; bank_name?: string }
+  | { iban: string; account_holder_name?: string; bank_name?: string };
+
 export interface Category {
   id: string; name: string; slug: string;
   /** Picker group. Optional: categories are grouped by keyword until the backend sends it. */
   group?: string | null;
   /** UAE sellers on a rate card only. Show the who-ships choice only when this is true. */
   fulfilment_mode_applies?: boolean;
+  /** Rate-card sellers: the rate-card group this category pays. */
+  commission_group?: string;
 }
 
 export interface Product {
@@ -377,6 +412,16 @@ export interface UpcomingSettlement {
   gross: number; commission: number | null; commission_pct: number | null; payout: number | null;
 }
 
+export interface PayoutsData {
+  payouts: Payout[];
+  upcoming: UpcomingSettlement[];
+  totals: { paid: Money; scheduled: Money; upcoming: Money };
+  settlement_days: number;
+  bank_details_complete?: boolean;
+  /** True for a rate-card seller with no bank details: payouts build up but none can be paid. */
+  payout_blocked?: boolean;
+}
+
 export interface ReturnRequest {
   id: string; order_ref: string | null; product_id: string | null; product_name: string | null;
   type: string; reason: string | null; status: string; size_ordered: string | null; size_requested: string | null;
@@ -447,8 +492,8 @@ export const api = {
     post<VerifyOtpResponse>("/seller-auth/verify-otp", { email, code, purpose }),
 
   me: async () => {
-    const r = await request<{ seller: Seller; uae?: UaeStatus; agreement?: AgreementStatus; commission?: SellerCommission }>("/seller/me");
-    return { seller: r.seller ? { ...r.seller, uae: r.uae, agreement: r.agreement, commission: r.commission } : r.seller };
+    const r = await request<{ seller: Seller; uae?: UaeStatus; agreement?: AgreementStatus; commission?: SellerCommission; rate_card?: RateCard | null }>("/seller/me");
+    return { seller: r.seller ? { ...r.seller, uae: r.uae, agreement: r.agreement, commission: r.commission, rate_card: r.rate_card } : r.seller };
   },
   commissionRates: () => request<CommissionRates>("/seller/commission-rates"),
   signup: (body: Record<string, unknown>) =>
@@ -505,7 +550,9 @@ export const api = {
   },
   notifications: () => request<{ notifications: SellerNotification[]; unread_count?: number }>("/seller/notifications"),
   notificationsRead: () => post<{ seen_at: string }>("/seller/notifications/read"),
-  payouts: () => request<{ payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }>("/seller/payouts"),
+  payouts: () => request<PayoutsData>("/seller/payouts"),
+  bankDetails: () => request<BankDetails>("/seller/bank-details"),
+  saveBankDetails: (body: BankDetailsBody) => request<BankDetails>("/seller/bank-details", { method: "PUT", body: JSON.stringify(body) }),
   returns: () => request<{ returns: ReturnRequest[] }>("/seller/returns"),
   unboxingVideo: (refNo: string) =>
     request<{ video: UnboxingVideo | null }>(`/seller/orders/${encodeURIComponent(refNo)}/unboxing-video`),
@@ -545,6 +592,12 @@ export function downloadAgreement(text: string, title: string, version: string):
 export function fmtDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+}
+
+/** Date and time with the year, for records such as a signature. */
+export function fmtTimestamp(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
 export function fmtDate(iso: string | null | undefined): string {

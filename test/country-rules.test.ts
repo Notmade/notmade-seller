@@ -8,12 +8,12 @@ import { aadhaarValid, ibanValid, validateDetails, type DetailsInput } from "@/a
 const blank: DetailsInput = {
   legal_name: "Acme Studio", business_name: "Acme", contact_name: "A Person", phone: "", address_line: "Street 1", city: "Town",
   state: "", pincode: "", gst_registered: "", gstin: "", pan_number: "", aadhaar_number: "", emirate: "", trade_licence_number: "",
-  trn: "", uae_id_type: "", emirates_id_number: "", iban: "", electronics_fulfilment: "",
+  trn: "", uae_id_type: "", emirates_id_number: "", iban: "", default_fulfilment_mode: "",
 };
 const india: DetailsInput = { ...blank, phone: "9876543210", state: "Delhi", pincode: "110001", gst_registered: "yes", gstin: "27ABCDE1234F1Z5" };
 const uae: DetailsInput = {
   ...blank, phone: "501234567", emirate: "Dubai", trade_licence_number: "CN-12345", uae_id_type: "passport",
-  iban: "AE07 0331 2345 6789 0123 456", electronics_fulfilment: "seller",
+  iban: "AE07 0331 2345 6789 0123 456", default_fulfilment_mode: "seller_ships",
 };
 
 describe("country decides currency", () => {
@@ -98,8 +98,8 @@ describe("formats per country", () => {
   });
 
   it("requires a fulfilment choice from UAE sellers only", () => {
-    expect(validateDetails("AE", { ...uae, electronics_fulfilment: "" }).electronics_fulfilment).toBeTruthy();
-    expect(validateDetails("IN", india).electronics_fulfilment).toBeUndefined();
+    expect(validateDetails("AE", { ...uae, default_fulfilment_mode: "" }).default_fulfilment_mode).toBeTruthy();
+    expect(validateDetails("IN", india).default_fulfilment_mode).toBeUndefined();
   });
 
   it("runs the checksums", () => {

@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { api, fmtDateTime, type Order, type Product } from "../lib/seller-api";
+import { api, fmtDate, fmtDateTime, type Order, type Product } from "../lib/seller-api";
 import { ordersIn, revenueWindows, stockRows, stockState } from "../lib/insights";
 import { formatMoney } from "../lib/currency";
 import { lowStockThreshold } from "../lib/low-stock";
+import { productStatus } from "../lib/product-status";
 import { useDashboardSeller, useLive, useSellerCurrency } from "./seller-context";
 import { Alert, Badge, Card, EmptyState, PageHeader, PageSkeleton, RED } from "../components/portal-ui";
+import { PayoutBlockedNotice } from "../components/BankDetails";
 
 function Stat({ label, value, sub, tone, href }: { label: string; value: string; sub?: string; tone?: "red" | "dark"; href?: string }) {
   const inner = (
@@ -30,11 +32,15 @@ const BUCKET: Record<Order["bucket"], string> = {
 
 export default function DashboardPage() {
   const seller = useDashboardSeller();
-  const { currency, timeZone, fmt } = useSellerCurrency();
+  const { country, currency, timeZone, fmt } = useSellerCurrency();
   const { data: d, error, refresh } = useLive();
   const [allOrders, setAllOrders] = useState<Order[] | null>(null);
   const [products, setProducts] = useState<Product[] | null>(null);
   const [loadError, setLoadError] = useState("");
+  const [payoutBlocked, setPayoutBlocked] = useState(false);
+
+  // A failed read only leaves the notice off: it has no number the page depends on
+  useEffect(() => { api.payouts().then(p => setPayoutBlocked(!!p.payout_blocked)).catch(() => {}); }, []);
 
   const load = useCallback(async () => {
     try {
@@ -67,6 +73,8 @@ export default function DashboardPage() {
   const first = seller.contact_name?.split(" ")[0] || seller.business_name || "there";
   const recent = allOrders.slice(0, 6);
   const hasNothing = products.length === 0 && allOrders.length === 0;
+  const inReview = products.filter(p => productStatus(p).key === "pending").length;
+  const signed = seller.agreement?.signed_version;
 
   return (
     <div>
@@ -78,6 +86,27 @@ export default function DashboardPage() {
           <Alert kind="warn">
             {d.pending_accept.overdue} order{d.pending_accept.overdue > 1 ? "s are" : " is"} past the {d.sla_hours}-hour accept window.{" "}
             <Link href="/dashboard/orders?tab=new" style={{ color: "inherit", fontWeight: 700 }}>Accept or reject now →</Link>
+          </Alert>
+        </div>
+      )}
+
+      {payoutBlocked && <div style={{ marginBottom: 16 }}><PayoutBlockedNotice country={country} /></div>}
+
+      {inReview > 0 && (
+        <div style={{ marginBottom: 16 }}>
+          <Alert kind="info">
+            <strong>{inReview === 1 ? "Product submitted, in review." : `${inReview} products submitted, in review.`}</strong>{" "}
+            NOTMADE reviews each product before it goes live.{" "}
+            <Link href="/dashboard/products" style={{ color: "inherit", fontWeight: 700 }}>See your catalogue</Link>
+          </Alert>
+        </div>
+      )}
+
+      {hasNothing && signed && (
+        <div style={{ marginBottom: 16 }}>
+          <Alert kind="success">
+            <strong>Agreement signed.</strong> Version {signed}, signed on {fmtDate(seller.agreement?.signed_at)}.{" "}
+            <Link href="/dashboard/agreement" style={{ color: "inherit", fontWeight: 700 }}>View or download</Link>
           </Alert>
         </div>
       )}

@@ -67,7 +67,7 @@ export function backend(country: Country) {
         { id: "po2", amount: 8000, commission: 1640, currency, status: "pending", due_date: iso(4), paid_at: null, reference: null, invoice_url: null, created_at: iso(-1) },
       ],
       upcoming: [{ ref_no: "NM-1006", settlement_date: iso(2), currency, gross: 1998, commission: 339.66, commission_pct: 17, payout: 1658.34 }],
-      totals: { paid: money(12000), scheduled: money(8000), upcoming: money(1658) }, settlement_days: 7,
+      totals: { paid: money(12000), scheduled: money(8000), upcoming: money(1658) }, settlement_days: 7, bank_details_complete: true, payout_blocked: false,
     },
   };
 }
@@ -102,6 +102,7 @@ export async function signIn(page: Page, country: Country, be: Backend = backend
       if (path === "/seller/agreement") return json({ version: "v2", title: "Agreement", text: "x", html: "<p>Agreement text</p>", plain_text: "x", agreement_hash: "h", pricing_model: "seller_controlled", commission_rate: 17, includes_uae_clause: false, signed: true });
       if (path === "/seller/agreements/signed") return json({ agreements: [] });
       if (path === "/seller/documents") return json({ documents: [] });
+      if (path === "/seller/bank-details") return json({ country, complete: true, bank: country === "AE" ? { account_holder_name: "Test Brand", bank_name: null, iban: "AE07 •••• •••• 3456" } : { account_holder_name: "Test Brand", bank_name: "HDFC", account_number: "•••• 9012", ifsc: "HDFC0001234" } });
     }
     if (req.method() === "POST") {
       if (path === "/seller/products") { be.created.push(req.postData() ?? ""); return json({ product: product(`new-${be.created.length}`, { approval_status: "pending" }) }, 201); }

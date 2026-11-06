@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, ty
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError, fmtDate, isNotLive, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
+import { listingRate } from "../../lib/rate-card";
 import { productPrice, productPriceFields } from "../../lib/currency";
 import { featureOn } from "../../lib/features";
 import { deleteDraft, listDrafts, type ListingDraft } from "../../lib/listing-drafts";
@@ -86,7 +87,7 @@ export default function ProductsPage() {
           </div>
         )} />
 
-      {submitted && <div style={{ marginBottom: 14 }}><Alert kind="success">Submitted. Your product is In review, and NOTMADE will approve it before it goes live.</Alert></div>}
+      {submitted && <div style={{ marginBottom: 14 }}><Alert kind="success"><strong>Product submitted, in review.</strong> NOTMADE reviews each product before it goes live.</Alert></div>}
 
       {locked && (
         <div style={{ marginBottom: 14 }}>
@@ -259,7 +260,7 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   const extraActive = !!extra;
   // UAE-based sellers can list once their signed agreement is on file (backend: isUaeReady)
   const agreementMissing = country === "AE" && !seller.uae?.ready;
-  const indiaPct = country === "IN" ? seller.commission?.india_pct ?? null : null;
+  const pct = listingRate(seller, categories.find(c => c.id === categoryId));
   const [existingImages, setExistingImages] = useState<string[]>(product?.images ?? []);
   const [newImages, setNewImages] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -386,9 +387,9 @@ function ProductForm({ product, categories, onClose, onSaved }: {
           <div style={grid2}>
             <Field label="Selling price" htmlFor="p-price">
               <PriceInput id="p-price" country={country} value={price} onChange={setPrice} required />
-              {indiaPct !== null && Number(price) > 0 && (
+              {pct !== null && Number(price) > 0 && (
                 <p aria-live="polite" style={{ fontSize: 13, color: "#16A34A", fontWeight: 600, marginTop: 6 }}>
-                  You receive {fmt(netAfterCommission(Number(price), indiaPct))} after {indiaPct}% commission
+                  You receive {fmt(netAfterCommission(Number(price), pct))} after {pct}% commission
                 </p>
               )}
             </Field>

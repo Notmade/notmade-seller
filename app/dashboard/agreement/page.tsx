@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { api, downloadAgreement, fmtDate, type SignedAgreement } from "../../lib/seller-api";
+import { api, downloadAgreement, fmtTimestamp, type SignedAgreement } from "../../lib/seller-api";
 import { useDashboardSeller, useReloadSeller } from "../seller-context";
 import { Alert, Button, Card, PageHeader, PageSkeleton, RED } from "../../components/portal-ui";
-import { AgreementDocument, AgreementSigner, Pill } from "../../components/AgreementSigner";
+import { AgreementDocument, AgreementSigner } from "../../components/AgreementSigner";
 
 export default function AgreementPage() {
   const seller = useDashboardSeller();
@@ -43,19 +43,7 @@ export default function AgreementPage() {
               The NOTMADE Seller Agreement has been updated to version <strong>{status.required_version}</strong> (you signed {status.signed_version}).
               Please review and sign it. Until you do, you can&apos;t add or edit products; your live products and existing orders are not affected.
             </Alert>
-            <AgreementSigner
-              seller={seller}
-              title={seller.seller_country === "AE" ? "NOTMADE Seller Agreement — UAE" : "NOTMADE Seller Agreement"}
-              load={api.agreement}
-              sign={api.signAgreement}
-              onSigned={onSigned}
-              pills={a => (
-                <>
-                  <Pill>Commission {a.commission_rate}%</Pill>
-                  <Pill>Seller-controlled pricing</Pill>
-                </>
-              )}
-            />
+            <AgreementSigner seller={seller} load={api.agreement} sign={api.signAgreement} onSigned={onSigned} />
           </>
         )}
 
@@ -69,7 +57,7 @@ export default function AgreementPage() {
               <div style={{ minWidth: 0 }}>
                 <h2 style={{ fontSize: 15, fontWeight: 800, color: "#111111" }}>{a.title}</h2>
                 <p style={{ fontSize: 13, color: "#888888", marginTop: 2 }}>
-                  Version {a.version} · signed by {a.signer_name} on {fmtDate(a.signed_at)}
+                  Version {a.version} · signed by {a.signer_name} on {fmtTimestamp(a.signed_at)}
                 </p>
               </div>
               <div style={{ display: "flex", gap: 8 }}>

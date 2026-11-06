@@ -2,6 +2,7 @@
 // routes/seller.js so a seller hears about a typo before the form is sent.
 
 import type { SellerCountryCode } from "./currency";
+import type { FulfilmentMode } from "./rate-card";
 
 const IN_MOBILE = /^[6-9]\d{9}$/;
 const IN_PINCODE = /^[1-9]\d{5}$/;
@@ -38,7 +39,7 @@ export interface DetailsInput {
   state: string; pincode: string; gst_registered: "" | "yes" | "no"; gstin: string; pan_number: string; aadhaar_number: string;
   emirate: string; trade_licence_number: string; trn: string; uae_id_type: "" | "emirates_id" | "passport";
   emirates_id_number: string; iban: string;
-  electronics_fulfilment: "" | "seller" | "notmade";
+  default_fulfilment_mode: "" | FulfilmentMode;
 }
 
 export type DetailsErrors = Partial<Record<keyof DetailsInput, string>>;
@@ -77,6 +78,25 @@ export function validateDetails(country: SellerCountryCode, f: DetailsInput): De
   if (!f.uae_id_type) e.uae_id_type = "Choose an identity document.";
   if (f.uae_id_type === "emirates_id" && !EMIRATES_ID.test(f.emirates_id_number)) e.emirates_id_number = "Emirates ID is 15 digits starting with 784.";
   if (!ibanValid(f.iban)) e.iban = "Enter a valid UAE IBAN: AE followed by 21 digits.";
-  if (!f.electronics_fulfilment) e.electronics_fulfilment = "Choose who ships your electronics orders.";
+  if (!f.default_fulfilment_mode) e.default_fulfilment_mode = "Choose who ships your phones and laptops.";
+  return e;
+}
+
+const BANK_ACCOUNT = /^\d{9,18}$/;
+const IFSC = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+export interface BankInput { account_holder_name: string; bank_name: string; account_number: string; ifsc: string; iban: string }
+export type BankErrors = Partial<Record<keyof BankInput, string>>;
+
+/** Same rules as PUT /seller/bank-details. */
+export function validateBank(country: SellerCountryCode, f: BankInput): BankErrors {
+  const e: BankErrors = {};
+  if (country === "AE") {
+    if (!ibanValid(f.iban)) e.iban = "Enter a valid UAE IBAN: AE followed by 21 digits.";
+    return e;
+  }
+  if (f.account_holder_name.trim().length < 2) e.account_holder_name = "Enter the account holder name.";
+  if (!BANK_ACCOUNT.test(f.account_number.replace(/[\s-]/g, ""))) e.account_number = "Enter an account number of 9 to 18 digits.";
+  if (!IFSC.test(f.ifsc.trim().toUpperCase())) e.ifsc = "Enter a valid IFSC, e.g. HDFC0001234.";
   return e;
 }
