@@ -50,7 +50,7 @@ export function buildLlmsTxt(): string {
 
 ## Companies
 - India: ${ENTITY_BY_COUNTRY.IN.name}, ${ENTITY_BY_COUNTRY.IN.registeredOffice}. ${ENTITY_BY_COUNTRY.IN.law}.
-- UAE: ${ENTITY_BY_COUNTRY.AE.name}, ${ENTITY_BY_COUNTRY.AE.registeredOffice}. ${ENTITY_BY_COUNTRY.AE.law}.
+- UAE: ${ENTITY_BY_COUNTRY.AE.name}. ${ENTITY_BY_COUNTRY.AE.law}.
 
 ## Main pages
 ${main.map(link).join("\n")}

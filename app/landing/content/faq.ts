@@ -123,7 +123,7 @@ export const SELLER_FAQ: FaqGroup[] = [
     items: [
       {
         q: "Who is my contract with?",
-        a: `India-based sellers contract with ${ENTITY_BY_COUNTRY.IN.name} in India, under the laws of India. UAE-based sellers contract with ${ENTITY_BY_COUNTRY.AE.name} in Ajman, under UAE law. You read and sign the agreement in your panel before your account is reviewed.`,
+        a: `India-based sellers contract with ${ENTITY_BY_COUNTRY.IN.name} in India, under the laws of India. UAE-based sellers contract with ${ENTITY_BY_COUNTRY.AE.name}, under UAE law. You read and sign the agreement in your panel before your account is reviewed.`,
       },
       {
         q: "How do I stop selling?",

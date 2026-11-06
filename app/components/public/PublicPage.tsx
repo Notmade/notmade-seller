@@ -79,8 +79,8 @@ export function EntityDetails({ entity, agreement }: { entity: Entity; agreement
   return (
     <dl className="n-dl">
       <div><dt>Company</dt><dd>{entity.name}</dd></div>
-      {entity.ids.map((id) => <div key={id.label}><dt>{id.label}</dt><dd>{id.value}</dd></div>)}
-      <div><dt>Registered office</dt><dd>{entity.registeredOffice}</dd></div>
+      {entity.ids?.map((id) => <div key={id.label}><dt>{id.label}</dt><dd>{id.value}</dd></div>)}
+      {entity.registeredOffice && <div><dt>Registered office</dt><dd>{entity.registeredOffice}</dd></div>}
       <div><dt>Phone</dt><dd><a href={`tel:${entity.phone.replace(/\s/g, "")}`}>{entity.phone}</a></dd></div>
       <div><dt>Store</dt><dd><a href={entity.store}>{entity.store.replace(/^https?:\/\//, "")}</a></dd></div>
       <div><dt>Agreement</dt><dd>{agreement}</dd></div>
