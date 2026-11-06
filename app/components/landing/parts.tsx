@@ -82,7 +82,7 @@ export function Calculator({ rates, currency, defaultPrice, note }: {
   return (
     <div className="n-calc nr">
       {rates.length > 1 && (
-        <div className="n-calc-pick" role="group" aria-label="Rate">
+        <div className={rates.length > 3 ? "n-calc-pick n-calc-pick-grid" : "n-calc-pick"} role="group" aria-label="Rate">
           {rates.map((r, i) => (
             <button key={r.label} type="button" aria-pressed={i === picked} onClick={() => setPicked(i)}>{r.label}</button>
           ))}

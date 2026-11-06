@@ -78,7 +78,6 @@ export function validateDetails(country: SellerCountryCode, f: DetailsInput): De
   if (!f.uae_id_type) e.uae_id_type = "Choose an identity document.";
   if (f.uae_id_type === "emirates_id" && !EMIRATES_ID.test(f.emirates_id_number)) e.emirates_id_number = "Emirates ID is 15 digits starting with 784.";
   if (!ibanValid(f.iban)) e.iban = "Enter a valid UAE IBAN: AE followed by 21 digits.";
-  if (!f.default_fulfilment_mode) e.default_fulfilment_mode = "Choose who ships your phones and laptops.";
   return e;
 }
 

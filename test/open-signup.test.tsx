@@ -9,7 +9,8 @@ import { BankDetailsCard, PayoutBlockedNotice } from "@/app/components/BankDetai
 import UaeLanding from "@/app/components/landing/UaeLanding";
 import { SignupCountriesProvider } from "@/app/components/market";
 import OnboardingPage from "@/app/onboarding/page";
-import { api, ApiError, type Agreement, type CommissionRates, type Seller } from "@/app/lib/seller-api";
+import { api, ApiError, clearSession, type Agreement, type CommissionRates, type Seller } from "@/app/lib/seller-api";
+import { SELL_CATEGORIES_KEY, UNASKED_FULFILMENT_MODE, fulfilmentModeToSend, loadSellCategories, saveSellCategories } from "@/app/lib/sell-categories";
 import { categoryRate, listingRate, rateCardLines, usableCard, whoShipsChangesRate, whoShipsRate, type RateCard } from "@/app/lib/rate-card";
 import { validateBank } from "@/app/lib/validate";
 
@@ -28,6 +29,17 @@ const AE_V2: RateCard = {
   version: "AE-2026-11-v2", effective_from: "2026-11-06T13:56:00.612317+00:00",
   groups: [
     { key: "phones_laptops", label: "Mobile phones & laptops", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 12 }] },
+    { key: "handmade", label: "Handmade products", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 14 }] },
+    { key: "default", label: "Apparel & all other categories", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 17 }] },
+  ],
+};
+const AE_V3: RateCard = {
+  version: "AE-2026-11-v3", effective_from: "2026-11-06T18:30:29.87542+00:00",
+  groups: [
+    { key: "phones_laptops", label: "Mobile phones & laptops", shipping_included: false, rates: [
+      { fulfilment_mode: "seller_ships", pct: 12, commission_pct: 12, shipping_charge_pct: 0 },
+      { fulfilment_mode: "notmade_ships", pct: 13.5, commission_pct: 12, shipping_charge_pct: 1.5 },
+    ] },
     { key: "handmade", label: "Handmade products", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 14 }] },
     { key: "default", label: "Apparel & all other categories", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 17 }] },
   ],
@@ -65,15 +77,23 @@ function renderOnboarding() {
 
 const type = (id: string, value: string) => fireEvent.change(document.getElementById(id)!, { target: { value } });
 
-async function fillUaeForm() {
+async function toRateStep() {
+  renderOnboarding();
   fireEvent.click(screen.getByRole("button", { name: /UAE/ }));
-  await screen.findByRole("heading", { name: "Your commission rate card" });
+  await screen.findByRole("heading", { name: "What do you sell?" });
+}
+
+async function fillUaeForm(categories: string[], whoShips?: RegExp) {
+  await toRateStep();
+  for (const label of categories) fireEvent.click(screen.getByLabelText(label));
+  if (whoShips) fireEvent.click(screen.getByLabelText(whoShips));
+  fireEvent.click(screen.getByRole("button", { name: /^Continue/ }));
   for (const [id, v] of [["legal_name", "Test Brand LLC"], ["business_name", "Test Brand"], ["contact_name", "Test Person"], ["phone", "501234567"], ["address_line", "1 Test Street"],
     ["city", "Ajman"], ["emirate", "Ajman"], ["trade_licence_number", "cn-1234567"], ["iban", "AE07 0331 2345 6789 0123 456"]]) type(id, v);
   fireEvent.click(screen.getByLabelText("Passport"));
 }
 
-beforeEach(() => { nav.seller = null; nav.replace.mockClear(); });
+beforeEach(() => { nav.seller = null; nav.replace.mockClear(); localStorage.clear(); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe("rate cards come from the backend only", () => {
@@ -112,57 +132,151 @@ describe("rate cards come from the backend only", () => {
 });
 
 describe("UAE registration", () => {
-  it("shows the live rates, and the who-ships choice with its rate", async () => {
+  const continueBtn = () => screen.getByRole("button", { name: /^Continue/ }) as HTMLButtonElement;
+  const pick = (label: string | RegExp) => fireEvent.click(screen.getByLabelText(label));
+
+  it("asks what the seller sells first, and Continue waits for at least one", async () => {
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
+    await toRateStep();
+    expect(document.getElementById("trade_licence_number")).toBeNull();
+    expect(continueBtn().disabled).toBe(true);
+    expect(screen.queryByText("Who ships your phones and laptops?")).toBeNull();
+    pick("Handmade products");
+    expect(continueBtn().disabled).toBe(false);
+    pick("Handmade products");
+    expect(continueBtn().disabled).toBe(true);
+  });
+
+  it("shows the live rate of each chosen category only", async () => {
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates({ ...AE_V3, groups: AE_V3.groups.map(g => g.key === "handmade" ? { ...g, rates: [{ fulfilment_mode: null, pct: 15.5 }] } : g) }));
+    await toRateStep();
+    expect(document.body.textContent).not.toMatch(/\d+%/);
+    pick("Handmade products");
+    expect(document.querySelector("ul[aria-live]")!.textContent).toBe("Handmade products15.5%");
+    pick("Apparel and all other categories");
+    expect(document.querySelector("ul[aria-live]")!.textContent).toContain("Apparel and all other categories17%");
+    expect(document.body.textContent).not.toContain("13.5%");
+  });
+
+  it("asks who ships only for phones and laptops, with both live options, and Continue waits for the answer", async () => {
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
+    await toRateStep();
+    pick("Mobile phones and laptops");
+    expect(screen.getByText("Who ships your phones and laptops?")).toBeTruthy();
+    expect(document.querySelector("ul[aria-live]")!.textContent).toContain("12% if you ship, 13.5% if NOTMADE ships");
+    expect(screen.getByText(/You can change this until you sign your agreement\./)).toBeTruthy();
+    expect(continueBtn().disabled).toBe(true);
+    screen.getByLabelText(/^I ship, 12%/);
+    pick("NOTMADE ships, 13.5% (12% + 1.5% NOTMADE shipping charge, flat, no VAT added)");
+    expect(document.querySelector("ul[aria-live]")!.textContent).toBe("Mobile phones and laptops13.5%");
+    expect(continueBtn().disabled).toBe(false);
+    pick(/^I ship, 12%/);
+    expect(document.querySelector("ul[aria-live]")!.textContent).toBe("Mobile phones and laptops12%");
+  });
+
+  it("forgets who ships when phones and laptops are dropped, and asks again if they come back", async () => {
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
+    await toRateStep();
+    pick("Mobile phones and laptops");
+    pick(/^I ship, 12%/);
+    pick("Mobile phones and laptops");
+    expect(screen.queryByText("Who ships your phones and laptops?")).toBeNull();
+    pick("Mobile phones and laptops");
+    expect((screen.getByLabelText(/^I ship, 12%/) as HTMLInputElement).checked).toBe(false);
+    expect(continueBtn().disabled).toBe(true);
+  });
+
+  it("reads a card with one phones rate", async () => {
     vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V2));
-    renderOnboarding();
-    fireEvent.click(screen.getByRole("button", { name: /UAE/ }));
-    await screen.findByText("Mobile phones & laptops");
-    expect(screen.getByText("Apparel & all other categories")).toBeTruthy();
-    fireEvent.click(screen.getByLabelText(/NOTMADE ships · 12%/));
-    expect(screen.getByText(/Your rate for mobile phones & laptops: 12%\. Who ships does not change it\./)).toBeTruthy();
-    expect(screen.getByLabelText(/I ship · 12%/)).toBeTruthy();
+    await toRateStep();
+    pick("Mobile phones and laptops");
+    expect(screen.getByLabelText(/^NOTMADE ships, 12%/)).toBeTruthy();
+    expect(document.body.textContent).not.toContain("shipping charge");
   });
 
   it("states no rate when the card cannot be read, and still asks who ships", async () => {
     vi.spyOn(api, "commissionRates").mockRejectedValue(new ApiError(500, "down", {}));
-    renderOnboarding();
-    fireEvent.click(screen.getByRole("button", { name: /UAE/ }));
-    await screen.findByText(/set out in your agreement/);
+    await toRateStep();
+    pick("Mobile phones and laptops");
+    expect(screen.getByText(/set out in your agreement/)).toBeTruthy();
     expect(screen.getByLabelText(/I ship/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/\d+%/);
   });
 
-  it("requires who ships before anything is sent", async () => {
-    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V2));
-    const signup = vi.spyOn(api, "signup");
-    renderOnboarding();
-    await fillUaeForm();
-    fireEvent.click(screen.getByRole("button", { name: /Save & continue/ }));
-    expect(await screen.findByText("Choose who ships your phones and laptops.")).toBeTruthy();
-    expect(signup).not.toHaveBeenCalled();
-  });
-
-  it("sends the contract's fields: default_fulfilment_mode, and no field of the old card", async () => {
-    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V2));
+  it("sends the chosen who ships, and no field the contract does not have", async () => {
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
     const signup = vi.spyOn(api, "signup").mockRejectedValue(new ApiError(400, "stop here", {}));
-    renderOnboarding();
-    await fillUaeForm();
-    fireEvent.click(screen.getByLabelText(/I ship/));
+    await fillUaeForm(["Mobile phones and laptops", "Handmade products"], /^I ship, 12%/);
     fireEvent.click(screen.getByRole("button", { name: /Save & continue/ }));
     await waitFor(() => expect(signup).toHaveBeenCalled());
     const body = signup.mock.calls[0][0];
     expect(body).toMatchObject({ seller_country: "AE", default_fulfilment_mode: "seller_ships", iban: "AE070331234567890123456", trade_licence_number: "CN-1234567", uae_id_type: "passport", emirate: "Ajman" });
-    expect(body).not.toHaveProperty("electronics_fulfilment");
-    expect(body).not.toHaveProperty("gstin");
+    for (const field of ["electronics_fulfilment", "gstin", "categories", "sell_category"]) expect(body).not.toHaveProperty(field);
+    expect(loadSellCategories()).toEqual(["phones_laptops", "handmade"]);
   });
 
-  it("brings the chosen mode back when a seller re-opens their details", async () => {
-    nav.seller = { ...seller, seller_country: "AE", onboarding_status: "pending_agreement", default_fulfilment_mode: "notmade_ships" };
-    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V2));
+  it("sends the backend's own fallback for a seller without phones, because sign-up refuses none", async () => {
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
+    const signup = vi.spyOn(api, "signup").mockRejectedValue(new ApiError(400, "stop here", {}));
+    await fillUaeForm(["Handmade products"]);
+    expect(screen.getByText(/You sell:/).parentElement!.textContent).toContain("Handmade products");
+    fireEvent.click(screen.getByRole("button", { name: /Save & continue/ }));
+    await waitFor(() => expect(signup).toHaveBeenCalled());
+    expect(signup.mock.calls[0][0].default_fulfilment_mode).toBe(UNASKED_FULFILMENT_MODE);
+    expect(UNASKED_FULFILMENT_MODE).toBe("notmade_ships");
+  });
+
+  it("goes back to the rate step from the details form with the choices kept", async () => {
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
+    await fillUaeForm(["Mobile phones and laptops"], /^I ship, 12%/);
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(((await screen.findByLabelText(/^I ship, 12%/)) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("brings a phones seller's answer back when they re-open their details", async () => {
+    saveSellCategories(["phones_laptops"]);
+    nav.seller = { ...seller, seller_country: "AE", onboarding_status: "pending_agreement", default_fulfilment_mode: "seller_ships" };
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
     vi.spyOn(api, "onboardingStatus").mockResolvedValue({ next_step: "details", onboarding_status: "pending_agreement" } as never);
     renderOnboarding();
-    const choice = await screen.findByLabelText(/NOTMADE ships · 12%/);
-    expect((choice as HTMLInputElement).checked).toBe(true);
+    fireEvent.click(await screen.findByRole("button", { name: "Change" }));
+    expect(((await screen.findByLabelText(/^I ship, 12%/)) as HTMLInputElement).checked).toBe(true);
+  });
+
+  it("never shows a value the seller was not asked for as their answer", async () => {
+    nav.seller = { ...seller, seller_country: "AE", onboarding_status: "pending_agreement", default_fulfilment_mode: "notmade_ships" };
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
+    vi.spyOn(api, "onboardingStatus").mockResolvedValue({ next_step: "details", onboarding_status: "pending_agreement" } as never);
+    renderOnboarding();
+    fireEvent.click(await screen.findByLabelText("Mobile phones and laptops"));
+    expect((screen.getByLabelText(/^NOTMADE ships, 13\.5%/) as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("leaves a stored answer alone when phones and laptops are not chosen", () => {
+    expect(fulfilmentModeToSend(["handmade"], "", "seller_ships")).toBeUndefined();
+    expect(fulfilmentModeToSend(["handmade"], "", null)).toBe("notmade_ships");
+    expect(fulfilmentModeToSend(["phones_laptops"], "seller_ships", "notmade_ships")).toBe("seller_ships");
+  });
+
+  it("shows a locked seller their answer on another device, read-only", async () => {
+    nav.seller = { ...seller, seller_country: "AE", onboarding_status: "pending_review", default_fulfilment_mode: "seller_ships" };
+    vi.spyOn(api, "commissionRates").mockResolvedValue(rates(AE_V3));
+    vi.spyOn(api, "onboardingStatus").mockResolvedValue({ next_step: "details", onboarding_status: "pending_review" } as never);
+    renderOnboarding();
+    const choice = await screen.findByLabelText(/^I ship, 12%/) as HTMLInputElement;
+    expect(choice.checked).toBe(true);
+    expect(choice.closest("fieldset")!.disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: /^Continue/ })).toBeNull();
+  });
+
+  it("keeps stored categories valid, and clears them with the session", () => {
+    localStorage.setItem(SELL_CATEGORIES_KEY, JSON.stringify(["handmade", "nonsense"]));
+    expect(loadSellCategories()).toEqual(["handmade"]);
+    localStorage.setItem(SELL_CATEGORIES_KEY, "{not json");
+    expect(loadSellCategories()).toEqual([]);
+    saveSellCategories(["default"]);
+    clearSession();
+    expect(loadSellCategories()).toEqual([]);
   });
 });
 
@@ -222,6 +336,11 @@ describe("agreement", () => {
     const pills = agreementPills(agreement());
     expect(pills).toEqual(["Phones and laptops 12%", "Handmade 14%", "All other categories 17%", "Phones and laptops: I ship", "Seller-controlled pricing"]);
     expect(pills.join()).not.toContain("null");
+  });
+
+  it("leaves phones and laptops out for a seller who does not sell them, as they never chose who ships", () => {
+    const pills = agreementPills(agreement({ commission_terms: { ...agreement().commission_terms!, default_fulfilment_mode: "notmade_ships", phones_laptops: 13.5 } }), true);
+    expect(pills).toEqual(["Handmade 14%", "All other categories 17%", "Seller-controlled pricing"]);
   });
 
   it("handles every other shape of the terms", () => {

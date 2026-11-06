@@ -7,7 +7,7 @@ import india from "@/app/landing/content/in";
 import uae from "@/app/landing/content/ae";
 import { DEFAULT_MODE, selectMode } from "@/app/landing/content";
 import { flipScript } from "@/app/components/landing/flip";
-import { uaePaymentOptions, withLiveStandardRate, type StorePaymentConfig } from "@/app/lib/landing-data";
+import { uaePaymentOptions, withLiveStandardRate, withLiveWhoShipsRates, type StorePaymentConfig } from "@/app/lib/landing-data";
 import { COMMISSION_STATEMENT_INDIA } from "@/app/lib/seller-config";
 
 const LIVE_CONFIG: StorePaymentConfig = {
@@ -217,9 +217,23 @@ describe("UAE payment options", () => {
 });
 
 describe("rates", () => {
+  it("shows both phones and laptops rates on /uae, and nothing new for India", () => {
+    const html = renderToStaticMarkup(<UaeLanding payments={LIVE_CONFIG} signupOpen />);
+    expect(html).toContain("<strong>12%</strong><span>Mobile phones and laptops, you ship</span>");
+    expect(html).toContain("<strong>13.5%</strong><span>Mobile phones and laptops, NOTMADE ships</span>");
+    expect(renderToStaticMarkup(<IndiaLanding />)).not.toContain("13.5%");
+  });
+
+  it("prices both phones lines from the live card, and keeps the page's lines without one", () => {
+    const card = { groups: [{ key: "phones_laptops", label: "x", shipping_included: false, rates: [{ fulfilment_mode: "seller_ships" as const, pct: 11 }, { fulfilment_mode: "notmade_ships" as const, pct: 12.5 }] }] };
+    expect(withLiveWhoShipsRates(uae.rates, card).map((r) => r.pct)).toEqual([11, 12.5, 14, 17]);
+    expect(withLiveWhoShipsRates(uae.rates, null)).toEqual(uae.rates);
+    expect(withLiveWhoShipsRates(uae.rates, { groups: [{ ...card.groups[0], rates: [{ fulfilment_mode: null, pct: 12 }] }] })).toEqual(uae.rates);
+  });
+
   it("are the published ones", () => {
     expect(india.rates.map((r) => r.pct)).toEqual([15, 17]);
-    expect(uae.rates.map((r) => r.pct)).toEqual([12, 14, 17]);
+    expect(uae.rates.map((r) => r.pct)).toEqual([12, 13.5, 14, 17]);
   });
 
   it("ignore a bad live value", () => {

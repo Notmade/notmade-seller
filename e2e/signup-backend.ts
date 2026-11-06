@@ -7,8 +7,11 @@ export type Country = "IN" | "AE";
 
 const LIVE_RATES = {
   india_pct: 17, uae_local_pct: 17,
-  uae_rate_card: { version: "AE-2026-11-v2", effective_from: "2026-11-06T13:56:00.612317+00:00", groups: [
-    { key: "phones_laptops", label: "Mobile phones & laptops", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 12 }] },
+  uae_rate_card: { version: "AE-2026-11-v3", effective_from: "2026-11-06T18:30:29.87542+00:00", groups: [
+    { key: "phones_laptops", label: "Mobile phones & laptops", shipping_included: false, rates: [
+      { fulfilment_mode: "seller_ships", pct: 12, label: "You ship", commission_pct: 12, shipping_charge_pct: 0, shipping_charge_label: null },
+      { fulfilment_mode: "notmade_ships", pct: 13.5, label: "NOTMADE ships", commission_pct: 12, shipping_charge_pct: 1.5, shipping_charge_label: "NOTMADE shipping charge 1.5%" },
+    ] },
     { key: "handmade", label: "Handmade products", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 14 }] },
     { key: "default", label: "Apparel & all other categories", shipping_included: false, rates: [{ fulfilment_mode: null, pct: 17 }] },
   ] },
@@ -23,11 +26,11 @@ const filler = Array.from({ length: 40 }, (_, i) => `<p>Clause ${i + 1}. Agreeme
 
 const AGREEMENT: Record<Country, { version: string; title: string; html: string; plain_text: string; commission_rate: null; includes_uae_clause: boolean; commission_terms: Record<string, unknown> }> = {
   AE: {
-    version: "uae-local-v3", title: "NOTMADE Seller Agreement — UAE",
+    version: "uae-local-v4", title: "NOTMADE Seller Agreement — UAE",
     html: `<h1>SELLER AGREEMENT — UAE</h1><p><strong>HOUSE OF NOTMADE STUDIO FZE LLC</strong><br/>Licence / Registration No: 2628021907888</p>${filler}`,
     plain_text: "SELLER AGREEMENT — UAE\nHOUSE OF NOTMADE STUDIO FZE LLC\nLicence / Registration No: 2628021907888\n",
     commission_rate: null, includes_uae_clause: true,
-    commission_terms: { basis: "rate_card", version: "AE-2026-11-v2", effective_from: LIVE_RATES.uae_rate_card.effective_from, pct: null, rates: {}, default_fulfilment_mode: "seller_ships", phones_laptops: 12, handmade: 14, default: 17 },
+    commission_terms: { basis: "rate_card", version: "AE-2026-11-v3", effective_from: LIVE_RATES.uae_rate_card.effective_from, pct: null, rates: {}, default_fulfilment_mode: "seller_ships", phones_laptops: 12, phones_laptops_rates: { seller_ships: 12, notmade_ships: 13.5 }, notmade_shipping_charge_pct: 1.5, handmade: 14, default: 17 },
   },
   IN: {
     version: "in-v3", title: "NOTMADE Seller Agreement",

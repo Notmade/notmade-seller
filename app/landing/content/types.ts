@@ -7,7 +7,11 @@ export interface Item { title: string; desc: string }
 export interface Fact { value: string; label: string }
 
 /** One line of the commission card. `standard` is the rate for everything without its own line. */
-export interface RateRow { key: string; label: string; short: string; pct: number }
+export interface RateRow {
+  key: string; label: string; short: string; pct: number;
+  /** Set on a line that only applies when this party ships. The live rate card prices it by this. */
+  mode?: "seller_ships" | "notmade_ships";
+}
 
 /** The company a seller contracts with. */
 export interface Entity {
