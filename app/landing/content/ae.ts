@@ -1,6 +1,6 @@
 // UAE seller page. Only UAE facts live here. The legal entity comes from the backend UAE agreement;
 // rates come from app/lib/rate-card.ts and are never written into this copy.
-import { LEGAL_ENTITY_UAE, UAE_SITE_URL } from "@/app/lib/seller-config";
+import { LEGAL_ENTITY_UAE, UAE_SITE_URL, UAE_SUPPORT_EMAIL } from "@/app/lib/seller-config";
 import { AED } from "@/app/lib/currency";
 import type { Item, PageContent } from "./types";
 
@@ -84,10 +84,14 @@ const uae: PageContent = {
 };
 
 export const WAITLIST = {
-  label: "Join the waitlist",
+  /** The sign-up button while registration is closed. It only scrolls to the email form. */
+  cta: "Registrations opening soon",
+  label: "Notify me",
   note: "Seller registration is opening soon. This adds your email to the seller waitlist; it is not an application.",
   done: "You're on the seller waitlist. We will email you when registration opens.",
   market: "ae",
+  contact: UAE_SUPPORT_EMAIL,
+  final: { title: "Registrations opening soon.", sub: "Leave your email and we will tell you when UAE seller registration opens." },
 } as const;
 
 export default uae;

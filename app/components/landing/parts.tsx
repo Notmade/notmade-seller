@@ -85,7 +85,7 @@ export function Faq({ items, open = false }: { items: { q: string; a: string }[]
   );
 }
 
-export function WaitlistForm({ label, note, done, market }: { label: string; note: string; done: string; market: string }) {
+export function WaitlistForm({ label, note, done, market }: { label: string; note: React.ReactNode; done: string; market: string }) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "busy" | "done" | "error">("idle");
   const [msg, setMsg] = useState("");

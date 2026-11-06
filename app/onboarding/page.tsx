@@ -9,10 +9,10 @@ import {
 import { useSeller } from "../lib/useSeller";
 import { Alert, Button, Card, Field, PageSkeleton, RED, Skeleton, Spinner } from "../components/portal-ui";
 import { AgreementSigner, Pill } from "../components/AgreementSigner";
-import { CountryBadge, Flag, Waitlist, useMarket } from "../components/market";
+import { CountryBadge, Flag, Waitlist, useMarket, useSignupOpen } from "../components/market";
 import { MARKETS, SETTLEMENT_DAYS, marketForCountry, type Market, type MarketCode } from "@/src/config/markets";
 import { sellerCountry } from "../lib/currency";
-import { COMMISSION_PCT_INDIA } from "../lib/seller-config";
+import { COMMISSION_STATEMENT_INDIA } from "../lib/seller-config";
 import {
   FULFILMENT_LABEL, electronicsRate, resolveRateCard, type ElectronicsFulfilment, type UaeRateCard,
 } from "../lib/rate-card";
@@ -195,6 +195,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
   seller: Seller | null; onSaved: () => Promise<void>; readOnly?: boolean; market: Market; onMarket: (code: MarketCode) => void;
 }) {
   // A new seller answers the country first; an existing seller's country never changes here
+  const signupOpen = useSignupOpen();
   const [f, setF] = useState<DetailsForm>(() => fromSeller(seller));
   // After a failed submit, messages clear as each field is fixed
   const [tried, setTried] = useState(false);
@@ -208,7 +209,9 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
   };
 
   const chosen = f.seller_country ? marketForCountry(f.seller_country) : undefined;
-  const blocked = !!chosen && !chosen.open && !readOnly;
+  // No seller row yet means this submit creates one, so it needs the country open for sign-ups
+  const canContinue = !!chosen && (seller ? chosen.open : signupOpen(chosen));
+  const blocked = !!chosen && !canContinue && !readOnly;
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -220,7 +223,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!f.seller_country) return;
+    if (!f.seller_country || blocked) return;
     const problems = validateDetails(f.seller_country, f);
     setTried(true);
     setError(""); setErrors([]);
@@ -286,7 +289,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
               </button>
             )}
           </section>
-          {chosen && chosen.open && (f.seller_country === "AE"
+          {canContinue && (f.seller_country === "AE"
             ? <UaeRateStep value={f.electronics_fulfilment} error={fe.electronics_fulfilment} onChange={v => setF(p => ({ ...p, electronics_fulfilment: v }))} />
             : <IndiaTerms />)}
 
@@ -494,6 +497,7 @@ function UaeDetailsFields({ f, setF, set, fe }: {
 
 /** Step zero for a new seller: the country decides everything that follows. */
 function CountryStep({ market, onChoose }: { market: Market; onChoose: (m: Market) => void }) {
+  const signupOpen = useSignupOpen();
   return (
     <Card>
       <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>Where is your business based?</h2>
@@ -504,7 +508,7 @@ function CountryStep({ market, onChoose }: { market: Market; onChoose: (m: Marke
             <Flag market={m} size={22} />
             <span>
               <strong>{m.name}</strong>
-              <small>{m.open ? `Prices and payouts in ${m.currency}` : "Waitlist only for now"}</small>
+              <small>{signupOpen(m) ? `Prices and payouts in ${m.currency}` : "Registrations opening soon"}</small>
             </span>
           </button>
         ))}
@@ -516,7 +520,7 @@ function CountryStep({ market, onChoose }: { market: Market; onChoose: (m: Marke
 function IndiaTerms() {
   return (
     <div style={{ padding: "12px 14px", borderRadius: 12, background: "#F6F6F6", fontSize: 14, lineHeight: 1.6, color: "#333333" }}>
-      <p><strong>Commission:</strong> flat {COMMISSION_PCT_INDIA}% commission, no other charges.</p>
+      <p><strong>Commission:</strong> {COMMISSION_STATEMENT_INDIA}</p>
       <p>Settlement within {SETTLEMENT_DAYS} days after your order is delivered, to your bank account in INR.</p>
     </div>
   );

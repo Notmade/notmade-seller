@@ -4,7 +4,7 @@
 
 import { AED } from "@/app/lib/currency";
 import {
-  COMMISSION_PCT_INDIA, ENTITY_BY_COUNTRY, MAIN_SITE_URL, MIN_PRODUCTS, NOTICE_DAYS_INDIA, NOTICE_DAYS_UAE,
+  COMMISSION_STATEMENT_INDIA, ENTITY_BY_COUNTRY, MAIN_SITE_URL, MIN_PRODUCTS, NOTICE_DAYS_INDIA, NOTICE_DAYS_UAE,
   RETURN_WINDOW_DAYS, REVIEW_HOURS, TERMINATION_SETTLEMENT_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS, UAE_SITE_URL,
 } from "@/app/lib/seller-config";
 import { getMarket } from "@/src/config/markets";
@@ -61,7 +61,7 @@ export const SELLER_FAQ: FaqGroup[] = [
     items: [
       {
         q: "What does it cost to sell on NOTMADE?",
-        a: `In India there is no listing fee and no monthly fee. NOTMADE takes a flat commission on the selling price of each delivered order. The standard India rate is ${COMMISSION_PCT_INDIA}%, and your exact rate is in your agreement before you sign. In the UAE, NOTMADE takes a commission on the ${AED} selling price of each delivered order. ${uaeRateSentence()}`,
+        a: `In India: ${COMMISSION_STATEMENT_INDIA} There is no listing fee and no monthly fee. The commission is on the selling price of each delivered order, and your exact rate is in your agreement before you sign. In the UAE, NOTMADE takes a commission on the ${AED} selling price of each delivered order. ${uaeRateSentence()}`,
       },
       {
         q: "What is deducted from my payout?",

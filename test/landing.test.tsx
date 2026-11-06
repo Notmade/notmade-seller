@@ -8,6 +8,7 @@ import uae from "@/app/landing/content/ae";
 import { DEFAULT_MODE, selectMode } from "@/app/landing/content";
 import { uaePaymentOptions, type ConfigPaymentMethod } from "@/app/lib/landing-data";
 import { resolveRateCard, UAE_RATE_CARD_FALLBACK } from "@/app/lib/rate-card";
+import { COMMISSION_STATEMENT_INDIA } from "@/app/lib/seller-config";
 
 const rates = resolveRateCard(null);
 const uaeHtml = (methods: ConfigPaymentMethod[] = [], signupOpen = true) =>
@@ -60,7 +61,10 @@ describe("India page", () => {
   const page = text(indiaHtml());
 
   it("states the commission word for word", () => {
-    expect(page).toContain("flat 17% commission, no other charges");
+    expect(page).toContain("Flat 17% commission. No hidden charges. GST on commission and TDS apply as per law.");
+    expect(india.meta.description).toContain(COMMISSION_STATEMENT_INDIA);
+    expect(india.faq.find((f) => f.q === "What does it cost?")?.a).toContain(COMMISSION_STATEMENT_INDIA);
+    expect(page).toContain("Before GST on commission and TDS.");
   });
 
   it("carries the required content", () => {
@@ -110,10 +114,20 @@ describe("UAE page", () => {
     expect(html).toContain("11%");
   });
 
-  it("shows the waitlist while sign-up is closed", () => {
-    const html = uaeHtml([], false);
-    expect(html).toContain("Join the waitlist");
-    expect(html).not.toContain("/login?market=ae&amp;apply=1");
+  it("keeps the rate card but offers only an email form and a contact while sign-up is closed", () => {
+    const html = text(uaeHtml([], false));
+    expect(html).toContain("Registrations opening soon");
+    expect(html).toContain('type="email"');
+    expect(html).toContain("mailto:care@notmade.in");
+    expect(html).toContain("Commission rate card.");
+    expect(html).toContain("AED 880.00");
+    expect(html).not.toMatch(/apply=1|Register to sell|Open your UAE seller account/);
+  });
+
+  it("offers sign-up once it is open", () => {
+    const html = uaeHtml([], true);
+    expect(html).toContain("/login?market=ae&amp;apply=1");
+    expect(html).not.toContain("Registrations opening soon");
   });
 });
 

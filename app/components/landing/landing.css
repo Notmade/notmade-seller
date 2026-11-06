@@ -187,6 +187,7 @@
 .n-wl input::placeholder { color: rgba(255,255,255,.45); }
 .n-wl input:focus { outline: none; border-color: #fff; }
 .n-wl-note { font-size: 13px; color: rgba(255,255,255,.6); }
+.n-wl-note a { color: #fff; text-decoration: underline; }
 .n-wl-err { font-size: 14px; color: #FF8A84; }
 .n-wl-done { max-width: 520px; padding: 14px 16px; border-radius: 12px; background: rgba(255,255,255,.08); }
 @media (min-width: 560px) { .n-wl { grid-template-columns: 1fr auto; } .n-wl-note, .n-wl-err { grid-column: 1 / -1; } }

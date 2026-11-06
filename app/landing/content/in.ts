@@ -1,15 +1,12 @@
 // India seller page. Only India facts live here.
 import {
-  COMMISSION_PCT_INDIA as PCT, LEGAL_ENTITY_INDIA, MAIN_SITE_URL, MIN_PRODUCTS, RETURN_WINDOW_DAYS,
+  COMMISSION_PCT_INDIA as PCT, COMMISSION_STATEMENT_INDIA as STATEMENT, LEGAL_ENTITY_INDIA, MAIN_SITE_URL, MIN_PRODUCTS, RETURN_WINDOW_DAYS,
   SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS,
 } from "@/app/lib/seller-config";
 import { INR, formatMoney } from "@/app/lib/currency";
 import type { Item, PageContent } from "./types";
 
 const host = MAIN_SITE_URL.replace(/^https?:\/\//, "");
-
-/** The commission line, word for word. */
-export const COMMISSION_LINE = `flat ${PCT}% commission, no other charges`;
 
 export const CATEGORIES = ["Fashion", "Accessories", "Home decor", "And many more categories"];
 
@@ -39,14 +36,14 @@ const india: PageContent = {
   label: "India",
   meta: {
     title: `Sell Across India on NOTMADE | Flat ${PCT}% Commission`,
-    description: `Sell fashion, accessories, home decor and many more categories across India on ${host}. Flat ${PCT}% commission, no other charges, with logistics and shipping support and INR payouts.`,
+    description: `Sell fashion, accessories, home decor and many more categories across India on ${host}. ${STATEMENT} Logistics and shipping support, and INR payouts.`,
   },
   hero: {
     kicker: "For brands in India",
     headline: ["Sell across", "India."],
-    sub: `Fashion, accessories, home decor and many more categories on ${host}, with a ${COMMISSION_LINE}.`,
+    sub: `Fashion, accessories, home decor and many more categories on ${host}. ${STATEMENT}`,
     proof: [
-      { value: `${PCT}%`, label: "flat commission, no other charges" },
+      { value: `${PCT}%`, label: "flat commission, no hidden charges" },
       { value: `${PAYOUT_DAYS}-day`, label: "INR payout after delivery" },
       { value: "3-hour", label: "delivery across Delhi NCR" },
     ],
@@ -64,7 +61,7 @@ const india: PageContent = {
   },
   faq: [
     { q: "What can I sell?", a: "Fashion, accessories, home decor and many more categories. You pick the category for each product when you list it." },
-    { q: "What does it cost?", a: `A ${COMMISSION_LINE}. Listing is free.` },
+    { q: "What does it cost?", a: `${STATEMENT} Listing is free.` },
     { q: "Who sets the price?", a: "You do. You set the INR price for each product you list." },
     { q: "How does shipping work?", a: "You pack the order and mark it ready in your panel. We support you with the AWB label and courier pickup." },
     { q: "How fast is delivery?", a: "3 hours across Delhi NCR between 9am and 6pm, and 3 to 5 days across the rest of India." },

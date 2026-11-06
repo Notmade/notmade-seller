@@ -35,6 +35,10 @@ The app is deployed on [Railway](https://railway.com). The database and file sto
 
 For more on deploying Next.js, see the [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying).
 
+## Seller sign-ups
+
+`SELLER_SIGNUP_COUNTRIES` (comma-separated, default `IN`, read at request time) lists the business countries open for new seller sign-ups. It is the same variable the backend reads. Set it on both services to open a country. Without `AE`, `/uae` shows the rate card and an email form, and login and onboarding will not start a UAE account. `NEXT_PUBLIC_SELLER_MARKETS_OPEN` cannot open sign-ups on its own.
+
 ## Backend gaps
 
 The panel works on the backend as it is. Features that need a route it does not serve are off, and `NEXT_PUBLIC_SELLER_FEATURES` (comma-separated, read at build time) turns them on. See `app/lib/features.ts`.

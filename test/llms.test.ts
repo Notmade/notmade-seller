@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { GET } from "@/app/llms.txt/route";
 import { PUBLIC_PAGES } from "@/app/lib/public-pages";
 import {
-  COMMISSION_PCT_INDIA, ENTITY_BY_COUNTRY, MAIN_SITE_URL, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY, SITE_URL, UAE_SITE_URL,
+  COMMISSION_STATEMENT_INDIA, ENTITY_BY_COUNTRY, MAIN_SITE_URL, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY, SITE_URL, UAE_SITE_URL,
 } from "@/app/lib/seller-config";
 
 describe("llms.txt", async () => {
@@ -23,7 +23,7 @@ describe("llms.txt", async () => {
   });
 
   it("quotes numbers from config, not hand-typed copies", () => {
-    expect(text).toContain(`standard rate is ${COMMISSION_PCT_INDIA}%`);
+    expect(text).toContain(COMMISSION_STATEMENT_INDIA);
     expect(text).toContain(`within ${SETTLEMENT_DAYS_AFTER_DELIVERY} days of confirmed delivery`);
     expect(text).toContain(`within ${RETURN_WINDOW_DAYS} days of delivery`);
   });

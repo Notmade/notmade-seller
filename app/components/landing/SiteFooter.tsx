@@ -4,7 +4,7 @@ import type { Cta, ModeCode } from "@/app/landing/content/types";
 export default function SiteFooter({ code, entity, login, primary, links }: {
   code?: ModeCode; entity: string; login: Cta; primary: Cta; links: Cta[];
 }) {
-  const legal = (page: string) => (code === "ae" ? `/uae/${page}` : code ? `/${page}?market=in` : `/${page}`);
+  const legal = (page: string) => (code === "ae" ? `/uae/${page}` : `/${page}`);
   const cols = [
     { title: "Sell", links: [primary, login, ...links] },
     { title: "Support", links: [
@@ -22,7 +22,7 @@ export default function SiteFooter({ code, entity, login, primary, links }: {
       <div className="n-wrap">
         <div className="n-foot-grid">
           <div className="n-foot-brand">
-            <a href={code === "ae" ? "/uae" : code ? "/?market=in" : "/"} className="n-logo n-logo-inv" aria-label="NOTMADE Seller home">NOT<span>MADE</span><small>Seller</small></a>
+            <a href={code === "ae" ? "/uae" : "/"} className="n-logo n-logo-inv" aria-label="NOTMADE Seller home">NOT<span>MADE</span><small>Seller</small></a>
             <p>Questions? <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a></p>
           </div>
           {cols.map((c) => (

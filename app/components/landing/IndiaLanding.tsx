@@ -1,7 +1,7 @@
-import india, { AGREEMENT, CATEGORIES, COMMISSION_LINE, PAYOUT, SUPPORT } from "@/app/landing/content/in";
+import india, { AGREEMENT, CATEGORIES, PAYOUT, SUPPORT } from "@/app/landing/content/in";
 import { faqLd, organizationLd, webPageLd } from "@/app/lib/seo";
 import { INR } from "@/app/lib/currency";
-import { COMMISSION_PCT_INDIA, LEGAL_ENTITY_INDIA, MAIN_SITE_URL } from "@/app/lib/seller-config";
+import { COMMISSION_PCT_INDIA, COMMISSION_STATEMENT_INDIA, LEGAL_ENTITY_INDIA, MAIN_SITE_URL } from "@/app/lib/seller-config";
 import { Calculator } from "./parts";
 import { Cards, FaqSection, FinalCta, Heading, Hero, Page, Points, Steps } from "./sections";
 
@@ -44,11 +44,11 @@ export default function IndiaLanding() {
           <div>
             <p className="n-eyebrow nr">Commission and payout</p>
             <h2 id="commission-h" className="n-h2 nr">One simple rate.</h2>
-            <p className="n-rate-line nr">You pay a {COMMISSION_LINE}.</p>
+            <p className="n-rate-line nr">{COMMISSION_STATEMENT_INDIA}</p>
             <Points items={PAYOUT.points} />
           </div>
           <Calculator rates={[{ label: "Commission", pct: COMMISSION_PCT_INDIA }]} currency={INR} defaultPrice={1999}
-            note={`${PAYOUT.title} ${AGREEMENT.body}`} />
+            note={`Before GST on commission and TDS. ${PAYOUT.title} ${AGREEMENT.body}`} />
         </div>
       </section>
 

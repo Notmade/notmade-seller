@@ -5,7 +5,7 @@ import { AED, INR } from "../lib/currency";
 import { loadUaeRateCard } from "../lib/landing-data";
 import { metadataFor } from "../lib/seo";
 import {
-  COMMISSION_PCT_INDIA, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS,
+  COMMISSION_PCT_INDIA, COMMISSION_STATEMENT_INDIA, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS,
 } from "../lib/seller-config";
 
 export const metadata = metadataFor("fees-and-payouts");
@@ -14,7 +14,7 @@ export const metadata = metadataFor("fees-and-payouts");
 const ROWS: { label: string; india: string; uae: string }[] = [
   {
     label: "Commission",
-    india: `A flat commission on the selling price, inclusive of applicable taxes, of each confirmed and delivered order. The standard India rate is ${COMMISSION_PCT_INDIA}%; your exact rate is in your agreement before you sign.`,
+    india: `${COMMISSION_STATEMENT_INDIA} The commission is on the selling price, inclusive of applicable taxes, of each confirmed and delivered order. Your exact rate is in your agreement before you sign.`,
     uae: `A commission on the ${AED} selling price of each confirmed and delivered order. ${uaeRateSentence()}`,
   },
   {

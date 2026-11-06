@@ -3,9 +3,9 @@
 import { Suspense, useEffect, useRef, useState, type ClipboardEvent, type FormEvent, type KeyboardEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError, clearSession, setToken } from "../lib/seller-api";
-import { CONTACT_EMAIL, LEGAL_ENTITY_INDIA, LEGAL_ENTITY_UAE } from "../lib/seller-config";
+import { CONTACT_EMAIL, LEGAL_ENTITY_INDIA, LEGAL_ENTITY_UAE, UAE_SUPPORT_EMAIL } from "../lib/seller-config";
 import { formatMoney } from "../lib/currency";
-import { Flag, MarketSwitcher, useMarket } from "../components/market";
+import { Flag, MarketSwitcher, useMarket, useSignupOpen } from "../components/market";
 import { MARKETS } from "@/src/config/markets";
 
 type Step = "email" | "otp";
@@ -70,9 +70,12 @@ function OtpBoxes({ value, onChange, onComplete, disabled, invalid }: {
 
 function Login() {
   const [market, setMarket] = useMarket();
+  const signupOpen = useSignupOpen();
   const router = useRouter();
   const params = useSearchParams();
   const applying = params.get("apply") === "1";
+  const registrationOpen = signupOpen(market);
+  const home = market.code === "ae" ? "/uae" : "/";
   // New sellers say where their business is before anything else
   const [countryPicked, setCountryPicked] = useState(!applying || !!params.get("market"));
   const [step, setStep] = useState<Step>("email");
@@ -107,6 +110,8 @@ function Login() {
         await api.sendOtp(cleanEmail, "login");
       } catch (err) {
         if (!(err instanceof ApiError && err.status === 404)) throw err;
+        // A closed country never gets a signup code, so no account starts here
+        if (!registrationOpen) { setError(`We could not find a seller account for this email. Registrations are opening soon in ${market.name}.`); return; }
         used = "signup";
         await api.sendOtp(cleanEmail, "signup");
       }
@@ -141,7 +146,7 @@ function Login() {
   return (
     <div className="lg">
       <aside className="lg-art" aria-hidden>
-        <a href={`/?market=${market.code}`} className="lg-logo">NOT<span>MADE</span><small>SELLER</small></a>
+        <a href={home} className="lg-logo">NOT<span>MADE</span><small>SELLER</small></a>
         <div className="lg-art-copy">
           <p className="lg-art-k">{market.code === "ae" ? "For UAE brands" : "For brands in India"}</p>
           <p className="lg-art-h">Make it.<br />We&apos;ll move it.</p>
@@ -163,7 +168,7 @@ function Login() {
 
       <main className="lg-main">
         <div className="lg-main-top">
-          <a href={`/?market=${market.code}`} className="lg-logo lg-logo-dark">NOT<span>MADE</span><small>SELLER</small></a>
+          <a href={home} className="lg-logo lg-logo-dark">NOT<span>MADE</span><small>SELLER</small></a>
           {countryPicked && <MarketSwitcher value={market} onChange={setMarket} />}
         </div>
 
@@ -178,10 +183,16 @@ function Login() {
                 {MARKETS.map(m => (
                   <button key={m.code} type="button" onClick={() => { setMarket(m.code); setCountryPicked(true); }}>
                     <Flag market={m} size={20} />
-                    <span><strong>{m.name}</strong><small>Prices and payouts in {m.currency}</small></span>
+                    <span><strong>{m.name}</strong><small>{signupOpen(m) ? `Prices and payouts in ${m.currency}` : "Registrations opening soon"}</small></span>
                   </button>
                 ))}
               </div>
+              <p className="lg-switch">Already selling with us? <a href="/login">Log in</a></p>
+            </>
+          ) : applying && !registrationOpen ? (
+            <>
+              <h1 className="lg-h">Registrations opening soon</h1>
+              <p className="lg-sub">Seller registration is not open in {market.name} yet. <a href={`${home}#start`}>Leave your email</a> and we will tell you when it opens, or write to <a href={`mailto:${UAE_SUPPORT_EMAIL}`}>{UAE_SUPPORT_EMAIL}</a>.</p>
               <p className="lg-switch">Already selling with us? <a href="/login">Log in</a></p>
             </>
           ) : step === "email" ? (
@@ -199,8 +210,8 @@ function Login() {
                   {sending ? <><span className="lg-spin" />Sending code…</> : "Send code"}
                 </button>
               </form>
-              {!market.open && (
-                <p className="lg-note">Registration is not open here yet. <a href={`/?market=${market.code}#start`}>Join the waitlist</a></p>
+              {!registrationOpen && (
+                <p className="lg-note">Registrations opening soon. <a href={`${home}#start`}>Leave your email</a></p>
               )}
               <p className="lg-switch">
                 {applying
