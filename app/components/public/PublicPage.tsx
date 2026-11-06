@@ -53,7 +53,7 @@ export default function PublicPage({ page, kicker, title, lead, actions, jsonLd 
         {children}
       </Reveal>
 
-      <SiteFooter entity={`${LEGAL_ENTITY_INDIA} · ${LEGAL_ENTITY_UAE}`} login={login} primary={primary} links={[]} />
+      <SiteFooter entity={`© ${LEGAL_ENTITY_INDIA} · ${LEGAL_ENTITY_UAE}`} login={login} primary={primary} links={[]} />
     </div>
   );
 }

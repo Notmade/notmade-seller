@@ -20,7 +20,41 @@ export function Reveal({ children }: { children: React.ReactNode }) {
     els.forEach((el) => io.observe(el));
     return () => io.disconnect();
   }, []);
+  // The sticky register button waits until the hero, with its own buttons, has scrolled away
+  useEffect(() => {
+    const hero = root.current?.querySelector(".n-hero");
+    const page = root.current?.closest(".n");
+    if (!hero || !page || !("IntersectionObserver" in window)) return;
+    page.classList.add("n-sticky-wait");
+    const io = new IntersectionObserver(([e]) => page.classList.toggle("n-sticky-wait", e.isIntersecting));
+    io.observe(hero);
+    return () => io.disconnect();
+  }, []);
   return <main id="main" ref={root} className="n-main">{children}</main>;
+}
+
+/** Leans its child toward the pointer on a mouse. Touch, reduced motion and low-end devices stay still. */
+export function Tilt({ children }: { children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !window.matchMedia("(hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference)").matches) return;
+    if (document.documentElement.classList.contains("n-lite")) return;
+    let frame = 0;
+    const move = (e: PointerEvent) => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const r = el.getBoundingClientRect();
+        el.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - 0.5) * 12}deg`);
+        el.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - 0.5) * -10}deg`);
+      });
+    };
+    const leave = () => { el.style.removeProperty("--rx"); el.style.removeProperty("--ry"); };
+    el.addEventListener("pointermove", move);
+    el.addEventListener("pointerleave", leave);
+    return () => { cancelAnimationFrame(frame); el.removeEventListener("pointermove", move); el.removeEventListener("pointerleave", leave); };
+  }, []);
+  return <div ref={box} className="n-stage">{children}</div>;
 }
 
 /** Keeps digits and one decimal point, at most 2 decimals and 9 whole digits. */

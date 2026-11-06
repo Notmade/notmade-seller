@@ -7,7 +7,7 @@ import {
   type DocType, type OnboardingState, type Seller, type SellerCountry,
 } from "../lib/seller-api";
 import { useSeller } from "../lib/useSeller";
-import { Alert, Button, Card, Field, PageSkeleton, RED, Skeleton, Spinner } from "../components/portal-ui";
+import { Alert, Button, Card, Field, PageSkeleton, RED, Skeleton } from "../components/portal-ui";
 import { AgreementSigner, Pill } from "../components/AgreementSigner";
 import { CountryBadge, Flag, Waitlist, useMarket, useSignupOpen } from "../components/market";
 import { MARKETS, SETTLEMENT_DAYS, marketForCountry, type Market, type MarketCode } from "@/src/config/markets";
@@ -676,7 +676,7 @@ function DocRow({ docType, required = false, uploaded, onUploaded }: { docType: 
       <input ref={input} type="file" hidden onChange={pick}
         accept={docType === "logo" ? "image/jpeg,image/png,image/webp" : "image/jpeg,image/png,image/webp,application/pdf"} />
       <Button variant="secondary" disabled={busy} onClick={() => input.current?.click()}>
-        {busy ? <><Spinner size={14} /> Uploading</> : uploaded ? "Replace" : "Upload"}
+        {busy ? "Uploading…" : uploaded ? "Replace" : "Upload"}
       </Button>
     </div>
   );

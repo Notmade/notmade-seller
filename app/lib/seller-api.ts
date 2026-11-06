@@ -185,6 +185,8 @@ export interface Category {
   id: string; name: string; slug: string;
   /** Picker group. Optional: categories are grouped by keyword until the backend sends it. */
   group?: string | null;
+  /** UAE sellers on a rate card only. Show the who-ships choice only when this is true. */
+  fulfilment_mode_applies?: boolean;
 }
 
 export interface Product {
@@ -257,6 +259,8 @@ export interface OrderItem {
   option_values: Record<string, string>;
   market_unit_price: number | null;
   market_currency: string | null;
+  /** Null except on rate-card lines. */
+  fulfilment_mode?: "seller_ships" | "notmade_ships" | null;
 }
 
 export type OrderBucket = "new" | "accepted" | "ready" | "shipped" | "delivered" | "cancelled" | "returns";
@@ -314,7 +318,7 @@ export interface Order {
   pickup_note?: string | null;
   handed_over_at?: string | null;
   /** Tracking entered by a seller who ships the order themselves. */
-  seller_tracking?: { courier: string; tracking_number: string; tracking_url?: string | null; at: string } | null;
+  tracking_id?: string | null;
   commission: OrderCommission;
   settlement_days: number;
   settlement_date: string | null;
@@ -351,6 +355,8 @@ export interface SellerNotification {
   body: string;
   href: string;
   at: string;
+  /** Read state kept on the seller by the backend. */
+  read?: boolean;
 }
 
 export interface Payout {
@@ -389,7 +395,7 @@ export type StockUpdate =
   | { variant_id: string; stock: number }
   | { size: string; stock: number };
 
-export interface TrackingInput { courier: string; tracking_number: string; tracking_url?: string }
+export interface TrackingInput { courier: string; tracking_id: string }
 
 /** Store traffic for the seller's products. Everything else on Analytics is computed from orders. */
 export interface SellerAnalytics { product_views: number; orders: number }
@@ -476,11 +482,12 @@ export const api = {
   saveDraft: (fd: FormData) => post<{ product: Product }>("/seller/products/drafts", fd),
   updateStock: (id: string, body: StockUpdate) => post<{ product: Product }>(`/seller/products/${id}/stock`, body),
   saveSettings: (body: { low_stock_threshold: number }) => post<{ low_stock_threshold: number }>("/seller/settings", body),
-  saveTracking: (refNo: string, body: TrackingInput) =>
-    post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/tracking`, body),
   analytics: (days: number) => request<SellerAnalytics>(`/seller/analytics?days=${days}`),
 
   orders: () => request<{ orders: Order[]; counts: Record<OrderBucket, number>; sla_hours: number }>("/seller/orders"),
+  order: (refNo: string) => request<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}`),
+  /** Seller-ships orders only; anything else answers 409 NOTMADE_SHIPS. */
+  shipOrder: (refNo: string, body: TrackingInput) => post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/ship`, body),
   acceptOrder: (refNo: string) => post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/accept`),
   rejectOrder: (refNo: string, reason: RejectReason, details: string) =>
     post<{ order: Order }>(`/seller/orders/${encodeURIComponent(refNo)}/reject`, { reason, details }),
@@ -496,7 +503,8 @@ export const api = {
     if (productId) fd.append("product_id", productId);
     return post<{ url: string; image_url: string; image_jpg_url: string | null }>("/seller/products/variant-image", fd);
   },
-  notifications: () => request<{ notifications: SellerNotification[] }>("/seller/notifications"),
+  notifications: () => request<{ notifications: SellerNotification[]; unread_count?: number }>("/seller/notifications"),
+  notificationsRead: () => post<{ seen_at: string }>("/seller/notifications/read"),
   payouts: () => request<{ payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }>("/seller/payouts"),
   returns: () => request<{ returns: ReturnRequest[] }>("/seller/returns"),
   unboxingVideo: (refNo: string) =>

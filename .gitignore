@@ -37,3 +37,7 @@ next-env.d.ts
 
 # local backups (not tracked)
 /backup/
+
+# browser tests
+/test-results/
+/playwright-report/

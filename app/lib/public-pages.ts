@@ -4,8 +4,9 @@
 
 import { AED } from "./currency";
 import {
-  COMMISSION_PCT_INDIA, MAIN_SITE_URL, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_SITE_URL,
+  MAIN_SITE_URL, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_SITE_URL,
 } from "./seller-config";
+import { RATES as INDIA_RATES } from "../landing/content/in";
 
 const host = (u: string) => u.replace(/^https?:\/\//, "");
 
@@ -27,16 +28,18 @@ export interface PublicPage {
   locale: "en_IN" | "en_AE";
 }
 
+const indiaRates = INDIA_RATES.map((r) => `${r.label} ${r.pct}%.`).join(" ");
+
 export const PUBLIC_PAGES: PublicPage[] = [
   {
     key: "home", path: "/", name: "Home", priority: 1, lastModified: "2026-11-06", locale: "en_IN",
     title: "Sell across India on NOTMADE | NOTMADE Seller",
-    description: `Sell on ${host(MAIN_SITE_URL)} from anywhere in India. No listing fee, a ${COMMISSION_PCT_INDIA}% commission and payout ${PAYOUT_DAYS} days after delivery.`,
+    description: `Sell on ${host(MAIN_SITE_URL)} from anywhere in India. No listing fee, ${indiaRates} Settlement within ${PAYOUT_DAYS} days.`,
   },
   {
     key: "uae", path: "/uae", name: "UAE seller page", priority: 1, lastModified: "2026-11-06", locale: "en_AE",
     title: "Selling in the UAE on NOTMADE | NOTMADE Seller",
-    description: `Reach customers across the UAE on ${host(UAE_SITE_URL)}. Set your prices in ${AED}, see the commission rate card and get paid to your UAE IBAN.`,
+    description: `Reach customers across the UAE on ${host(UAE_SITE_URL)}. Set your prices in ${AED}, see the commission by category and get paid to your UAE IBAN.`,
   },
   {
     key: "how-it-works", path: "/how-it-works", name: "How it works", priority: 0.8, lastModified: "2026-10-28", locale: "en_IN",

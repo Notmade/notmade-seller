@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { api, fmtDate, type Payout, type UpcomingSettlement, type Money } from "../lib/seller-api";
 import { formatMoney, formatMoneyIn, otherCurrency, type Currency } from "../lib/currency";
-import { Alert, Badge, Card, PageHeader, PageSkeleton } from "./portal-ui";
+import { monthGrid, payoutEvents, type PayoutEvent } from "../lib/payout-calendar";
+import { useDashboardSeller, useSellerCurrency } from "../dashboard/seller-context";
+import { Alert, Badge, Button, Card, EmptyState, PageHeader, PageSkeleton } from "./portal-ui";
 
 interface Data { payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }
 
@@ -19,6 +22,10 @@ interface Props {
 export default function PayoutsView({ currency, title, rates }: Props) {
   const [d, setD] = useState<Data | null>(null);
   const [error, setError] = useState("");
+  const seller = useDashboardSeller();
+  const { country } = useSellerCurrency();
+  // The backend keeps a bank destination only for UAE sellers (IBAN); see "Backend gaps" in the README
+  const bankMissing = country === "AE" && !seller.iban;
 
   useEffect(() => {
     api.payouts().then(setD).catch(err => setError(err instanceof Error ? err.message : "Could not load payouts"));
@@ -32,7 +39,12 @@ export default function PayoutsView({ currency, title, rates }: Props) {
 
   return (
     <div>
-      <PageHeader title={title} sub={`Settled ${d.settlement_days} days after delivery${rates ? ` · Commission ${rates}` : ""}`} />
+      <PageHeader title={title} sub={`Settlement within ${d.settlement_days} days${rates ? ` · Commission ${rates}` : ""}`} />
+      {bankMissing && (
+        <div style={{ marginBottom: 14 }}>
+          <Alert kind="warn"><strong>Add your bank details.</strong> We need your IBAN to pay your settlements. <Link href="/dashboard/profile" style={{ color: "#CC0000", fontWeight: 700 }}>Go to Profile</Link></Alert>
+        </div>
+      )}
       <Settlements d={d} currency={currency} />
       {hasOther && (
         <section style={{ marginTop: 28 }}>
@@ -58,22 +70,24 @@ function Settlements({ d: all, currency }: { d: Data; currency: Currency }) {
         <div className="sp-stat"><p className="sp-stat-label">Paid out</p><p className="sp-stat-value" style={{ color: "#166534" }}>{total(d.totals.paid)}</p><p className="sp-stat-sub">Transferred to your bank</p></div>
       </div>
 
+      <PayoutCalendar payouts={d.payouts} upcoming={d.upcoming} currency={currency} />
+
       <Card style={{ padding: 0, marginBottom: 16 }}>
         <div className="sp-card-head"><h2>Upcoming settlements</h2></div>
         {d.upcoming.length === 0 ? (
-          <p style={{ padding: "24px 20px", fontSize: 14, color: "#888", textAlign: "center" }}>Delivered orders show up here with their settlement date.</p>
+          <EmptyState title="Nothing pending" sub="Delivered orders show here with their settlement date." action={<Link href="/dashboard/orders" className="sp-btn-line">See your orders</Link>} />
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="sp-table">
-              <thead><tr><th>Order</th><th>Order value</th><th>Commission</th><th>You get</th><th>Settles on</th></tr></thead>
+          <div className="sp-scroll" tabIndex={0} role="region" aria-label="Settlements">
+            <table className="sp-table sp-stacked">
+              <thead><tr><th scope="col">Order</th><th scope="col">Order value</th><th scope="col">Commission</th><th scope="col">You get</th><th scope="col">Settles on</th></tr></thead>
               <tbody>
                 {d.upcoming.map(u => (
                   <tr key={u.ref_no}>
-                    <td style={{ fontWeight: 700 }}>{u.ref_no}</td>
-                    <td>{amount(u.gross)}</td>
-                    <td style={{ color: "#CC0000" }}>{u.commission != null ? `−${amount(u.commission)}` : "—"}{u.commission_pct != null && <span style={{ color: "#999" }}> ({u.commission_pct}%)</span>}</td>
-                    <td style={{ fontWeight: 700 }}>{u.payout != null ? amount(u.payout) : "—"}</td>
-                    <td>{fmtDate(u.settlement_date)}</td>
+                    <td data-label="Order" style={{ fontWeight: 700 }}>{u.ref_no}</td>
+                    <td data-label="Order value">{amount(u.gross)}</td>
+                    <td data-label="Commission" style={{ color: "#CC0000" }}><span>{u.commission != null ? `−${amount(u.commission)}` : "—"}{u.commission_pct != null && <span style={{ color: "#999" }}> ({u.commission_pct}%)</span>}</span></td>
+                    <td data-label="You get" style={{ fontWeight: 700 }}>{u.payout != null ? amount(u.payout) : "—"}</td>
+                    <td data-label="Settles on">{fmtDate(u.settlement_date)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -85,21 +99,21 @@ function Settlements({ d: all, currency }: { d: Data; currency: Currency }) {
       <Card style={{ padding: 0 }}>
         <div className="sp-card-head"><h2>Settlement history</h2></div>
         {d.payouts.length === 0 ? (
-          <p style={{ padding: "24px 20px", fontSize: 14, color: "#888", textAlign: "center" }}>No settlements yet.</p>
+          <EmptyState title="No settlements yet" sub="Your first settlement shows here once it is paid." />
         ) : (
-          <div style={{ overflowX: "auto" }}>
-            <table className="sp-table">
-              <thead><tr><th>Created</th><th>Amount</th><th>Commission</th><th>Due / paid</th><th>Status</th><th>Reference</th><th>Statement</th></tr></thead>
+          <div className="sp-scroll" tabIndex={0} role="region" aria-label="Settlements">
+            <table className="sp-table sp-stacked">
+              <thead><tr><th scope="col">Created</th><th scope="col">Amount</th><th scope="col">Commission</th><th scope="col">Due / paid</th><th scope="col">Status</th><th scope="col">Reference</th><th scope="col">Statement</th></tr></thead>
               <tbody>
                 {d.payouts.map(p => (
                   <tr key={p.id}>
-                    <td>{fmtDate(p.created_at)}</td>
-                    <td style={{ fontWeight: 700 }}>{amount(p.amount)}</td>
-                    <td style={{ color: "#CC0000" }}>{p.commission != null ? `−${amount(p.commission)}` : "—"}</td>
-                    <td>{fmtDate(p.paid_at || p.due_date)}</td>
-                    <td><Badge status={p.status === "paid" ? "approved" : "pending"} label={p.status === "paid" ? "Paid" : "Scheduled"} /></td>
-                    <td style={{ fontFamily: "var(--font-space-mono), monospace", fontSize: 12 }}>{p.reference || "—"}</td>
-                    <td>{p.invoice_url ? <a href={p.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: "#CC0000", fontWeight: 600 }}>Download</a> : "—"}</td>
+                    <td data-label="Created">{fmtDate(p.created_at)}</td>
+                    <td data-label="Amount" style={{ fontWeight: 700 }}>{amount(p.amount)}</td>
+                    <td data-label="Commission" style={{ color: "#CC0000" }}>{p.commission != null ? `−${amount(p.commission)}` : "—"}</td>
+                    <td data-label="Due / paid">{fmtDate(p.paid_at || p.due_date)}</td>
+                    <td data-label="Status"><Badge status={p.status === "paid" ? "approved" : "pending"} label={p.status === "paid" ? "Paid" : "Scheduled"} /></td>
+                    <td data-label="Reference" style={{ fontFamily: "var(--font-space-mono), monospace", fontSize: 12 }}>{p.reference || "—"}</td>
+                    <td data-label="Statement">{p.invoice_url ? <a href={p.invoice_url} target="_blank" rel="noopener noreferrer" style={{ color: "#CC0000", fontWeight: 600 }}>Download</a> : "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -108,5 +122,64 @@ function Settlements({ d: all, currency }: { d: Data; currency: Currency }) {
         )}
       </Card>
     </>
+  );
+}
+
+const MONTH = new Intl.DateTimeFormat("en-GB", { month: "long", year: "numeric", timeZone: "UTC" });
+
+/** A month of settlements, with the chosen day's items listed below. Pending and paid are told apart by label too, not only by colour. */
+function PayoutCalendar({ payouts, upcoming, currency }: { payouts: Payout[]; upcoming: UpcomingSettlement[]; currency: Currency }) {
+  const { timeZone } = useSellerCurrency();
+  const events = useMemo(() => payoutEvents(payouts, upcoming, timeZone), [payouts, upcoming, timeZone]);
+  const first = useMemo(() => {
+    const today = new Date().toLocaleDateString("en-CA", { timeZone });
+    const on = events.find((e) => e.state === "pending" && e.date >= today)?.date ?? events[0]?.date ?? today;
+    return { y: Number(on.slice(0, 4)), m: Number(on.slice(5, 7)) - 1 };
+  }, [events, timeZone]);
+  const [at, setAt] = useState(first);
+  const [day, setDay] = useState<string | null>(null);
+  const weeks = monthGrid(at.y, at.m, events);
+  const shift = (by: number) => { const d = new Date(Date.UTC(at.y, at.m + by, 1)); setAt({ y: d.getUTCFullYear(), m: d.getUTCMonth() }); setDay(null); };
+  const inMonth = events.filter((e) => e.date.startsWith(`${at.y}-${String(at.m + 1).padStart(2, "0")}`) && (!day || e.date === day));
+  const line = (e: PayoutEvent) => (
+    <li key={e.id}><span>{e.date.slice(8)} · {e.label}</span><strong>{e.amount != null ? formatMoney(e.amount, currency) : "—"}</strong><Badge status={e.state === "paid" ? "approved" : "pending"} label={e.state === "paid" ? "Paid" : "Pending"} /></li>
+  );
+
+  return (
+    <Card style={{ padding: 0, marginBottom: 16 }}>
+      <div className="sp-card-head sp-cal-head">
+        <h2>Payout calendar</h2>
+        <div className="sp-inline" style={{ alignItems: "center" }}>
+          <Button variant="secondary" aria-label="Previous month" onClick={() => shift(-1)}>←</Button>
+          <span className="sp-cal-month" aria-live="polite">{MONTH.format(Date.UTC(at.y, at.m, 1))}</span>
+          <Button variant="secondary" aria-label="Next month" onClick={() => shift(1)}>→</Button>
+        </div>
+      </div>
+      <div className="sp-scroll">
+        <table className="sp-cal" aria-label="Settlements by day">
+          <thead><tr>{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <th key={d} scope="col">{d}</th>)}</tr></thead>
+          <tbody>
+            {weeks.map((w, i) => (
+              <tr key={i}>
+                {w.map((c, j) => (
+                  <td key={j}>
+                    {c && (c.events.length ? (
+                      <button type="button" aria-pressed={day === c.date} onClick={() => setDay(day === c.date ? null : c.date)}
+                        aria-label={`${c.day}: ${c.events.filter((e) => e.state === "pending").length} pending, ${c.events.filter((e) => e.state === "paid").length} paid`}>
+                        {c.day}
+                        <i>{c.events.some((e) => e.state === "pending") && <b className="pending" />}{c.events.some((e) => e.state === "paid") && <b className="paid" />}</i>
+                      </button>
+                    ) : <span>{c.day}</span>)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {inMonth.length > 0
+        ? <ul className="sp-cal-list">{inMonth.map(line)}</ul>
+        : <p className="sp-cal-empty">No settlements this month.</p>}
+    </Card>
   );
 }

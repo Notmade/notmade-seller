@@ -24,11 +24,17 @@ export default function NotificationsBell({ dark = false }: { dark?: boolean }) 
   const icon = (t: SellerNotification["type"]) => (t === "payout" ? currencySymbol(currency) : ICON[t]);
   const [items, setItems] = useState<SellerNotification[]>([]);
   const [seen, setSeen] = useState<Set<string>>(new Set());
+  /** unread_count from the backend. Null on a backend that does not send it: the browser's record is used. */
+  const [serverUnread, setServerUnread] = useState<number | null>(null);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    try { setItems((await api.notifications()).notifications); } catch { /* keep the last list */ }
+    try {
+      const r = await api.notifications();
+      setItems(r.notifications);
+      setServerUnread(r.unread_count ?? null);
+    } catch { /* keep the last list */ }
   }, []);
 
   useEffect(() => {
@@ -48,11 +54,14 @@ export default function NotificationsBell({ dark = false }: { dark?: boolean }) 
   }, [open]);
 
   // Urgent reminders stay unread until acted on
-  const unread = items.filter(n => n.urgent || !seen.has(n.id)).length;
+  const urgentUnread = items.filter(n => n.urgent && n.read).length;
+  const unread = serverUnread !== null ? serverUnread + urgentUnread : items.filter(n => n.urgent || !seen.has(n.id)).length;
 
   const markAll = () => {
     const next = new Set(Array.from(seen).concat(items.map(n => n.id)));
     setSeen(next); writeSeen(next);
+    setServerUnread(null);
+    void api.notificationsRead().then(load).catch(() => { /* the browser's record still holds */ });
   };
 
   return (
