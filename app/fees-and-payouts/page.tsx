@@ -2,13 +2,17 @@ import PublicPage, { Section } from "../components/public/PublicPage";
 import { Calculator } from "../components/landing/parts";
 import { uaeRateSentence } from "../landing/content/faq";
 import { AED, INR } from "../lib/currency";
-import { loadUaeRateCard } from "../lib/landing-data";
+import { RATES as INDIA_RATES } from "../landing/content/in";
+import { RATES as UAE_RATES } from "../landing/content/ae";
+import type { RateRow } from "../landing/content/types";
 import { metadataFor } from "../lib/seo";
 import {
-  COMMISSION_PCT_INDIA, COMMISSION_STATEMENT_INDIA, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS,
+  COMMISSION_STATEMENT_INDIA, RETURN_WINDOW_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS,
 } from "../lib/seller-config";
 
 export const metadata = metadataFor("fees-and-payouts");
+
+const toCalc = (rates: RateRow[]) => rates.map((r) => ({ label: r.short, pct: r.pct }));
 
 // India column: in-v2 and the seller terms. UAE column: uae-local-v2 and the UAE landing copy.
 const ROWS: { label: string; india: string; uae: string }[] = [
@@ -59,8 +63,7 @@ const ROWS: { label: string; india: string; uae: string }[] = [
   },
 ];
 
-export default async function FeesAndPayouts() {
-  const card = await loadUaeRateCard();
+export default function FeesAndPayouts() {
   return (
     <PublicPage
       page="fees-and-payouts"
@@ -89,13 +92,8 @@ export default async function FeesAndPayouts() {
       <Section id="calculator" eyebrow="Calculator" title="Work out a payout."
         sub="Enter a selling price to see the commission and what you receive. Taxes on the commission and any adjustments are not included.">
         <div className="n-cols">
-          <div><h3 className="n-card-title">India</h3><Calculator currency={INR} defaultPrice={1999} rates={[{ label: "Commission", pct: COMMISSION_PCT_INDIA }]} note="Standard rate. Your exact rate is in your agreement." /></div>
-          <div><h3 className="n-card-title">UAE</h3><Calculator currency={AED} defaultPrice={500} note="For new sellers. Your exact rate is in your agreement."
-            rates={[
-              { label: "Seller ships", pct: card.electronics_seller_ships_pct },
-              { label: "NOTMADE ships", pct: card.electronics_notmade_ships_pct },
-              { label: "Fashion", pct: card.fashion_accessories_pct },
-            ]} /></div>
+          <div><h3 className="n-card-title">India</h3><Calculator currency={INR} defaultPrice={1999} rates={toCalc(INDIA_RATES)} note="Your exact rate is in your agreement." /></div>
+          <div><h3 className="n-card-title">UAE</h3><Calculator currency={AED} defaultPrice={500} note="For new sellers. Your exact rate is in your agreement." rates={toCalc(UAE_RATES)} /></div>
         </div>
         <p className="n-more"><a href="/faq#fees">Fee questions</a></p>
       </Section>

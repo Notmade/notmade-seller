@@ -1,33 +1,38 @@
 // Page sections shared by the landing pages. Copy always arrives as props.
-import type { Cta, Fact, Item, PageContent } from "@/app/landing/content/types";
+import type { Cta, Item, PageContent, RateRow } from "@/app/landing/content/types";
 import type { Section } from "./SiteHeader";
-import SiteHeader, { CountrySwitch } from "./SiteHeader";
+import SiteHeader from "./SiteHeader";
+import CountrySwitch from "./CountrySwitch";
 import SiteFooter from "./SiteFooter";
-import { Faq, Reveal } from "./parts";
+import { Faq, Reveal, Tilt } from "./parts";
+import { flipCss, flipScript } from "./flip";
 import { ldJson } from "@/app/lib/seo";
 import "./landing.css";
 
-export function Page({ content, entity, sections, footerLinks, primary, ld, children }: {
-  content: PageContent; entity: string; sections: Section[]; footerLinks: Cta[]; primary: Cta; ld: unknown[]; children: React.ReactNode;
+export function Page({ content, sections, footerLinks, primary, ld, children }: {
+  content: PageContent; sections: Section[]; footerLinks: Cta[]; primary: Cta; ld: unknown[]; children: React.ReactNode;
 }) {
   return (
     <div className="n" data-mode={content.code}>
+      <style dangerouslySetInnerHTML={{ __html: flipCss(content.code) }} />
+      <script dangerouslySetInnerHTML={{ __html: flipScript }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(ld) }} />
       <a href="#main" className="n-skip">Skip to content</a>
+      <div className="n-top"><CountrySwitch value={content.code} /></div>
       <SiteHeader code={content.code} sections={sections} login={content.login} primary={primary} />
       <Reveal>{children}</Reveal>
       <a href={primary.href} className="n-btn n-btn-red n-sticky-cta">{primary.label}</a>
-      <SiteFooter code={content.code} entity={entity} login={content.login} primary={primary} links={footerLinks} />
+      <SiteFooter code={content.code} entity={content.legalFooter} login={content.login} primary={primary} links={footerLinks} />
     </div>
   );
 }
 
-export function Hero({ hero, primary, secondary, aside }: {
-  hero: PageContent["hero"]; primary: Cta; secondary: Cta; aside?: React.ReactNode;
+export function Hero({ hero, rates, primary, secondary }: {
+  hero: PageContent["hero"]; rates: RateRow[]; primary: Cta; secondary: Cta;
 }) {
   return (
     <section className="n-hero" id="top">
-      <div className={aside ? "n-wrap n-hero-grid" : "n-wrap"}>
+      <div className="n-wrap n-hero-grid">
         <div>
           <p className="n-kicker nh">{hero.kicker}</p>
           <h1 className="n-h1 nh">
@@ -39,17 +44,36 @@ export function Hero({ hero, primary, secondary, aside }: {
             <a href={secondary.href} className="n-btn n-btn-ghost">{secondary.label}</a>
           </div>
         </div>
-        {aside}
+        <RateStack rates={rates} />
       </div>
-      <div className="n-wrap"><Proof facts={hero.proof} /></div>
     </section>
   );
 }
 
-function Proof({ facts }: { facts: Fact[] }) {
+/** The commission lines as a floating stack of cards: real rates, drawn with CSS 3D only. */
+function RateStack({ rates }: { rates: RateRow[] }) {
   return (
-    <ul className="n-proof nh">
-      {facts.map((f) => <li key={f.label}><strong>{f.value}</strong><span>{f.label}</span></li>)}
+    <Tilt>
+      <ul className="n-stack" aria-label="Commission by category" style={{ "--n": rates.length } as React.CSSProperties}>
+        {rates.map((r, i) => (
+          <li key={r.key} className="n-stack-card" style={{ "--i": i } as React.CSSProperties}>
+            <strong>{r.pct}%</strong><span>{r.label}</span>
+          </li>
+        ))}
+      </ul>
+    </Tilt>
+  );
+}
+
+/** The commission card, one tile per line, in the order the country file gives. */
+export function RateTiles({ rates }: { rates: RateRow[] }) {
+  return (
+    <ul className="n-tiles">
+      {rates.map((r, i) => (
+        <li key={r.key} className="n-tile nr" style={{ "--d": `${i * 60}ms` } as React.CSSProperties}>
+          <strong>{r.pct}%</strong><span>{r.label}</span>
+        </li>
+      ))}
     </ul>
   );
 }
@@ -84,11 +108,11 @@ export function Points({ items }: { items: Item[] }) {
   );
 }
 
-export function Steps({ steps }: { steps: PageContent["steps"] }) {
+export function Steps({ steps, cta }: { steps: PageContent["steps"]; cta: Cta }) {
   return (
     <section className="n-sec n-sec-soft" id="how" aria-labelledby="how-h">
       <div className="n-wrap">
-        <Heading id="how-h" eyebrow="How to onboard" title={steps.title} sub={steps.sub} />
+        <Heading id="how-h" eyebrow="Get started" title={steps.title} sub={steps.sub} />
         <ol className="n-steps">
           {steps.items.map((s, i) => (
             <li key={s.title} className="n-step nr" style={{ "--d": `${Math.min(i, 4) * 50}ms` } as React.CSSProperties}>
@@ -97,6 +121,7 @@ export function Steps({ steps }: { steps: PageContent["steps"] }) {
             </li>
           ))}
         </ol>
+        <div className="n-cta nr"><a href={cta.href} className="n-btn n-btn-red">{cta.label}</a></div>
       </div>
     </section>
   );
@@ -123,7 +148,7 @@ export function FinalCta({ code, final, children }: { code: PageContent["code"];
         <h2 id="start-h" className="n-h2 nr">{final.title}</h2>
         <p className="n-lead nr">{final.sub}</p>
         <div className="n-cta nr">{children}</div>
-        <div className="n-switch-row nr"><span>Selling from</span><CountrySwitch value={code} /></div>
+        <div className="n-switch-row nr"><CountrySwitch value={code} /></div>
       </div>
     </section>
   );

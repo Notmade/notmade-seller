@@ -5,16 +5,6 @@ import type { Cta, ModeCode } from "@/app/landing/content/types";
 
 export interface Section { id: string; label: string }
 
-/** Current country and a way to change it. Only /country names both, so neither landing page does. */
-export function CountrySwitch({ value }: { value: ModeCode }) {
-  return (
-    <nav className="n-switch" aria-label="Country" data-country-switch>
-      <span aria-current="true">{value === "ae" ? "UAE" : "India"}</span>
-      <a href="/country">Change country</a>
-    </nav>
-  );
-}
-
 export default function SiteHeader({ code, sections, login, primary }: {
   /** Left out on pages that are about neither country in particular. */
   code?: ModeCode; sections: Section[]; login: Cta; primary: Cta;
@@ -53,7 +43,6 @@ export default function SiteHeader({ code, sections, login, primary }: {
         </nav>
 
         <div className="n-head-end">
-          {code && <CountrySwitch value={code} />}
           <a href={login.href} className="n-head-login">{login.label}</a>
           <a href={primary.href} className="n-btn n-btn-red n-btn-sm n-head-cta">{primary.label}</a>
           <button type="button" className="n-menu-btn" aria-expanded={open} aria-controls="n-menu"
@@ -69,7 +58,7 @@ export default function SiteHeader({ code, sections, login, primary }: {
           <div className="n-menu-cta">
             <a href={primary.href} className="n-btn n-btn-red" onClick={close}>{primary.label}</a>
             <a href={login.href} className="n-btn n-btn-line" onClick={close}>{login.label}</a>
-            <a href="/country" className="n-btn n-btn-line" onClick={close}>Change country</a>
+            {!code && <a href="/country" className="n-btn n-btn-line" onClick={close}>Change country</a>}
           </div>
         </nav>
       </div>

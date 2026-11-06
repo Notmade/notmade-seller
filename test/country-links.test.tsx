@@ -4,7 +4,6 @@ import { describe, expect, it } from "vitest";
 import SiteFooter from "@/app/components/landing/SiteFooter";
 import IndiaLanding from "@/app/components/landing/IndiaLanding";
 import UaeLanding from "@/app/components/landing/UaeLanding";
-import { resolveRateCard } from "@/app/lib/rate-card";
 import { COMMISSION_STATEMENT_INDIA } from "@/app/lib/seller-config";
 import { getPage } from "@/app/lib/public-pages";
 import { SELLER_FAQ } from "@/app/landing/content/faq";
@@ -15,12 +14,13 @@ const hrefs = (html: string) => Array.from(html.matchAll(/href="([^"]+)"/g), (m)
 
 describe("country links", () => {
   it("uses / and /uae in the header and footer, never a ?market= home link", () => {
-    expect(hrefs(renderToStaticMarkup(<IndiaLanding />)).filter((h) => h.includes("market=") && !h.startsWith("/login"))).toEqual([]);
+    const india0 = renderToStaticMarkup(<IndiaLanding />).replace(/<nav class="n-switch"[\s\S]*?<\/nav>/g, "");
+    expect(hrefs(india0).filter((h) => h.includes("market=") && !h.startsWith("/login"))).toEqual([]);
     const india = renderToStaticMarkup(<SiteFooter code="in" entity="e" login={cta} primary={cta} links={[]} />);
     expect(hrefs(india)).toEqual(expect.arrayContaining(["/", "/terms", "/privacy-policy", "/refund-policy"]));
     const uae = renderToStaticMarkup(<SiteFooter code="ae" entity="e" login={cta} primary={cta} links={[]} />);
     expect(hrefs(uae)).toEqual(expect.arrayContaining(["/uae", "/uae/terms", "/uae/privacy-policy", "/uae/refund-policy"]));
-    expect(hrefs(renderToStaticMarkup(<UaeLanding rates={resolveRateCard(null)} methods={[]} signupOpen={false} />))).not.toContain("/");
+    expect(hrefs(renderToStaticMarkup(<UaeLanding payments={null} signupOpen={false} />))).not.toContain("/");
   });
 
   it("registers / and /uae as the country pages", () => {

@@ -32,7 +32,7 @@ export default function SiteFooter({ code, entity, login, primary, links }: {
             </nav>
           ))}
         </div>
-        <p className="n-foot-copy">© {entity}</p>
+        <p className="n-foot-copy">{entity}</p>
       </div>
     </footer>
   );

@@ -1,9 +1,10 @@
 import PublicPage, { EntityDetails, Section } from "../components/public/PublicPage";
 import { uaeRateSentence } from "../landing/content/faq";
+import { RATES } from "../landing/content/in";
 import { AED } from "../lib/currency";
 import { metadataFor } from "../lib/seo";
 import {
-  COMMISSION_PCT_INDIA, ENTITY_BY_COUNTRY, NOTICE_DAYS_INDIA, NOTICE_DAYS_UAE, PARTNER_CHANNEL_NOTICE_DAYS, RETURN_WINDOW_DAYS,
+  ENTITY_BY_COUNTRY, NOTICE_DAYS_INDIA, NOTICE_DAYS_UAE, PARTNER_CHANNEL_NOTICE_DAYS, RETURN_WINDOW_DAYS,
   SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, TERMINATION_SETTLEMENT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS,
 } from "../lib/seller-config";
 
@@ -14,7 +15,7 @@ type Clause = { title: string; text: string };
 // Summaries of the current agreements in the backend: in-v2 (India-based sellers) and uae-local-v2 (UAE-based sellers).
 const INDIA: Clause[] = [
   { title: "Pricing", text: "You set and control the selling price of every product. NOTMADE does not set, mark up or change it." },
-  { title: "Commission", text: `A flat commission on the selling price, inclusive of applicable taxes, on each confirmed and delivered order. The standard rate is ${COMMISSION_PCT_INDIA}%; your rate is filled in on the agreement you sign.` },
+  { title: "Commission", text: `A commission on the selling price, inclusive of applicable taxes, on each confirmed and delivered order. ${RATES.map((r) => `${r.label} ${r.pct}%`).join(". ")}. Your rate is filled in on the agreement you sign.` },
   { title: "Settlement", text: `Within ${PAYOUT_DAYS} days of confirmed delivery, by bank transfer to your registered account, after commission, GST on the commission, TDS and any return, cancellation, refund or chargeback adjustments. You get a statement for each settlement period.` },
   { title: "Fulfilment and invoices", text: "You are responsible for packaging and dispatch, accurate stock and product details, and issuing GST-compliant invoices to customers. NOTMADE runs the platform, payment processing and the customer-facing store." },
   { title: "Partner channels", text: `NOTMADE can list your products on its partner channels in India at your selling price, with the same commission. You can ask to be removed from a specific channel with ${PARTNER_CHANNEL_NOTICE_DAYS} days' notice.` },
