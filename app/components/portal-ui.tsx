@@ -8,13 +8,6 @@ import { CountryBadge } from "./market";
 
 export const RED = "#CC0000";
 
-export function Spinner({ size = 28 }: { size?: number }) {
-  return (
-    <div className="spin" role="status" aria-label="Loading"
-      style={{ width: size, height: size, border: "3px solid #EEEEEE", borderTopColor: RED, borderRadius: "50%" }} />
-  );
-}
-
 export function Skeleton({ width = "100%", height = 14, radius = 8, style }: { width?: number | string; height?: number; radius?: number; style?: CSSProperties }) {
   return <span aria-hidden className="sp-skel" style={{ display: "block", width, height, borderRadius: radius, ...style }} />;
 }

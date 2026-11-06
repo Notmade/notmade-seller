@@ -1,32 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import {
-  api, fmtDate, fmtDateTime, isNotLive, REJECT_REASONS,
-  type Order, type OrderBucket, type RejectReason, type ReturnRequest, type UnboxingVideo,
+  api, fmtDate, fmtDateTime, REJECT_REASONS,
+  type Order, type RejectReason, type ReturnRequest, type UnboxingVideo,
 } from "../lib/seller-api";
 import { AED, formatMoney, type Currency } from "../lib/currency";
-import { featureOn } from "../lib/features";
-import { Alert, Badge, Button, Card, EmptyState, Field, Modal, PageHeader, PageSkeleton, RED, Spinner } from "./portal-ui";
+import { ORDER_TABS, orderInTab, sellerShips, tabForParam, validTrackingId, type OrderTab } from "../lib/order-tabs";
+import { Alert, Badge, Button, Card, EmptyState, Field, Modal, PageHeader, PageSkeleton, RED, Skeleton } from "./portal-ui";
 import OrderTimeline from "./OrderTimeline";
 
-const TABS: { key: OrderBucket; label: string }[] = [
-  { key: "new", label: "New" },
-  { key: "accepted", label: "Accepted" },
-  { key: "ready", label: "Ready" },
-  { key: "shipped", label: "Shipped" },
-  { key: "delivered", label: "Delivered" },
-  { key: "cancelled", label: "Rejected / Cancelled" },
-  { key: "returns", label: "Returns" },
-];
-const EMPTY: Record<OrderBucket, string> = {
-  new: "No new orders. New orders land here for you to accept or reject.",
-  accepted: "Nothing to pack. Accepted orders wait here until you mark them ready.",
-  ready: "Nothing waiting for pickup.",
-  shipped: "Nothing on the way right now.",
-  delivered: "No delivered orders yet.",
-  cancelled: "No rejected or cancelled orders.",
-  returns: "No returns. Nice.",
+const EMPTY: Record<OrderTab, { title: string; sub: string }> = {
+  new: { title: "No new orders", sub: "New orders land here for you to accept. Keep your stock up to date so shoppers can order." },
+  pack: { title: "Nothing to pack", sub: "Orders you accept wait here until they are ready." },
+  shipped: { title: "Nothing on the way", sub: "Orders show here once they leave you." },
+  delivered: { title: "No delivered orders yet", sub: "Delivered orders start your settlement." },
+  returns: { title: "No returns", sub: "Return and exchange requests show here." },
+  cancelled: { title: "No cancelled orders", sub: "Orders you reject or that are cancelled show here." },
 };
 const VIDEO_LABEL: Record<string, string> = { pending_review: "Pending review", approved: "Approved", rejected: "Rejected" };
 
@@ -69,7 +59,7 @@ export default function OrdersView({ currency, title, sub }: Props) {
   const [orders, setOrders] = useState<Order[] | null>(null);
   const [returns, setReturns] = useState<ReturnRequest[]>([]);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState<OrderBucket>("new");
+  const [tab, setTab] = useState<OrderTab>("new");
   const [focus, setFocus] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [payment, setPayment] = useState<Payment>("all");
@@ -87,7 +77,8 @@ export default function OrdersView({ currency, title, sub }: Props) {
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     const t = p.get("tab");
-    if (t && TABS.some(x => x.key === t)) setTab(t as OrderBucket);
+    const fromLink = tabForParam(t);
+    if (fromLink) setTab(fromLink);
     const ref = p.get("ref");
     if (ref) { setFocus(ref); setOpen(o => ({ ...o, [ref]: true })); }
   }, []);
@@ -110,8 +101,7 @@ export default function OrdersView({ currency, title, sub }: Props) {
   }, [load]);
 
   const counts = useMemo(() => {
-    const c = { new: 0, accepted: 0, ready: 0, shipped: 0, delivered: 0, cancelled: 0, returns: 0 } as Record<OrderBucket, number>;
-    for (const o of orders ?? []) c[o.bucket]++;
+    const c = Object.fromEntries(ORDER_TABS.map(t => [t.key, (orders ?? []).filter(o => orderInTab(o, t.key)).length])) as Record<OrderTab, number>;
     c.returns += returns.length;
     return c;
   }, [orders, returns]);
@@ -119,7 +109,7 @@ export default function OrdersView({ currency, title, sub }: Props) {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     const from = period === "all" ? 0 : now - Number(period) * 86_400_000;
-    return (orders ?? []).filter(o => o.bucket === tab)
+    return (orders ?? []).filter(o => orderInTab(o, tab))
       .filter(o => !q || o.ref_no.toLowerCase().includes(q) || o.items.some(i => i.product_name?.toLowerCase().includes(q)))
       .filter(o => payment === "all" || (payment === "cod") === isCod(o))
       .filter(o => new Date(o.created_at).getTime() >= from)
@@ -140,6 +130,8 @@ export default function OrdersView({ currency, title, sub }: Props) {
 
   const accept = (refNo: string) => run(refNo, async () => { replaceOrder((await api.acceptOrder(refNo)).order); });
 
+  const ready = (refNo: string) => run(refNo, async () => { replaceOrder((await api.markReady(refNo)).order); });
+
   const downloadLabel = (refNo: string) => run(refNo, async () => {
     const res = await api.orderLabel(refNo);
     if (res.label_url) window.open(res.label_url, "_blank", "noopener");
@@ -159,6 +151,17 @@ export default function OrdersView({ currency, title, sub }: Props) {
     } catch (err) {
       setVideos(v => ({ ...v, [refNo]: { loading: false, video: null, error: err instanceof Error ? err.message : "Could not load video" } }));
     }
+  };
+
+  /** Arrow keys, Home and End move between tabs. */
+  const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const i = ORDER_TABS.findIndex(t => t.key === tab);
+    const to = e.key === "ArrowRight" ? (i + 1) % ORDER_TABS.length : e.key === "ArrowLeft" ? (i - 1 + ORDER_TABS.length) % ORDER_TABS.length
+      : e.key === "Home" ? 0 : e.key === "End" ? ORDER_TABS.length - 1 : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    setTab(ORDER_TABS[to].key);
+    (e.currentTarget.children[to] as HTMLElement).focus();
   };
 
   if (error) return <Alert>{error}</Alert>;
@@ -183,9 +186,9 @@ export default function OrdersView({ currency, title, sub }: Props) {
         </select>
       </div>
 
-      <div role="tablist" aria-label="Order status" className="sp-tabs">
-        {TABS.map(t => (
-          <button key={t.key} role="tab" aria-selected={tab === t.key} onClick={() => setTab(t.key)}
+      <div role="tablist" aria-label="Order status" className="sp-tabs" onKeyDown={onTabKey}>
+        {ORDER_TABS.map(t => (
+          <button key={t.key} role="tab" aria-selected={tab === t.key} tabIndex={tab === t.key ? 0 : -1} onClick={() => setTab(t.key)}
             className={tab === t.key ? "sp-tab active" : "sp-tab"}>
             {t.label}
             {counts[t.key] > 0 && <span className={t.key === "new" ? "sp-count sp-count-red" : "sp-count"}>{counts[t.key]}</span>}
@@ -209,8 +212,11 @@ export default function OrdersView({ currency, title, sub }: Props) {
       )}
 
       {shown.length === 0 ? (
-        tab === "returns" && returns.length ? null : <EmptyState title={(query || payment !== "all" || period !== "all") && counts[tab] > 0 ? "No orders match these filters." : EMPTY[tab]}
-          action={tab === "new" && (orders.length === 0) ? <a href="/dashboard/products" className="sp-btn-red">Check your catalogue</a> : undefined} />
+        tab === "returns" && returns.length ? null : <EmptyState title={(query || payment !== "all" || period !== "all") && counts[tab] > 0 ? "No orders match these filters." : EMPTY[tab].title}
+          sub={(query || payment !== "all" || period !== "all") && counts[tab] > 0 ? undefined : EMPTY[tab].sub}
+          action={(query || payment !== "all" || period !== "all") && counts[tab] > 0
+            ? <Button variant="secondary" onClick={() => { setQuery(""); setPayment("all"); setPeriod("all"); }}>Clear filters</Button>
+            : tab === "new" ? <a href="/dashboard/products" className="sp-btn-red">Check your catalogue</a> : undefined} />
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           {shown.map(o => {
@@ -257,7 +263,7 @@ export default function OrdersView({ currency, title, sub }: Props) {
                   <div><span>Order value</span><strong>{money(c.gross)}</strong></div>
                   <div><span>Commission {c.pct != null ? `${c.pct}%` : ""} · {c.label}{c.snapshot ? " · locked" : ""}</span><strong style={{ color: RED }}>{c.commission != null ? `−${money(c.commission)}` : "—"}</strong></div>
                   <div><span>Your payout</span><strong>{c.payout != null ? money(c.payout) : "—"}</strong></div>
-                  <div><span>Settlement</span><strong>{o.settlement_date ? fmtDate(o.settlement_date) : `${o.settlement_days} days after delivery`}</strong></div>
+                  <div><span>Settlement</span><strong>{o.settlement_date ? fmtDate(o.settlement_date) : o.settlement_days ? `Within ${o.settlement_days} days` : "—"}</strong></div>
                 </div>
 
                 {o.manual_courier && o.courier_assigned && o.courier && (
@@ -284,17 +290,17 @@ export default function OrdersView({ currency, title, sub }: Props) {
                     <span className="sp-chip">{o.pickup_status || o.courier_status || "Pickup scheduled"}</span>
                     {o.label_available && (
                       <Button variant="secondary" onClick={() => downloadLabel(o.ref_no)} disabled={busy === o.ref_no}>
-                        {busy === o.ref_no ? <Spinner size={14} /> : "Download label"}
+                        {busy === o.ref_no ? "Getting label…" : "Download label"}
                       </Button>
                     )}
                   </div>
                 )}
 
-                {o.seller_tracking && (
+                {o.tracking_id && (
                   <div className="sp-awb">
                     <div>
-                      <p style={{ fontSize: 11, color: "#888", fontWeight: 600, letterSpacing: ".06em" }}>YOUR TRACKING · {o.seller_tracking.courier}</p>
-                      <p style={{ fontSize: 16, fontWeight: 800, fontFamily: "var(--font-space-mono), monospace" }}>{o.seller_tracking.tracking_number}</p>
+                      <p style={{ fontSize: 11, color: "#888", fontWeight: 600, letterSpacing: ".06em" }}>YOUR TRACKING · {o.courier}</p>
+                      <p style={{ fontSize: 16, fontWeight: 800, fontFamily: "var(--font-space-mono), monospace" }}>{o.tracking_id}</p>
                     </div>
                   </div>
                 )}
@@ -325,16 +331,18 @@ export default function OrdersView({ currency, title, sub }: Props) {
                       <>
                         <Button variant="danger" onClick={() => setRejecting(o)} disabled={busy === o.ref_no}>Reject</Button>
                         <Button onClick={() => void accept(o.ref_no)} disabled={busy === o.ref_no}>
-                          {busy === o.ref_no ? <Spinner size={14} /> : "Accept order"}
+                          {busy === o.ref_no ? "Accepting…" : "Accept order"}
                         </Button>
                       </>
                     )}
-                    {featureOn("tracking") && (o.bucket === "accepted" || o.bucket === "ready" || o.bucket === "shipped") && !o.waybill && !o.multi_seller && (
-                      <Button variant="secondary" onClick={() => setTracking(o)}>{o.seller_tracking ? "Edit tracking" : "Add tracking"}</Button>
-                    )}
-                    {o.bucket === "accepted" && !o.multi_seller && (
-                      <Button onClick={() => setReadying(o)} disabled={busy === o.ref_no}>Mark as ready</Button>
-                    )}
+                    {o.bucket === "accepted" && !o.multi_seller && <a href={`/dashboard/orders/${encodeURIComponent(o.ref_no)}/slip`} className="sp-btn-line">Packing slip</a>}
+                    {o.bucket === "accepted" && !o.multi_seller && (sellerShips(o)
+                      ? <Button onClick={() => setTracking(o)}>Enter tracking</Button>
+                      : <>
+                          <Button variant="ghost" onClick={() => setReadying(o)} disabled={busy === o.ref_no}>Add weight</Button>
+                          <Button onClick={() => void ready(o.ref_no)} disabled={busy === o.ref_no}>{busy === o.ref_no ? "Marking…" : "Mark as ready"}</Button>
+                        </>)}
+                    {o.bucket === "ready" && !o.multi_seller && <a href={`/dashboard/orders/${encodeURIComponent(o.ref_no)}/slip`} className="sp-btn-line">Packing slip</a>}
                   </div>
                 </div>
 
@@ -345,7 +353,7 @@ export default function OrdersView({ currency, title, sub }: Props) {
                 )}
                 {open[`v-${o.ref_no}`] && (
                   <div style={{ padding: "0 18px 18px" }}>
-                    {!video || video.loading ? <p style={{ fontSize: 13, color: "#888" }}>Loading video…</p>
+                    {!video || video.loading ? <Skeleton height={180} width="100%" radius={12} style={{ maxWidth: 420 }} />
                       : video.error ? <Alert>{video.error}</Alert>
                       : video.video?.url ? <video src={video.video.url} controls playsInline style={{ width: "100%", maxWidth: 420, borderRadius: 12, background: "#000" }} />
                       : <p style={{ fontSize: 13, color: "#888" }}>Video is not available right now.</p>}
@@ -367,42 +375,39 @@ export default function OrdersView({ currency, title, sub }: Props) {
       )}
       {readying && (
         <ReadyModal order={readying} onClose={() => setReadying(null)}
-          onReady={o => { replaceOrder(o); setReadying(null); setTab("ready"); }} />
+          onReady={o => { replaceOrder(o); setReadying(null); }} />
       )}
     </div>
   );
 }
 
 function TrackingModal({ order, onClose, onSaved }: { order: Order; onClose: () => void; onSaved: (o: Order) => void }) {
-  const [courier, setCourier] = useState(order.seller_tracking?.courier ?? "");
-  const [number, setNumber] = useState(order.seller_tracking?.tracking_number ?? "");
-  const [url, setUrl] = useState(order.seller_tracking?.tracking_url ?? "");
+  const [courier, setCourier] = useState(order.courier ?? "");
+  const [number, setNumber] = useState(order.tracking_id ?? "");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const ready = courier.trim().length >= 2 && number.trim().length >= 3;
+  const ready = courier.trim().length >= 2 && validTrackingId(number);
 
   const submit = async () => {
     setBusy(true); setError("");
     try {
-      const { order: saved } = await api.saveTracking(order.ref_no, { courier: courier.trim(), tracking_number: number.trim(), ...(url.trim() ? { tracking_url: url.trim() } : {}) });
-      onSaved(saved);
+      onSaved((await api.shipOrder(order.ref_no, { courier: courier.trim(), tracking_id: number.trim() })).order);
     } catch (err) {
-      setError(isNotLive(err) ? "Tracking entry is not switched on yet. Nothing was saved." : err instanceof Error ? err.message : "Could not save tracking");
+      setError(err instanceof Error ? err.message : "Could not save tracking");
       setBusy(false);
     }
   };
 
   return (
-    <Modal title={`Tracking · ${order.ref_no}`} onClose={onClose} width={460}>
+    <Modal title={`Enter tracking · ${order.ref_no}`} onClose={onClose} width={460}>
       <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
         <Field label="Courier" htmlFor="track-courier"><input id="track-courier" className="sp-field" value={courier} onChange={e => setCourier(e.target.value)} maxLength={60} /></Field>
-        <Field label="Tracking number" htmlFor="track-number"><input id="track-number" className="sp-field" value={number} onChange={e => setNumber(e.target.value)} maxLength={60} autoComplete="off" /></Field>
-        <Field label="Tracking link (optional)" htmlFor="track-url"><input id="track-url" className="sp-field" type="url" value={url} onChange={e => setUrl(e.target.value)} maxLength={300} /></Field>
+        <Field label="Tracking number" htmlFor="track-number" hint="4 to 60 letters, digits or . _ / -"><input id="track-number" className="sp-field" value={number} onChange={e => setNumber(e.target.value)} maxLength={60} autoComplete="off" /></Field>
       </div>
       {error && <div style={{ marginTop: 12 }}><Alert>{error}</Alert></div>}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button>
-        <Button onClick={() => void submit()} disabled={busy || !ready}>{busy ? <Spinner size={14} /> : "Save tracking"}</Button>
+        <Button onClick={() => void submit()} disabled={busy || !ready}>{busy ? "Saving…" : "Save and mark shipped"}</Button>
       </div>
     </Modal>
   );
@@ -437,7 +442,7 @@ function RejectModal({ order, onClose, onRejected }: { order: Order; onClose: ()
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Keep order</Button>
         <Button onClick={() => void submit()} disabled={busy || tooShort} style={{ background: "#111111" }}>
-          {busy ? <Spinner size={14} /> : "Reject and cancel"}
+          {busy ? "Rejecting…" : "Reject and cancel"}
         </Button>
       </div>
     </Modal>
@@ -481,7 +486,7 @@ function ReadyModal({ order, onClose, onReady }: { order: Order; onClose: () => 
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
         <Button variant="secondary" onClick={onClose} disabled={busy}>Not yet</Button>
         <Button onClick={() => void submit()} disabled={busy || badWeight || !checks.packed || !checks.tagged}>
-          {busy ? <Spinner size={14} /> : "Mark as ready"}
+          {busy ? "Marking…" : "Mark as ready"}
         </Button>
       </div>
     </Modal>

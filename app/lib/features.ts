@@ -6,7 +6,6 @@
 export type BackendFeature =
   | "quick_stock"       // POST /seller/products/:id/stock
   | "low_stock_setting" // POST /seller/settings
-  | "tracking"          // POST /seller/orders/:ref/tracking
   | "drafts"            // POST /seller/products/drafts
   | "store_analytics"   // GET /seller/analytics returning { product_views, orders }
   | "sku";              // `sku` stored on products and variants

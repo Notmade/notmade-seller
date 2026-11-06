@@ -2,9 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, ApiError, fmtDate, isNotLive, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
 import { productPrice, productPriceFields } from "../../lib/currency";
 import { featureOn } from "../../lib/features";
+import { deleteDraft, listDrafts, type ListingDraft } from "../../lib/listing-drafts";
+import { STATUS_LABEL, productStatus } from "../../lib/product-status";
 import ValueGallery from "../../components/ValueGallery";
 import CategoryPicker from "../../components/CategoryPicker";
 import { useDashboardSeller, useSellerCurrency } from "../seller-context";
@@ -16,16 +19,8 @@ const MAX_UPLOAD = 8;       // per request (backend)
 const MAX_BYTES = 8 * 1024 * 1024;
 
 type Filter = "all" | "draft" | "live" | "pending" | "rejected";
-const FILTER_LABEL: Record<Filter, string> = { all: "All", draft: "Draft", live: "Live", pending: "In review", rejected: "Rejected" };
-const filters = () => (Object.keys(FILTER_LABEL) as Filter[]).filter(f => f !== "draft" || featureOn("drafts"));
-
-function productStatus(p: Product): { key: string; label: string } {
-  if (p.status === "draft") return { key: "draft", label: "Draft" };
-  if (p.approval_status === "rejected") return { key: "rejected", label: "Rejected" };
-  if (p.approval_status === "pending") return { key: "pending", label: "In review" };
-  if (p.is_live) return { key: "live", label: "Live" };
-  return { key: "approved", label: "Approved · not live" };
-}
+const FILTER_LABEL: Record<Filter, string> = { all: "All", draft: STATUS_LABEL.draft, live: STATUS_LABEL.live, pending: STATUS_LABEL.pending, rejected: STATUS_LABEL.rejected };
+const FILTERS = Object.keys(FILTER_LABEL) as Filter[];
 
 export default function ProductsPage() {
   // Adding / editing waits for the updated agreement; delete and orders are unaffected
@@ -37,7 +32,10 @@ export default function ProductsPage() {
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
-  const [editing, setEditing] = useState<Product | "new" | null>(null);
+  const [editing, setEditing] = useState<Product | null>(null);
+  const [drafts, setDrafts] = useState<ListingDraft[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const routerRef = useRef(useRouter());
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -51,9 +49,12 @@ export default function ProductsPage() {
 
   useEffect(() => {
     void load();
-    if (new URLSearchParams(window.location.search).get("new") === "1" && !locked) setEditing("new");
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("new") === "1" && !locked) routerRef.current.replace("/dashboard/products/new");
+    setSubmitted(params.get("submitted") === "1");
+    void listDrafts(me.id).then(setDrafts);
     api.categories().then(r => setCategories(r.categories)).catch(() => { /* form shows empty dropdown */ });
-  }, [load, locked]);
+  }, [load, locked, me.id]);
 
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -78,7 +79,14 @@ export default function ProductsPage() {
   return (
     <div>
       <PageHeader title="Catalogue" sub="New products and edits go to NOTMADE for review before going live."
-        action={<Button disabled={locked} onClick={() => setEditing("new")}>+ Add product</Button>} />
+        action={(
+          <div className="sp-inline">
+            <Link href="/dashboard/products/bulk" className="sp-btn-line">Bulk upload</Link>
+            {locked ? <Button disabled>+ Add product</Button> : <Link href="/dashboard/products/new" className="sp-btn-red">+ Add product</Link>}
+          </div>
+        )} />
+
+      {submitted && <div style={{ marginBottom: 14 }}><Alert kind="success">Submitted. Your product is In review, and NOTMADE will approve it before it goes live.</Alert></div>}
 
       {locked && (
         <div style={{ marginBottom: 14 }}>
@@ -91,22 +99,47 @@ export default function ProductsPage() {
 
       {error && <div style={{ marginBottom: 14 }}><Alert>{error}</Alert></div>}
 
+      {drafts.length > 0 && (filter === "all" || filter === "draft") && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+          {drafts.map(d => (
+            <Card key={d.id} style={{ padding: 14 }}>
+              <div className="sp-draft-row">
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <p style={{ fontSize: 15, fontWeight: 700 }}>{d.listing.name.trim() || "Untitled product"}</p>
+                    <Badge status="draft" label={STATUS_LABEL.draft} />
+                  </div>
+                  <p style={{ fontSize: 12, color: "#777", marginTop: 2 }}>On this device · saved {fmtDate(d.savedAt)}</p>
+                </div>
+                <div className="sp-inline">
+                  <Link href={`/dashboard/products/new?draft=${d.id}`} className="sp-btn-line">Continue</Link>
+                  <Button variant="danger" onClick={() => { void deleteDraft(d.id); setDrafts(ds => ds.filter(x => x.id !== d.id)); }}>Discard</Button>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+
       {!products ? (!error && <PageSkeleton stats={0} />) : products.length === 0 ? (
-        <EmptyState title="No products yet" sub="Add your first product to start selling on NOTMADE."
-          action={<Button disabled={locked} onClick={() => setEditing("new")}>+ Add product</Button>} />
+        !drafts.length && <EmptyState title="No products yet" sub="List your first product in a few guided steps, or upload many at once with a CSV."
+          action={locked ? <Button disabled>+ Add product</Button> : <Link href="/dashboard/products/new" className="sp-btn-red">+ Add your first product</Link>} />
       ) : (
         <>
           <div className="sp-toolbar">
             <input className="sp-search" placeholder={featureOn("sku") ? "Search name or SKU" : "Search by name"} aria-label="Search catalogue" value={query} onChange={e => setQuery(e.target.value)} />
             <div className="sp-pills" role="group" aria-label="Status filter">
-              {filters().map(f => (
+              {FILTERS.map(f => (
                 <button key={f} type="button" className="sp-pill" aria-pressed={filter === f} onClick={() => setFilter(f)}>{FILTER_LABEL[f]}</button>
               ))}
             </div>
           </div>
 
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {shown.length === 0 && <p style={{ fontSize: 14, color: "#888888", padding: "20px 0" }}>Nothing here.</p>}
+            {shown.length === 0 && !(filter === "draft" && drafts.length) && (
+              <EmptyState title={query ? "No products match that search." : `No products in ${FILTER_LABEL[filter]}.`}
+                action={<Button variant="secondary" onClick={() => { setFilter("all"); setQuery(""); }}>Show all products</Button>} />
+            )}
             {shown.map(p => {
               const st = productStatus(p);
               const { price, mrp } = productPrice(p, country);
@@ -135,7 +168,7 @@ export default function ProductsPage() {
                       </p>
                       <p style={{ fontSize: 12, color: "#AAAAAA", marginTop: 2 }}>Submitted {fmtDate(p.submitted_at ?? p.created_at)}</p>
                       {p.approval_status === "rejected" && p.rejection_reason && (
-                        <p style={{ fontSize: 13, color: RED, marginTop: 6 }}>Reason: {p.rejection_reason}</p>
+                        <p style={{ fontSize: 13, color: RED, marginTop: 6 }}>What to change: {p.rejection_reason}</p>
                       )}
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
@@ -161,7 +194,7 @@ export default function ProductsPage() {
 
       {editing && (
         <ProductForm
-          product={editing === "new" ? null : editing}
+          product={editing}
           categories={categories}
           onClose={() => setEditing(null)}
           onSaved={saved => {

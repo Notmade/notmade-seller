@@ -80,10 +80,10 @@ export default function AnalyticsPage() {
           <button type="button" className="sp-link" onClick={() => setAsTable(t => !t)}>{asTable ? "Show chart" : "Show table"}</button>
         </div>
         {asTable ? (
-          <div style={{ overflowX: "auto", maxHeight: 320 }}>
-            <table className="sp-table">
+          <div className="sp-scroll" tabIndex={0} role="region" aria-label="Daily sales" style={{ maxHeight: 320 }}>
+            <table className="sp-table sp-stacked">
               <thead><tr><th scope="col">Day</th><th scope="col" className="sp-num">Orders</th><th scope="col" className="sp-num">Sales</th></tr></thead>
-              <tbody>{series.filter(p => p.orders > 0).map(p => <tr key={p.day}><td>{shortDay(p.day)}</td><td className="sp-num">{p.orders}</td><td className="sp-num">{fmt(p.revenue)}</td></tr>)}</tbody>
+              <tbody>{series.filter(p => p.orders > 0).map(p => <tr key={p.day}><td data-label="Day">{shortDay(p.day)}</td><td data-label="Orders" className="sp-num">{p.orders}</td><td data-label="Sales" className="sp-num">{fmt(p.revenue)}</td></tr>)}</tbody>
             </table>
           </div>
         ) : (
@@ -105,10 +105,10 @@ export default function AnalyticsPage() {
         <Card style={{ padding: 0 }}>
           <div className="sp-card-head"><h2>Top products</h2></div>
           {top.length === 0 ? <p style={{ padding: "24px 20px", fontSize: 14, color: "#888", textAlign: "center" }}>No sales in this range.</p> : (
-            <div style={{ overflowX: "auto" }}>
-              <table className="sp-table">
+            <div className="sp-scroll" tabIndex={0} role="region" aria-label="Top products">
+              <table className="sp-table sp-stacked">
                 <thead><tr><th scope="col">Product</th><th scope="col" className="sp-num">Units</th><th scope="col" className="sp-num">Sales</th></tr></thead>
-                <tbody>{top.map(p => <tr key={p.id}><td style={{ whiteSpace: "normal", fontWeight: 700 }}>{p.name}</td><td className="sp-num">{p.units}</td><td className="sp-num">{fmt(p.revenue)}</td></tr>)}</tbody>
+                <tbody>{top.map(p => <tr key={p.id}><td data-label="Product" style={{ whiteSpace: "normal", fontWeight: 700 }}>{p.name}</td><td data-label="Units" className="sp-num">{p.units}</td><td data-label="Sales" className="sp-num">{fmt(p.revenue)}</td></tr>)}</tbody>
               </table>
             </div>
           )}

@@ -236,26 +236,12 @@ describe("Inventory fallback", () => {
 // ─── Orders ──────────────────────────────────────────────────────────────────
 
 describe("Orders fallback", () => {
-  it("hides Add tracking; the accept and pack steps stay", async () => {
+  it("offers tracking only on seller-ships orders; the accept and pack steps stay", async () => {
     be.orders = [order({ bucket: "accepted", seller_status: "accepted" } as Partial<Order>)];
-    localStorage.clear();
     window.history.replaceState({}, "", "/dashboard/orders?tab=accepted");
     inPanel(<OrdersPage />);
     expect(await screen.findByRole("button", { name: "Mark as ready" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /tracking/i })).toBeNull();
-    window.history.replaceState({}, "", "/");
-  });
-
-  it("if switched on too early, a 404 on tracking says so and saves nothing", async () => {
-    vi.stubEnv("NEXT_PUBLIC_SELLER_FEATURES", "tracking");
-    be.orders = [order({ bucket: "accepted", seller_status: "accepted" } as Partial<Order>)];
-    window.history.replaceState({}, "", "/dashboard/orders?tab=accepted");
-    inPanel(<OrdersPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add tracking" }));
-    fireEvent.change(screen.getByLabelText("Courier"), { target: { value: "Aramex" } });
-    fireEvent.change(screen.getByLabelText("Tracking number"), { target: { value: "AB123" } });
-    fireEvent.click(screen.getByRole("button", { name: "Save tracking" }));
-    expect(await screen.findByText(/not switched on yet\. Nothing was saved/)).toBeTruthy();
     window.history.replaceState({}, "", "/");
   });
 });
@@ -345,16 +331,19 @@ describe("Notifications fallback", () => {
 // ─── Catalogue ───────────────────────────────────────────────────────────────
 
 describe("Catalogue fallback", () => {
-  const openForm = async () => {
+  it("adds products through the wizard, and the edit form has no server draft button or SKU field", async () => {
+    be.products = [product()];
     inPanel(<ProductsPage />);
-    fireEvent.click(await screen.findByRole("button", { name: "+ Add product" }));
-  };
-
-  it("has no draft button, draft filter or SKU field, because neither is stored", async () => {
-    await openForm();
+    expect((await screen.findByRole("link", { name: "+ Add product" })).getAttribute("href")).toBe("/dashboard/products/new");
+    fireEvent.click(await screen.findByRole("button", { name: /^Edit/ }));
     expect(screen.queryByRole("button", { name: "Save as draft" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Draft" })).toBeNull();
     expect(screen.queryByLabelText(/SKU/)).toBeNull();
+  });
+
+  it("offers the empty catalogue a next step", async () => {
+    be.products = [];
+    inPanel(<ProductsPage />);
+    expect((await screen.findByRole("link", { name: "+ Add your first product" })).getAttribute("href")).toBe("/dashboard/products/new");
   });
 
   const editable = () => product({ name: "Tee", description: "A heavy cotton tee.", images: ["https://x/1.jpg"], category_id: "c1", status: "draft" } as Partial<Product>);
@@ -393,7 +382,7 @@ describe("api client", () => {
     expect(featureOn("quick_stock")).toBe(false);
     vi.stubEnv("NEXT_PUBLIC_SELLER_FEATURES", " drafts , quick_stock");
     expect(featureOn("quick_stock")).toBe(true);
-    expect(featureOn("tracking")).toBe(false);
+    expect(featureOn("sku")).toBe(false);
   });
 });
 

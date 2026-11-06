@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api, DOC_LABELS, fmtDate, type SellerDocument } from "../../lib/seller-api";
 import { useDashboardSeller, useSellerCurrency } from "../seller-context";
 import { CountryBadge } from "../../components/market";
-import { Alert, Button, Card, PageHeader, RED, Skeleton, Spinner } from "../../components/portal-ui";
+import { Alert, Button, Card, PageHeader, RED, Skeleton } from "../../components/portal-ui";
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
@@ -98,7 +98,7 @@ export default function ProfilePage() {
             <h2 style={{ fontSize: 15, fontWeight: 800 }}>Documents</h2>
             <input ref={logoInput} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={uploadLogo} />
             <Button variant="secondary" disabled={uploading} onClick={() => logoInput.current?.click()}>
-              {uploading ? <><Spinner size={14} /> Uploading</> : seller.logo_url ? "Replace logo" : "Upload logo"}
+              {uploading ? "Uploading…" : seller.logo_url ? "Replace logo" : "Upload logo"}
             </Button>
           </div>
           {logoMsg && <div style={{ marginBottom: 10 }}><Alert kind={logoMsg.kind}>{logoMsg.text}</Alert></div>}
