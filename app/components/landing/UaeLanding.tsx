@@ -43,7 +43,7 @@ export function RateCardTable({ rates }: { rates: UaeRateCard }) {
 }
 
 export default function UaeLanding({ rates, methods, signupOpen }: { rates: UaeRateCard; methods: ConfigPaymentMethod[]; signupOpen: boolean }) {
-  const primary = signupOpen ? uae.signup : { label: WAITLIST.label, href: "#start" };
+  const primary = signupOpen ? uae.signup : { label: WAITLIST.cta, href: "#start" };
   const payments = uaePaymentOptions(methods);
   return (
     <Page content={uae} entity={LEGAL_ENTITY_UAE} sections={SECTIONS} primary={primary}
@@ -110,10 +110,11 @@ export default function UaeLanding({ rates, methods, signupOpen }: { rates: UaeR
 
       <Steps steps={uae.steps} />
       <FaqSection items={uae.faq} />
-      <FinalCta code="ae" final={uae.final}>
+      <FinalCta code="ae" final={signupOpen ? uae.final : WAITLIST.final}>
         {signupOpen
           ? <a href={uae.signup.href} className="n-btn n-btn-red">{uae.signup.label}</a>
-          : <WaitlistForm label={WAITLIST.label} note={WAITLIST.note} done={WAITLIST.done} market={WAITLIST.market} />}
+          : <WaitlistForm label={WAITLIST.label} done={WAITLIST.done} market={WAITLIST.market}
+              note={<>{WAITLIST.note} Questions? <a href={`mailto:${WAITLIST.contact}`}>{WAITLIST.contact}</a></>} />}
         <a href={uae.login.href} className="n-btn n-btn-ghost">{signupOpen ? uae.login.label : "Already a seller? Log in"}</a>
       </FinalCta>
     </Page>

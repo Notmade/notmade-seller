@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { MARKETS, MARKET_COOKIE, DEFAULT_MARKET, getMarket, isMarketCode, marketForCountry, type Market, type MarketCode } from "@/src/config/markets";
 import type { SellerCountryCode } from "../lib/currency";
+import { DEFAULT_SIGNUP_COUNTRIES } from "../lib/signup-countries";
 
 export function Flag({ market, size = 20 }: { market: Market; size?: number }) {
   return (
@@ -32,6 +33,19 @@ function readCookie(): string | null {
 
 export function writeMarketCookie(code: MarketCode) {
   document.cookie = `${MARKET_COOKIE}=${code}; path=/; max-age=${365 * 24 * 60 * 60}; samesite=lax`;
+}
+
+// Read on the server by the login and onboarding layouts. Closed unless a layout says otherwise.
+const SignupCountries = createContext<string[]>(DEFAULT_SIGNUP_COUNTRIES);
+
+export function SignupCountriesProvider({ countries, children }: { countries: string[]; children: React.ReactNode }) {
+  return <SignupCountries.Provider value={countries}>{children}</SignupCountries.Provider>;
+}
+
+/** Whether a new seller account can be created for a market. Existing sellers use `market.open`. */
+export function useSignupOpen(): (market: Market) => boolean {
+  const countries = useContext(SignupCountries);
+  return (market) => market.open && countries.includes(market.sellerCountry);
 }
 
 /** Current market: ?market=… wins, then the cookie, then the default. Changing it updates both. */
@@ -63,6 +77,7 @@ export function MarketSwitcher({ value, onChange, compact = false }: {
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const signupOpen = useSignupOpen();
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +106,7 @@ export function MarketSwitcher({ value, onChange, compact = false }: {
               <button type="button" className="s-switch-opt" onClick={() => { setOpen(false); onChange(m.code); }}>
                 <Flag market={m} size={14} />
                 <span style={{ flex: 1 }}>{m.name}</span>
-                <span className="s-switch-tag">{m.open ? "Open" : "Waitlist"}</span>
+                <span className="s-switch-tag">{signupOpen(m) ? "Open" : "Waitlist"}</span>
               </button>
             </li>
           ))}

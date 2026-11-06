@@ -199,7 +199,7 @@ export default function ContractPage() {
                 body: [
                   "The Seller agrees to pay the Company a commission of 17% (seventeen percent) of the final selling price of each product sold through the NOTMADE platform.",
                   "This commission covers all platform services including marketing, delivery, customer support, returns management, and payment collection.",
-                  "No monthly fees, subscription charges, listing fees, or any other charges are applicable under this Agreement.",
+                  "No monthly fees, subscription charges or listing fees are applicable under this Agreement. GST on commission and TDS apply as per law.",
                 ],
               },
               {

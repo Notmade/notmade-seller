@@ -1,3 +1,5 @@
+import { UAE_SUPPORT_EMAIL } from "../lib/seller-config";
+
 // UAE legal pages. Wording comes from the backend UAE seller agreement (uae-local-v2), the published
 // UAE store refund policy, and the onboarding form. `source` on each section says which.
 
@@ -22,7 +24,7 @@ export const ENTITY = {
   licence: "Licence No: 2628021907888",
   office: "Office No. BC-894509, 26th Floor, Amber Gem Tower, Sheikh Khalifa Street, Ajman, United Arab Emirates",
   email: "admin@notmade.in",
-  supportEmail: "care@notmade.in",
+  supportEmail: UAE_SUPPORT_EMAIL,
   phone: "+971557590282",
 };
 

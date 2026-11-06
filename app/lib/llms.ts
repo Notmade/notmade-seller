@@ -7,7 +7,7 @@ import { AED, INR } from "./currency";
 import { getPage, PUBLIC_PAGES, type PageKey } from "./public-pages";
 import { absoluteUrl } from "./seo";
 import {
-  COMMISSION_PCT_INDIA, CONTACT_EMAIL, ENTITY_BY_COUNTRY, MAIN_SITE_URL, MIN_PRODUCTS, RETURN_WINDOW_DAYS, REVIEW_HOURS, SELLER_SUPPORT_EMAIL,
+  COMMISSION_STATEMENT_INDIA, CONTACT_EMAIL, ENTITY_BY_COUNTRY, MAIN_SITE_URL, MIN_PRODUCTS, RETURN_WINDOW_DAYS, REVIEW_HOURS, SELLER_SUPPORT_EMAIL,
   SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_SITE_URL,
 } from "./seller-config";
 
@@ -40,7 +40,7 @@ export function buildLlmsTxt(): string {
 6. Get paid by bank transfer, with a settlement statement.
 
 ## Fees and payouts
-- India: no listing fee or monthly fee. Flat commission on the selling price; the standard rate is ${COMMISSION_PCT_INDIA}% (the exact rate is in the agreement). Payout within ${PAYOUT_DAYS} days of confirmed delivery, after commission, GST on commission, TDS and return adjustments.
+- India: ${COMMISSION_STATEMENT_INDIA} No listing fee or monthly fee. The commission is on the selling price (the exact rate is in the agreement). Payout within ${PAYOUT_DAYS} days of confirmed delivery, after commission, GST on commission, TDS and return adjustments.
 - UAE: commission on the ${AED} selling price. ${uaeRateSentence()} Payout to the seller's UAE IBAN within ${PAYOUT_DAYS} days after the ${RETURN_WINDOW_DAYS}-day return window closes.
 - Returns: customers can return within ${RETURN_WINDOW_DAYS} days of delivery with an unboxing video. The seller bears the cost when the cause is a defect, misdescription or seller error.
 

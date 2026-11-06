@@ -1,6 +1,7 @@
 // Seller markets shown in the country switcher, login and onboarding (landing copy lives in app/landing/content).
 // Adding a country = adding one object to MARKETS (and its code to NEXT_PUBLIC_SELLER_MARKETS_OPEN
-// once accounts open there).
+// once accounts open there). New seller sign-ups also need the country in SELLER_SIGNUP_COUNTRIES: see
+// useSignupOpen in app/components/market.tsx.
 
 import { CURRENCY_BY_COUNTRY, type Currency } from "@/app/lib/currency";
 import { MAIN_SITE_URL, SETTLEMENT_DAYS_AFTER_DELIVERY, UAE_SITE_URL } from "@/app/lib/seller-config";
@@ -19,7 +20,7 @@ export interface Market {
   storeUrl: string;
   documents: string[];
   delivery: string;
-  /** Seller accounts can be created for this market (NEXT_PUBLIC_SELLER_MARKETS_OPEN). */
+  /** Sellers can onboard in this market (NEXT_PUBLIC_SELLER_MARKETS_OPEN). New sign-ups: useSignupOpen. */
   open: boolean;
 }
 

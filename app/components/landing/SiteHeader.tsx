@@ -44,7 +44,7 @@ export default function SiteHeader({ code, sections, login, primary }: {
   return (
     <header className={`n-head${scrolled || open ? " is-raised" : ""}`}>
       <div className="n-wrap n-head-row">
-        <a href={code === "ae" ? "/uae" : code ? "/?market=in" : "/"} className="n-logo" aria-label="NOTMADE Seller home">
+        <a href={code === "ae" ? "/uae" : "/"} className="n-logo" aria-label="NOTMADE Seller home">
           NOT<span>MADE</span><small>Seller</small>
         </a>
 

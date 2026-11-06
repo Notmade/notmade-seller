@@ -29,12 +29,12 @@ export interface PublicPage {
 
 export const PUBLIC_PAGES: PublicPage[] = [
   {
-    key: "home", path: "/", name: "Home", priority: 1, lastModified: "2026-11-05", locale: "en_IN",
+    key: "home", path: "/", name: "Home", priority: 1, lastModified: "2026-11-06", locale: "en_IN",
     title: "Sell across India on NOTMADE | NOTMADE Seller",
     description: `Sell on ${host(MAIN_SITE_URL)} from anywhere in India. No listing fee, a ${COMMISSION_PCT_INDIA}% commission and payout ${PAYOUT_DAYS} days after delivery.`,
   },
   {
-    key: "uae", path: "/uae", name: "UAE seller page", priority: 1, lastModified: "2026-11-05", locale: "en_AE",
+    key: "uae", path: "/uae", name: "UAE seller page", priority: 1, lastModified: "2026-11-06", locale: "en_AE",
     title: "Selling in the UAE on NOTMADE | NOTMADE Seller",
     description: `Reach customers across the UAE on ${host(UAE_SITE_URL)}. Set your prices in ${AED}, see the commission rate card and get paid to your UAE IBAN.`,
   },
@@ -44,12 +44,12 @@ export const PUBLIC_PAGES: PublicPage[] = [
     description: "From sign-up to payout: sign up with an email code, add your business documents, sign the seller agreement, list products, accept orders and get paid.",
   },
   {
-    key: "fees-and-payouts", path: "/fees-and-payouts", name: "Fees and payouts", priority: 0.8, lastModified: "2026-10-28", locale: "en_IN",
+    key: "fees-and-payouts", path: "/fees-and-payouts", name: "Fees and payouts", priority: 0.8, lastModified: "2026-11-06", locale: "en_IN",
     title: "Seller fees, commission and payouts | NOTMADE",
     description: "What it costs to sell on NOTMADE in India and the UAE: commission on each delivered order, what is deducted from a settlement, and when payouts reach your bank.",
   },
   {
-    key: "faq", path: "/faq", name: "Seller FAQ", priority: 0.8, lastModified: "2026-10-28", locale: "en_IN",
+    key: "faq", path: "/faq", name: "Seller FAQ", priority: 0.8, lastModified: "2026-11-06", locale: "en_IN",
     title: "Seller FAQ: documents, fees, payouts, returns | NOTMADE",
     description: "Answers for new sellers: who can sell, documents for India and the UAE, commission, payout timing, returns, accepting orders, listing products and approval time.",
   },
