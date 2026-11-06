@@ -97,9 +97,8 @@ describe("formats per country", () => {
     expect(validateDetails("AE", { ...uae, emirate: "" }).emirate).toBeTruthy();
   });
 
-  it("requires a fulfilment choice from UAE sellers only", () => {
-    expect(validateDetails("AE", { ...uae, default_fulfilment_mode: "" }).default_fulfilment_mode).toBeTruthy();
-    expect(validateDetails("IN", india).default_fulfilment_mode).toBeUndefined();
+  it("leaves who ships to the rate step: a seller without phones never answers it", () => {
+    expect(validateDetails("AE", { ...uae, default_fulfilment_mode: "" })).toEqual({});
   });
 
   it("runs the checksums", () => {

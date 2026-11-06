@@ -3,6 +3,7 @@
 
 import type { Currency, Money } from "./currency";
 import type { FulfilmentMode, RateCard } from "./rate-card";
+import { SELL_CATEGORIES_KEY } from "./sell-categories";
 
 export type { Currency, Money } from "./currency";
 
@@ -26,7 +27,7 @@ export function setToken(token: string): void {
 }
 
 export function clearSession(): void {
-  try { localStorage.removeItem(TOKEN_KEY); } catch { /* storage blocked */ }
+  try { localStorage.removeItem(TOKEN_KEY); localStorage.removeItem(SELL_CATEGORIES_KEY); } catch { /* storage blocked */ }
   document.cookie = `${COOKIE}=; path=/; max-age=0; samesite=lax`;
   document.cookie = `${COUNTRY_COOKIE}=; path=/; max-age=0; samesite=lax`;
 }

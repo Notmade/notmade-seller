@@ -4,7 +4,14 @@
 
 export type FulfilmentMode = "seller_ships" | "notmade_ships";
 
-export interface RateLine { fulfilment_mode: FulfilmentMode | null; pct: number }
+export interface RateLine {
+  fulfilment_mode: FulfilmentMode | null;
+  /** The total the seller pays. */
+  pct: number;
+  /** On AE-2026-11-v3 phones and laptops only: what `pct` is made of. */
+  commission_pct?: number;
+  shipping_charge_pct?: number;
+}
 export interface RateGroup { key: string; label: string; shipping_included: boolean; rates: RateLine[] }
 export interface RateCard { version?: string; effective_from?: string; groups: RateGroup[] }
 
@@ -49,6 +56,25 @@ export function groupRateText(group: RateGroup): string {
   const notmade = groupPct(group, "notmade_ships");
   const rate = seller === notmade ? `${seller}%` : `${seller}% if you ship, ${notmade}% if NOTMADE ships`;
   return group.shipping_included ? `${rate}, shipping included` : rate;
+}
+
+/** The rate of one group in words, for the choice made so far. Null when the card has no such group. */
+export function chosenRateText(card: RateCard | null, key: string, mode?: FulfilmentMode | ""): string | null {
+  const group = card?.groups.find((g) => g.key === key);
+  if (!group) return null;
+  return mode ? `${groupPct(group, mode)}%` : groupRateText(group);
+}
+
+/** One who-ships option as the seller reads it. `breakdown` is null where no shipping charge applies. */
+export function whoShipsOption(card: RateCard | null, mode: FulfilmentMode): { title: string; breakdown: string | null } {
+  const pct = whoShipsRate(card, mode);
+  const line = whoShipsGroup(card)?.rates.find((r) => r.fulfilment_mode === mode);
+  return {
+    title: pct == null ? WHO_SHIPS_LABEL[mode] : `${WHO_SHIPS_LABEL[mode]}, ${pct}%`,
+    breakdown: line?.shipping_charge_pct && line.commission_pct != null
+      ? `(${line.commission_pct}% + ${line.shipping_charge_pct}% NOTMADE shipping charge, flat, no VAT added)`
+      : null,
+  };
 }
 
 /** One "label: rate" line per group. Empty when there is no card. */

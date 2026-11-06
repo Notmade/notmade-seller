@@ -13,10 +13,11 @@ import { CountryBadge, Flag, Waitlist, useMarket, useSignupOpen } from "../compo
 import { MARKETS, SETTLEMENT_DAYS, marketForCountry, type Market, type MarketCode } from "@/src/config/markets";
 import { sellerCountry } from "../lib/currency";
 import { COMMISSION_STATEMENT_INDIA } from "../lib/seller-config";
+import { chosenRateText, usableCard, whoShipsOption, type FulfilmentMode, type RateCard } from "../lib/rate-card";
 import {
-  WHO_SHIPS_LABEL, groupRateText, usableCard, whoShipsChangesRate, whoShipsGroup, whoShipsRate,
-  type FulfilmentMode, type RateCard,
-} from "../lib/rate-card";
+  SELL_CATEGORIES, fulfilmentModeToSend, loadSellCategories, rateStepComplete, saveSellCategories, sellsPhones,
+  type SellCategory,
+} from "../lib/sell-categories";
 import { validateDetails, type DetailsErrors, type DetailsInput } from "../lib/validate";
 
 type StepKey = "details" | "documents" | "agreement" | "review";
@@ -199,7 +200,14 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
 }) {
   // A new seller answers the country first; an existing seller's country never changes here
   const signupOpen = useSignupOpen();
-  const [f, setF] = useState<DetailsForm>(() => fromSeller(seller));
+  const [sells, setSells] = useState<SellCategory[]>(loadSellCategories);
+  const [f, setF] = useState<DetailsForm>(() => {
+    const form = fromSeller(seller);
+    // A stored value is only the seller's answer if they said they sell phones: see UNASKED_FULFILMENT_MODE
+    return readOnly || sellsPhones(sells) ? form : { ...form, default_fulfilment_mode: "" };
+  });
+  // The UAE asks what the seller sells before their business details. A seller coming back skips it.
+  const [rateStepDone, setRateStepDone] = useState(() => !!seller && rateStepComplete(sells, f.default_fulfilment_mode));
   // After a failed submit, messages clear as each field is fixed
   const [tried, setTried] = useState(false);
   const fe: DetailsErrors = tried && f.seller_country ? validateDetails(f.seller_country, f) : {};
@@ -208,7 +216,21 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
     onMarket(m.code);
     // Nothing typed for one country carries over to the other
     setF({ ...fromSeller(null), seller_country: m.sellerCountry });
+    setRateStepDone(false);
     setTried(false);
+  };
+
+  const toggleCategory = (key: SellCategory) => {
+    const next = SELL_CATEGORIES.map(c => c.key).filter(k => (k === key) !== sells.includes(k));
+    setSells(next);
+    // Dropping phones and laptops drops the answer that went with them
+    if (!sellsPhones(next)) setF(p => ({ ...p, default_fulfilment_mode: "" }));
+  };
+
+  const finishRateStep = () => {
+    saveSellCategories(sells);
+    setRateStepDone(true);
+    document.getElementById("rate-card-h")?.scrollIntoView?.();
   };
 
   const chosen = f.seller_country ? marketForCountry(f.seller_country) : undefined;
@@ -239,13 +261,14 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
     try {
       let body: Record<string, unknown>;
       if (f.seller_country === "AE") {
+        const mode = fulfilmentModeToSend(sells, f.default_fulfilment_mode, seller?.default_fulfilment_mode);
         body = {
           seller_country: "AE",
           legal_name: f.legal_name, business_name: f.business_name, contact_name: f.contact_name, phone: f.phone,
           address_line: f.address_line, city: f.city, emirate: f.emirate,
           trade_licence_number: f.trade_licence_number.toUpperCase(), trn: f.trn, uae_id_type: f.uae_id_type,
           iban: f.iban.replace(/\s+/g, "").toUpperCase(),
-          default_fulfilment_mode: f.default_fulfilment_mode,
+          ...(mode ? { default_fulfilment_mode: mode } : {}),
         };
         if (f.uae_id_type === "emirates_id") body.emirates_id_number = f.emirates_id_number;
       } else {
@@ -275,26 +298,55 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
 
   if (!f.seller_country) return <CountryStep market={market} onChoose={chooseCountry} />;
 
+  const uaeRates = canContinue && f.seller_country === "AE";
+  const rateStep = (
+    <UaeRateStep sells={sells} onToggle={toggleCategory} value={f.default_fulfilment_mode}
+      onChange={v => setF(p => ({ ...p, default_fulfilment_mode: v }))} readOnly={readOnly} />
+  );
+  const countryRow = (
+    <section style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>Business based in</span>
+        <CountryBadge country={f.seller_country} />
+      </div>
+      {!seller && (
+        <button type="button" onClick={() => setF({ ...fromSeller(null) })} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, minHeight: 44 }}>
+          Change country
+        </button>
+      )}
+    </section>
+  );
+
+  if (uaeRates && !readOnly && !rateStepDone) {
+    const ready = rateStepComplete(sells, f.default_fulfilment_mode);
+    return (
+      <Card>
+        <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+          {countryRow}
+          {rateStep}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 12, flexWrap: "wrap" }}>
+            {!ready && (
+              <p role="status" style={{ fontSize: 13, color: "#666666" }}>
+                {sells.length ? "Choose who ships your phones and laptops to continue." : "Choose at least one category to continue."}
+              </p>
+            )}
+            <Button type="button" disabled={!ready} onClick={finishRateStep}>Continue →</Button>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <form onSubmit={submit} noValidate>
         <fieldset disabled={readOnly || saving} style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 22 }}>
           {readOnly && <Alert kind="info">Your details are locked while your application is being processed.</Alert>}
 
-          <section style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>Business based in</span>
-              <CountryBadge country={f.seller_country} />
-            </div>
-            {!seller && (
-              <button type="button" onClick={() => setF({ ...fromSeller(null) })} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, minHeight: 44 }}>
-                Change country
-              </button>
-            )}
-          </section>
-          {canContinue && (f.seller_country === "AE"
-            ? <UaeRateStep value={f.default_fulfilment_mode} error={fe.default_fulfilment_mode} onChange={v => setF(p => ({ ...p, default_fulfilment_mode: v }))} />
-            : <IndiaTerms />)}
+          {countryRow}
+          {uaeRates
+            ? readOnly ? rateStep : <RateStepSummary sells={sells} onChange={() => setRateStepDone(false)} />
+            : canContinue && <IndiaTerms />}
 
           {blocked && chosen && <WaitlistNote market={chosen} />}
 
@@ -529,8 +581,14 @@ function IndiaTerms() {
   );
 }
 
-/** The live UAE rate card and who ships. No card means no numbers: the rates are then in the agreement. */
-function UaeRateStep({ value, error, onChange }: { value: DetailsForm["default_fulfilment_mode"]; error?: string; onChange: (v: FulfilmentMode) => void }) {
+/**
+ * What the seller sells, then the live rate for each choice, then who ships if phones and laptops are
+ * among them. The rates come from the backend; no card means no numbers, as the agreement has them.
+ */
+function UaeRateStep({ sells, onToggle, value, onChange, readOnly }: {
+  sells: SellCategory[]; onToggle: (key: SellCategory) => void;
+  value: DetailsForm["default_fulfilment_mode"]; onChange: (v: FulfilmentMode) => void; readOnly: boolean;
+}) {
   const [card, setCard] = useState<RateCard | null | undefined>(undefined);
   useEffect(() => {
     let live = true;
@@ -539,40 +597,65 @@ function UaeRateStep({ value, error, onChange }: { value: DetailsForm["default_f
   }, []);
 
   if (card === undefined) return <div role="status" aria-label="Loading rates"><Skeleton height={120} radius={12} /></div>;
-  const group = whoShipsGroup(card);
-  const rate = (mode: FulfilmentMode) => whoShipsRate(card, mode);
+  const chosen = SELL_CATEGORIES.filter(c => sells.includes(c.key));
+  // Signed in on another device, a locked seller's categories are not here, but their answer is
+  const asksWhoShips = sellsPhones(sells) || (readOnly && !sells.length && !!value);
   return (
     <section aria-labelledby="rate-card-h" style={{ padding: 16, borderRadius: 12, background: "#F6F6F6" }}>
-      <h2 id="rate-card-h" style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>Your commission rate card</h2>
-      {card ? (
-        <>
+      <h2 id="rate-card-h" style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>What do you sell?</h2>
+      <p style={{ fontSize: 13, color: "#666666", margin: "2px 0 12px" }}>Choose all that apply.</p>
+      <div role="group" aria-labelledby="rate-card-h" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 10 }}>
+        {SELL_CATEGORIES.map(c => (
+          <Choice key={c.key} type="checkbox" name="sell_category" checked={sells.includes(c.key)} onChange={() => onToggle(c.key)} title={c.label} />
+        ))}
+      </div>
+
+      {chosen.length > 0 && (card ? (
+        <div style={{ marginTop: 14 }}>
+          <p style={{ fontSize: 14, fontWeight: 700, color: "#111111" }}>Your commission rate</p>
           <p style={{ fontSize: 13, color: "#666666", marginTop: 2 }}>These terms apply to new sellers. All amounts are in AED.</p>
-          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
-            {card.groups.map(g => (
-              <li key={g.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, color: "#333333" }}>
-                <span>{g.label}</span><strong style={{ textAlign: "right" }}>{groupRateText(g)}</strong>
+          <ul aria-live="polite" style={{ listStyle: "none", padding: 0, margin: "10px 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
+            {chosen.map(c => (
+              <li key={c.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, color: "#333333" }}>
+                <span>{c.label}</span>
+                <strong style={{ textAlign: "right" }}>{chosenRateText(card, c.key, c.key === "phones_laptops" ? value : "") ?? "In your agreement"}</strong>
               </li>
             ))}
           </ul>
-        </>
+        </div>
       ) : (
-        <p style={{ fontSize: 14, color: "#333333", marginTop: 6 }}>Your rates are set out in your agreement, which you read before you sign.</p>
+        <p style={{ fontSize: 14, color: "#333333", marginTop: 14 }}>Your rates are set out in your agreement, which you read before you sign.</p>
+      ))}
+
+      {asksWhoShips && (
+        <>
+          <p id="who-ships-h" style={{ fontSize: 14, fontWeight: 700, color: "#111111", margin: "14px 0 8px" }}>Who ships your phones and laptops?</p>
+          <div id="default_fulfilment_mode" role="radiogroup" aria-labelledby="who-ships-h" tabIndex={-1} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            {(["seller_ships", "notmade_ships"] as const).map(mode => {
+              const option = whoShipsOption(card, mode);
+              return (
+                <Choice key={mode} name="default_fulfilment_mode" checked={value === mode} onChange={() => onChange(mode)} title={option.title}
+                  sub={option.breakdown ?? (mode === "seller_ships" ? "You send each order with your own courier" : "NOTMADE collects each order from you")} />
+              );
+            })}
+          </div>
+        </>
       )}
-      <p style={{ fontSize: 14, fontWeight: 700, color: "#111111", margin: "14px 0 8px" }}>Who ships your phones and laptops?</p>
-      <div id="default_fulfilment_mode" tabIndex={-1} style={grid2}>
-        {(["seller_ships", "notmade_ships"] as const).map(mode => (
-          <Choice key={mode} name="default_fulfilment_mode" checked={value === mode} onChange={() => onChange(mode)}
-            title={rate(mode) == null ? WHO_SHIPS_LABEL[mode] : `${WHO_SHIPS_LABEL[mode]} · ${rate(mode)}%`}
-            sub={mode === "seller_ships" ? "You send each order with your own courier" : "NOTMADE collects each order from you"} />
-        ))}
-      </div>
-      {value && group && (
-        <p aria-live="polite" style={{ fontSize: 14, fontWeight: 700, color: "#166534", marginTop: 10 }}>
-          Your rate for {group.label.toLowerCase()}: {rate(value)}%.{!whoShipsChangesRate(card) && " Who ships does not change it."}
-        </p>
-      )}
-      <p style={{ fontSize: 12, color: "#666666", marginTop: 8 }}>You can change this until you sign your agreement. After that, contact NOTMADE support.</p>
-      {error && <p style={{ fontSize: 12, color: RED, marginTop: 6 }}>{error}</p>}
+      <p style={{ fontSize: 12, color: "#666666", marginTop: 12 }}>You can change this until you sign your agreement. After that, contact NOTMADE support.</p>
+    </section>
+  );
+}
+
+/** The rate step's answers above the business details, with the way back. */
+function RateStepSummary({ sells, onChange }: { sells: SellCategory[]; onChange: () => void }) {
+  return (
+    <section style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "4px 16px", borderRadius: 12, background: "#F6F6F6" }}>
+      <p style={{ fontSize: 13, color: "#333333", minWidth: 0 }}>
+        <strong>You sell:</strong> {SELL_CATEGORIES.filter(c => sells.includes(c.key)).map(c => c.label).join(", ")}
+      </p>
+      <button type="button" onClick={onChange} style={{ flex: "none", color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, minHeight: 44 }}>
+        Change
+      </button>
     </section>
   );
 }
@@ -607,15 +690,17 @@ function PricingNote() {
   );
 }
 
-function Choice({ name, checked, onChange, title, sub }: { name: string; checked: boolean; onChange: () => void; title: React.ReactNode; sub?: string }) {
+function Choice({ name, checked, onChange, title, sub, type = "radio" }: {
+  name: string; checked: boolean; onChange: () => void; title: React.ReactNode; sub?: string; type?: "radio" | "checkbox";
+}) {
   return (
     <label style={{
-      display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", borderRadius: 10, cursor: "pointer",
+      display: "flex", gap: 10, alignItems: "flex-start", padding: "12px 14px", borderRadius: 10, cursor: "pointer", minWidth: 0,
       border: `1.5px solid ${checked ? RED : "#E0E0E0"}`, background: checked ? "rgba(204,0,0,0.04)" : "#FFFFFF",
     }}>
-      <input type="radio" name={name} checked={checked} onChange={onChange} required style={{ marginTop: 3, accentColor: RED }} />
+      <input type={type} name={name} checked={checked} onChange={onChange} required={type === "radio"} style={{ marginTop: 3, accentColor: RED }} />
       <span>
-        <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#111111" }}>{title}</span>
+        <span style={{ display: "block", fontSize: 14, fontWeight: 700, color: "#111111" }}>{title}</span>{" "}
         {sub && <span style={{ display: "block", fontSize: 12, color: "#888888", marginTop: 2 }}>{sub}</span>}
       </span>
     </label>

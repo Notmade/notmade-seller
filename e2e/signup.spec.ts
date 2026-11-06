@@ -84,10 +84,21 @@ for (const width of WIDTHS) {
     await check(page, issues, width, "country");
     await expect(page.getByRole("button", { name: /UAE/ })).toContainText("Prices and payouts in AED");
     await page.getByRole("button", { name: /UAE/ }).click();
-    await expect(page.getByText("Mobile phones & laptops")).toBeVisible();
-    await expect(page.getByText("Handmade products")).toBeVisible();
-    await page.getByLabel(/I ship · 12%/).check();
-    await expect(page.getByText(/Who ships does not change it/)).toBeVisible();
+    await expect(page.getByRole("heading", { name: "What do you sell?" })).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Continue/ })).toBeDisabled();
+    await check(page, issues, width, "uae-categories");
+    await page.getByLabel("Mobile phones and laptops").check();
+    await page.getByLabel("Handmade products").check();
+    await expect(page.getByText("Who ships your phones and laptops?")).toBeVisible();
+    await expect(page.getByRole("button", { name: /^Continue/ })).toBeDisabled();
+    await expect(page.getByLabel("NOTMADE ships, 13.5% (12% + 1.5% NOTMADE shipping charge, flat, no VAT added)")).toBeVisible();
+    await check(page, issues, width, "uae-who-ships");
+    const options = page.getByRole("radiogroup").locator("label");
+    const [left, right] = [await options.nth(0).boundingBox(), await options.nth(1).boundingBox()];
+    expect(left!.y).toBe(right!.y);
+    expect(left!.x + left!.width).toBeLessThan(right!.x);
+    await page.getByLabel(/^I ship, 12%/).check();
+    await page.getByRole("button", { name: /^Continue/ }).click();
     await fillUae(page);
     await check(page, issues, width, "uae-details");
     await page.getByRole("button", { name: /Save & continue/ }).click();
@@ -101,11 +112,11 @@ for (const width of WIDTHS) {
 
     await expect(page.getByRole("heading", { name: "NOTMADE Seller Agreement — UAE" })).toBeVisible();
     await expect(page.locator(".agreement-doc-box")).toContainText("HOUSE OF NOTMADE STUDIO FZE LLC");
-    await expect(page.getByText(/Version uae-local-v3 · Rate card AE-2026-11-v2/)).toBeVisible();
+    await expect(page.getByText(/Version uae-local-v4 · Rate card AE-2026-11-v3/)).toBeVisible();
     await expect(page.getByText("Handmade 14%")).toBeVisible();
     await expect(page.locator("body")).not.toContainText("null%");
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download" }).click()]);
-    expect(download.suggestedFilename()).toContain("uae-local-v3");
+    expect(download.suggestedFilename()).toContain("uae-local-v4");
     expect(readFileSync(await download.path(), "utf8")).toContain("HOUSE OF NOTMADE STUDIO FZE LLC");
     await signAgreement(page, issues, width, "uae");
 
@@ -116,6 +127,29 @@ for (const width of WIDTHS) {
     await check(page, issues, width, "uae-dashboard");
     expect(s.signups[0]).toMatchObject({ seller_country: "AE", default_fulfilment_mode: "seller_ships", iban: "AE070331234567890123456" });
     expect(s.signups[0]).not.toHaveProperty("electronics_fulfilment");
+    expect(issues).toEqual([]);
+  });
+
+  test(`UAE: no phones, so no who-ships question, at ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const s = await serveSignup(page);
+    const issues: string[] = [];
+    await toOnboarding(page, "AE", issues, width);
+
+    await page.getByRole("button", { name: /UAE/ }).click();
+    await page.getByLabel("Handmade products").check();
+    await expect(page.getByText("14%", { exact: true })).toBeVisible();
+    await expect(page.getByText("Who ships your phones and laptops?")).toHaveCount(0);
+    await check(page, issues, width, "uae-handmade");
+    await page.getByRole("button", { name: /^Continue/ }).click();
+    await fillUae(page);
+    await check(page, issues, width, "uae-details");
+    await page.getByRole("button", { name: /Save & continue/ }).click();
+
+    // The backend answers 400 without a value, and this is the one it falls back to
+    await expect(page.getByRole("heading", { name: "Upload KYC documents" })).toBeVisible();
+    expect(s.signups[0].default_fulfilment_mode).toBe("notmade_ships");
+    expect(s.signups[0]).not.toHaveProperty("categories");
     expect(issues).toEqual([]);
   });
 
@@ -195,7 +229,7 @@ test("the public rate card renders from the live backend", async ({ page }) => {
   await serveSignup(page);
   await page.goto("/onboarding?market=ae");
   await page.getByRole("button", { name: /UAE/ }).click();
-  await expect(page.getByRole("heading", { name: "Your commission rate card" })).toBeVisible();
-  await expect(page.getByLabel(/I ship · \d+%/)).toBeVisible();
+  for (const label of ["Mobile phones and laptops", "Handmade products", "Apparel and all other categories"]) await page.getByLabel(label).check();
+  await expect(page.getByLabel(/^I ship, \d+(\.\d+)?%/)).toBeVisible();
   await expect(page.locator("section[aria-labelledby=rate-card-h] li")).toHaveCount(3);
 });

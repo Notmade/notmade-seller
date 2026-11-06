@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { api, ApiError, downloadAgreement, fmtDate, fmtTimestamp, type Agreement, type Seller, type SignBody } from "../lib/seller-api";
 import { WHO_SHIPS_LABEL } from "../lib/rate-card";
+import { knownNoPhones, loadSellCategories } from "../lib/sell-categories";
 import { Alert, Button, Card, Field, PageSkeleton, RED } from "./portal-ui";
 
 const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 };
@@ -30,18 +31,18 @@ export function AgreementDocument({ html, maxHeight = 420, onScrolledToEnd }: {
 }
 
 /** The terms quoted by the agreement, for the summary above its text. The text itself is what is signed. */
-export function agreementPills(a: Pick<Agreement, "commission_rate" | "commission_terms">): string[] {
+export function agreementPills(a: Pick<Agreement, "commission_rate" | "commission_terms">, noPhones = false): string[] {
   const t = a.commission_terms;
   const pills: string[] = [];
   if (t?.basis === "rate_card") {
-    if (t.phones_laptops != null) pills.push(`Phones and laptops ${t.phones_laptops}%`);
+    if (t.phones_laptops != null && !noPhones) pills.push(`Phones and laptops ${t.phones_laptops}%`);
     if (t.handmade != null) pills.push(`Handmade ${t.handmade}%`);
     if (t.default != null) pills.push(`All other categories ${t.default}%`);
   } else {
     const pct = t?.pct ?? a.commission_rate;
     if (pct != null) pills.push(`Commission ${pct}%`);
   }
-  if (t?.default_fulfilment_mode) pills.push(`Phones and laptops: ${WHO_SHIPS_LABEL[t.default_fulfilment_mode]}`);
+  if (t?.default_fulfilment_mode && !noPhones) pills.push(`Phones and laptops: ${WHO_SHIPS_LABEL[t.default_fulfilment_mode]}`);
   return [...pills, "Seller-controlled pricing"];
 }
 
@@ -133,7 +134,7 @@ export function AgreementSigner({ seller, load, sign, onSigned }: {
         </span>
       </div>
       <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0 14px" }}>
-        {agreementPills(agreement).map(p => <Pill key={p}>{p}</Pill>)}
+        {agreementPills(agreement, knownNoPhones(loadSellCategories())).map(p => <Pill key={p}>{p}</Pill>)}
       </div>
       <AgreementDocument html={agreement.html} onScrolledToEnd={markRead} />
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>

@@ -2,6 +2,7 @@
 // and fall back quietly so the page always renders.
 
 import type { RateRow } from "../landing/content/types";
+import { usableCard, type RateCard } from "./rate-card";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const TTL_MS = 5 * 60_000;
@@ -27,15 +28,24 @@ export function loadPublicRates(): Promise<PublicRates | null> {
   return getJson<PublicRates>("/seller/commission-rates");
 }
 
-export interface PublicRates { india_pct?: number | null; uae_local_pct?: number | null }
+export interface PublicRates { india_pct?: number | null; uae_local_pct?: number | null; uae_rate_card?: RateCard | null }
 
 /**
- * Applies the backend's rate to the `standard` line only. The public endpoint has one general rate per
- * country and no category lines, so every other line stays as written in the country file.
+ * Applies the backend's general rate to the `standard` line only. Every other line stays as written in
+ * the country file, except the who-ships lines: see withLiveWhoShipsRates.
  */
 export function withLiveStandardRate(rates: RateRow[], live: number | null | undefined): RateRow[] {
   const ok = typeof live === "number" && Number.isFinite(live) && live > 0 && live < 100;
   return ok ? rates.map((r) => (r.key === "standard" ? { ...r, pct: live } : r)) : rates;
+}
+
+/** Prices the lines that depend on who ships from the live card. Lines the card has no rate for stay as written. */
+export function withLiveWhoShipsRates(rates: RateRow[], card: RateCard | null | undefined): RateRow[] {
+  const lines = usableCard(card)?.groups.find((g) => g.key === "phones_laptops")?.rates ?? [];
+  return rates.map((r) => {
+    const live = r.mode && lines.find((l) => l.fulfilment_mode === r.mode);
+    return live ? { ...r, pct: live.pct } : r;
+  });
 }
 
 /** What the UAE store has switched on, from GET /app/config?store=ae. Empty when it cannot be read. */

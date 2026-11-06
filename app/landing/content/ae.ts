@@ -21,7 +21,8 @@ export const ENTITY: Entity = {
 };
 
 export const RATES: RateRow[] = [
-  { key: "electronics", label: "Mobile phones and laptops", short: "Phones and laptops", pct: 12 },
+  { key: "electronics", label: "Mobile phones and laptops, you ship", short: "Phones, you ship", pct: 12, mode: "seller_ships" },
+  { key: "electronics-notmade", label: "Mobile phones and laptops, NOTMADE ships", short: "Phones, NOTMADE ships", pct: 13.5, mode: "notmade_ships" },
   { key: "handmade", label: "Handmade products", short: "Handmade", pct: 14 },
   { key: "standard", label: "Apparel and all other categories", short: "Apparel and all other", pct: 17 },
 ];

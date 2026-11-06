@@ -40,6 +40,7 @@ const submitEmail = () => {
 
 beforeEach(() => {
   nav.seller = null;
+  localStorage.clear();
   document.cookie = "nm_market=; path=/; max-age=0";
 });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
@@ -108,9 +109,11 @@ describe("onboarding", () => {
     expect(signup).not.toHaveBeenCalled();
   });
 
-  it("shows the UAE form to a new seller once AE is listed", () => {
+  it("shows the UAE form to a new seller once AE is listed, after the rate step", async () => {
     renderOnboarding(open);
     pickUae();
+    fireEvent.click(await screen.findByLabelText("Handmade products"));
+    fireEvent.click(screen.getByRole("button", { name: /^Continue/ }));
     expect(document.getElementById("trade_licence_number")).toBeTruthy();
   });
 
@@ -118,6 +121,8 @@ describe("onboarding", () => {
     nav.seller = { seller_country: "AE", onboarding_status: "pending_details" } as Seller;
     vi.spyOn(api, "onboardingStatus").mockResolvedValue({ next_step: "details" } as never);
     renderOnboarding(closed);
-    await waitFor(() => expect(document.getElementById("trade_licence_number")).toBeTruthy());
+    fireEvent.click(await screen.findByLabelText("Handmade products"));
+    fireEvent.click(screen.getByRole("button", { name: /^Continue/ }));
+    expect(document.getElementById("trade_licence_number")).toBeTruthy();
   });
 });
