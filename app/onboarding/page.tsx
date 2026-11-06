@@ -8,13 +8,14 @@ import {
 } from "../lib/seller-api";
 import { useSeller } from "../lib/useSeller";
 import { Alert, Button, Card, Field, PageSkeleton, RED, Skeleton } from "../components/portal-ui";
-import { AgreementSigner, Pill } from "../components/AgreementSigner";
+import { AgreementSigner } from "../components/AgreementSigner";
 import { CountryBadge, Flag, Waitlist, useMarket, useSignupOpen } from "../components/market";
 import { MARKETS, SETTLEMENT_DAYS, marketForCountry, type Market, type MarketCode } from "@/src/config/markets";
 import { sellerCountry } from "../lib/currency";
 import { COMMISSION_STATEMENT_INDIA } from "../lib/seller-config";
 import {
-  FULFILMENT_LABEL, electronicsRate, resolveRateCard, type ElectronicsFulfilment, type UaeRateCard,
+  WHO_SHIPS_LABEL, groupRateText, usableCard, whoShipsChangesRate, whoShipsGroup, whoShipsRate,
+  type FulfilmentMode, type RateCard,
 } from "../lib/rate-card";
 import { validateDetails, type DetailsErrors, type DetailsInput } from "../lib/validate";
 
@@ -23,8 +24,9 @@ const STEPS: { key: StepKey; label: string }[] = [
   { key: "details", label: "Business details" },
   { key: "documents", label: "KYC documents" },
   { key: "agreement", label: "Sign agreement" },
-  { key: "review", label: "Review" },
 ];
+// The backend still sends a few sellers to an admin after signing. Only they see this step.
+const REVIEW_STEP: { key: StepKey; label: string } = { key: "review", label: "Review" };
 
 const EDITABLE = ["pending_details", "pending_agreement"];
 
@@ -108,25 +110,26 @@ function Onboarding() {
     }
   }
 
+  const steps = current === "review" ? [...STEPS, REVIEW_STEP] : STEPS;
   const reachable = (key: StepKey) => {
     if (!status || !seller) return key === "details";
-    const order = STEPS.map(s => s.key);
+    const order = [...STEPS, REVIEW_STEP].map(s => s.key);
     const ns = status.next_step;
     const furthest: StepKey = ns === "details" || ns === "documents" || ns === "agreement" ? ns : "review";
     return order.indexOf(key) <= order.indexOf(furthest);
   };
 
   return (
-    <div style={{ minHeight: "100vh", background: "#F5F5F5" }}>
+    <div className="sp-onb" style={{ minHeight: "100vh", background: "#F5F5F5" }}>
       <header style={{ background: "#FFFFFF", borderBottom: "1px solid #EEEEEE" }}>
         <div style={{ maxWidth: 880, margin: "0 auto", padding: "0 16px", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-          <a href="/" style={{ textDecoration: "none", fontSize: "1.125rem", fontWeight: 900, letterSpacing: "-0.02em" }}>
+          <a href="/" className="sp-onb-logo" style={{ textDecoration: "none", fontSize: "1.125rem", fontWeight: 900, letterSpacing: "-0.02em" }}>
             <span style={{ color: "#111111" }}>NOT</span><span style={{ color: RED }}>MADE</span>
-            <span style={{ fontSize: 10, color: "#888888", fontWeight: 600, letterSpacing: "0.12em", marginLeft: 8 }}>SELLER</span>
+            <span className="sp-onb-tag" style={{ fontSize: 10, color: "#888888", fontWeight: 600, letterSpacing: "0.12em", marginLeft: 8 }}>SELLER</span>
           </a>
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             {seller && <CountryBadge country={sellerCountry(seller)} />}
-            {seller?.email && <span style={{ fontSize: 13, color: "#777777", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{seller.email}</span>}
+            {seller?.email && <span className="sp-onb-email">{seller.email}</span>}
             <Button variant="ghost" onClick={signOut} style={{ padding: "8px 10px" }}>Log out</Button>
           </div>
         </div>
@@ -135,11 +138,11 @@ function Onboarding() {
       <main style={{ maxWidth: 880, margin: "0 auto", padding: "28px 16px 64px" }}>
         <h1 style={{ fontSize: 26, fontWeight: 800, color: "#111111", letterSpacing: "-0.02em" }}>Set up your seller account</h1>
         <p style={{ fontSize: 14, color: "#777777", marginTop: 4, marginBottom: 22 }}>
-          A few steps and our team will review your application — usually within 48 hours.
+          A few steps, then you can start listing products.
         </p>
 
         <ol style={{ display: "flex", gap: 8, listStyle: "none", padding: 0, margin: "0 0 22px", flexWrap: "wrap" }}>
-          {STEPS.map((s, i) => {
+          {steps.map((s, i) => {
             const active = s.key === current;
             const can = reachable(s.key) && s.key !== current;
             return (
@@ -185,7 +188,7 @@ function fromSeller(s: Seller | null): DetailsForm {
     gstin: s?.gstin ?? "", pan_number: s?.pan_number ?? "", aadhaar_number: "",
     emirate: s?.emirate ?? "", trade_licence_number: s?.trade_licence_number ?? "", trn: s?.trn ?? "",
     uae_id_type: s?.uae_id_type ?? "", emirates_id_number: "", iban: s?.iban ?? "",
-    electronics_fulfilment: s?.electronics_fulfilment ?? "",
+    default_fulfilment_mode: s?.default_fulfilment_mode ?? "",
   };
 }
 
@@ -242,7 +245,7 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
           address_line: f.address_line, city: f.city, emirate: f.emirate,
           trade_licence_number: f.trade_licence_number.toUpperCase(), trn: f.trn, uae_id_type: f.uae_id_type,
           iban: f.iban.replace(/\s+/g, "").toUpperCase(),
-          electronics_fulfilment: f.electronics_fulfilment,
+          default_fulfilment_mode: f.default_fulfilment_mode,
         };
         if (f.uae_id_type === "emirates_id") body.emirates_id_number = f.emirates_id_number;
       } else {
@@ -284,13 +287,13 @@ function DetailsStep({ seller, onSaved, readOnly = false, market, onMarket }: {
               <CountryBadge country={f.seller_country} />
             </div>
             {!seller && (
-              <button type="button" onClick={() => setF({ ...fromSeller(null) })} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13 }}>
+              <button type="button" onClick={() => setF({ ...fromSeller(null) })} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, minHeight: 44 }}>
                 Change country
               </button>
             )}
           </section>
           {canContinue && (f.seller_country === "AE"
-            ? <UaeRateStep value={f.electronics_fulfilment} error={fe.electronics_fulfilment} onChange={v => setF(p => ({ ...p, electronics_fulfilment: v }))} />
+            ? <UaeRateStep value={f.default_fulfilment_mode} error={fe.default_fulfilment_mode} onChange={v => setF(p => ({ ...p, default_fulfilment_mode: v }))} />
             : <IndiaTerms />)}
 
           {blocked && chosen && <WaitlistNote market={chosen} />}
@@ -526,32 +529,49 @@ function IndiaTerms() {
   );
 }
 
-/** UAE rate card: electronics sellers pick who ships and see their rate before registering. */
-function UaeRateStep({ value, error, onChange }: { value: DetailsForm["electronics_fulfilment"]; error?: string; onChange: (v: ElectronicsFulfilment) => void }) {
-  const [card, setCard] = useState<UaeRateCard | null>(null);
+/** The live UAE rate card and who ships. No card means no numbers: the rates are then in the agreement. */
+function UaeRateStep({ value, error, onChange }: { value: DetailsForm["default_fulfilment_mode"]; error?: string; onChange: (v: FulfilmentMode) => void }) {
+  const [card, setCard] = useState<RateCard | null | undefined>(undefined);
   useEffect(() => {
     let live = true;
-    api.commissionRates().then(r => { if (live) setCard(resolveRateCard(r)); }).catch(() => { if (live) setCard(resolveRateCard(null)); });
+    api.commissionRates().then(r => { if (live) setCard(usableCard(r.uae_rate_card)); }).catch(() => { if (live) setCard(null); });
     return () => { live = false; };
   }, []);
 
-  if (!card) return <div role="status" aria-label="Loading rates"><Skeleton height={120} radius={12} /></div>;
+  if (card === undefined) return <div role="status" aria-label="Loading rates"><Skeleton height={120} radius={12} /></div>;
+  const group = whoShipsGroup(card);
+  const rate = (mode: FulfilmentMode) => whoShipsRate(card, mode);
   return (
     <section aria-labelledby="rate-card-h" style={{ padding: 16, borderRadius: 12, background: "#F6F6F6" }}>
       <h2 id="rate-card-h" style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>Your commission rate card</h2>
-      <p style={{ fontSize: 13, color: "#666666", marginTop: 2 }}>These terms apply to new sellers. All amounts are in AED.</p>
-      <p style={{ fontSize: 14, color: "#333333", marginTop: 12 }}>
-        <strong>Fashion and accessories:</strong> {card.fashion_accessories_pct}% with shipping included.
-      </p>
-      <p style={{ fontSize: 14, fontWeight: 700, color: "#111111", margin: "12px 0 8px" }}>Electronics: who ships your orders?</p>
-      <div id="electronics_fulfilment" tabIndex={-1} style={grid2}>
-        {(["seller", "notmade"] as const).map(mode => (
-          <Choice key={mode} name="electronics_fulfilment" checked={value === mode} onChange={() => onChange(mode)}
-            title={`${FULFILMENT_LABEL[mode]} · ${electronicsRate(card, mode)}%`}
-            sub={mode === "seller" ? "You ship each order yourself" : "NOTMADE ships each order for you"} />
+      {card ? (
+        <>
+          <p style={{ fontSize: 13, color: "#666666", marginTop: 2 }}>These terms apply to new sellers. All amounts are in AED.</p>
+          <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "flex", flexDirection: "column", gap: 6 }}>
+            {card.groups.map(g => (
+              <li key={g.key} style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: 14, color: "#333333" }}>
+                <span>{g.label}</span><strong style={{ textAlign: "right" }}>{groupRateText(g)}</strong>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : (
+        <p style={{ fontSize: 14, color: "#333333", marginTop: 6 }}>Your rates are set out in your agreement, which you read before you sign.</p>
+      )}
+      <p style={{ fontSize: 14, fontWeight: 700, color: "#111111", margin: "14px 0 8px" }}>Who ships your phones and laptops?</p>
+      <div id="default_fulfilment_mode" tabIndex={-1} style={grid2}>
+        {(["seller_ships", "notmade_ships"] as const).map(mode => (
+          <Choice key={mode} name="default_fulfilment_mode" checked={value === mode} onChange={() => onChange(mode)}
+            title={rate(mode) == null ? WHO_SHIPS_LABEL[mode] : `${WHO_SHIPS_LABEL[mode]} · ${rate(mode)}%`}
+            sub={mode === "seller_ships" ? "You send each order with your own courier" : "NOTMADE collects each order from you"} />
         ))}
       </div>
-      {value && <p aria-live="polite" style={{ fontSize: 14, fontWeight: 700, color: "#166534", marginTop: 10 }}>Your electronics rate: {electronicsRate(card, value)}%</p>}
+      {value && group && (
+        <p aria-live="polite" style={{ fontSize: 14, fontWeight: 700, color: "#166534", marginTop: 10 }}>
+          Your rate for {group.label.toLowerCase()}: {rate(value)}%.{!whoShipsChangesRate(card) && " Who ships does not change it."}
+        </p>
+      )}
+      <p style={{ fontSize: 12, color: "#666666", marginTop: 8 }}>You can change this until you sign your agreement. After that, contact NOTMADE support.</p>
       {error && <p style={{ fontSize: 12, color: RED, marginTop: 6 }}>{error}</p>}
     </section>
   );
@@ -685,22 +705,7 @@ function DocRow({ docType, required = false, uploaded, onUploaded }: { docType: 
 // ─── Step 3: agreement ────────────────────────────────────────────────────────
 
 function AgreementStep({ seller, onSigned }: { seller: Seller; onSigned: () => Promise<void> }) {
-  const uaeBased = seller.seller_country === "AE";
-  return (
-    <AgreementSigner
-      seller={seller}
-      title={uaeBased ? "NOTMADE Seller Agreement — UAE" : "NOTMADE Seller Agreement"}
-      load={api.agreement}
-      sign={api.signAgreement}
-      onSigned={onSigned}
-      pills={a => (
-        <>
-          <Pill>Commission {a.commission_rate}%</Pill>
-          <Pill>Seller-controlled pricing</Pill>
-        </>
-      )}
-    />
-  );
+  return <AgreementSigner seller={seller} load={api.agreement} sign={api.signAgreement} onSigned={onSigned} />;
 }
 
 // ─── Step 4 / terminal states ─────────────────────────────────────────────────

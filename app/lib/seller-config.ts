@@ -30,8 +30,6 @@ export const COMMISSION_STATEMENT_INDIA = COMMISSION_STATEMENT;
 export const SETTLEMENT_DAYS_AFTER_DELIVERY = SETTLEMENT_DAYS;
 /** Days from delivery a customer has to raise a return (with an unboxing video). */
 export { RETURN_WINDOW_DAYS, MIN_PRODUCTS };
-/** Typical account review time after the agreement is signed (onboarding copy). */
-export const REVIEW_HOURS = 48;
 /** Days of written notice to end the India agreement, or to stop selling in the UAE (seller agreements). */
 export const NOTICE_DAYS_INDIA = 30;
 export const NOTICE_DAYS_UAE = 14;

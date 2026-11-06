@@ -2,7 +2,6 @@
 // and fall back quietly so the page always renders.
 
 import type { RateRow } from "../landing/content/types";
-import { resolveRateCard, type RateCardSource, type UaeRateCard } from "./rate-card";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "").replace(/\/$/, "");
 const TTL_MS = 5 * 60_000;
@@ -21,10 +20,6 @@ async function getJson<T>(path: string): Promise<T | null> {
   } catch {
     return hit ? (hit.value as T | null) : null;
   }
-}
-
-export async function loadUaeRateCard(): Promise<UaeRateCard> {
-  return resolveRateCard(await getJson<RateCardSource>("/seller/commission-rates"));
 }
 
 /** The public general rates from GET /seller/commission-rates. Null until the backend answers. */

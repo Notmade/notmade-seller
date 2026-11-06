@@ -3,7 +3,6 @@ import india from "../landing/content/in";
 import uae from "../landing/content/ae";
 import { getMarket } from "@/src/config/markets";
 import { metadataFor } from "../lib/seo";
-import { REVIEW_HOURS } from "../lib/seller-config";
 
 export const metadata = metadataFor("how-it-works");
 
@@ -21,7 +20,7 @@ export default function HowItWorks() {
       lead={<p>Everything happens in one seller panel: sign up with an email code, add your documents, sign the agreement, list products, accept orders and get paid. The steps differ a little between India and the UAE.</p>}
     >
       <Section id="steps" eyebrow="Step by step" title="The steps, by country." soft
-        sub={`After you sign the agreement, our team reviews your account, usually within ${REVIEW_HOURS} hours.`}>
+        sub="Your account is active as soon as you sign the agreement. NOTMADE reviews each product before it goes live.">
         <div className="n-cols">
           {COUNTRIES.map(({ content, href, name }) => (
             <div key={content.code} className="n-card">

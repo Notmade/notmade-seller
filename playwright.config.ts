@@ -12,11 +12,11 @@ export default defineConfig({
   projects: [
     { name: "landing", testMatch: "landing.spec.ts" },
     { name: "panel", testMatch: /(panel-mobile|seller-flows)\.spec\.ts/, dependencies: ["landing"] },
+    // Same build with the UAE open for sign-ups. No test here reaches a real backend's write routes
+    { name: "signup", testMatch: "signup.spec.ts", dependencies: ["landing"], use: { baseURL: "http://localhost:3101" } },
   ],
-  webServer: {
-    command: "npx next start -p 3100",
-    url: "http://localhost:3100",
-    reuseExistingServer: true,
-    env: { SELLER_SIGNUP_COUNTRIES: "IN" },
-  },
+  webServer: [
+    { command: "npx next start -p 3100", url: "http://localhost:3100", reuseExistingServer: true, env: { SELLER_SIGNUP_COUNTRIES: "IN" } },
+    { command: "npx next start -p 3101", url: "http://localhost:3101", reuseExistingServer: true, env: { SELLER_SIGNUP_COUNTRIES: "IN,AE" } },
+  ],
 });

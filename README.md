@@ -37,7 +37,11 @@ For more on deploying Next.js, see the [Next.js deployment documentation](https:
 
 ## Seller sign-ups
 
-`SELLER_SIGNUP_COUNTRIES` (comma-separated, default `IN`, read at request time) lists the business countries open for new seller sign-ups. It is the same variable the backend reads. Set it on both services to open a country. Without `AE`, `/uae` shows the rate card and an email form, and login and onboarding will not start a UAE account. `NEXT_PUBLIC_SELLER_MARKETS_OPEN` cannot open sign-ups on its own.
+`SELLER_SIGNUP_COUNTRIES` (comma-separated, default `IN`, read at request time) lists the business countries open for new seller sign-ups. It is the same variable the backend reads. Set it on both services to open a country. With `AE`, `/uae` shows the Register to sell button. Without it, `/uae` shows the rate card and an email form, and login and onboarding will not start a UAE account. `NEXT_PUBLIC_SELLER_MARKETS_OPEN` cannot open sign-ups on its own.
+
+Flow: country, email code, country-specific details, documents, then the agreement. The agreement's title, text and rates are the backend's (`GET /seller/agreement`), shown unedited. The UAE details step shows the live rate card from `GET /seller/commission-rates` and never a rate of its own: with no card it shows no number.
+
+A new seller is active as soon as they sign (`onboarding_status: approved`) and goes straight to the dashboard. The review screen stays for the sellers the backend still sends to an admin (`pending_review`). Each product still goes to admin review, and the panel never writes `is_live` or `approval_status`. Payouts stay blocked until bank details are saved: the notice follows `payout_blocked` from `GET /seller/payouts`, and sellers save them under Profile with `PUT /seller/bank-details`.
 
 ## Country pages
 
@@ -49,7 +53,7 @@ Each country has one file: `app/landing/content/in.ts` and `app/landing/content/
 
 ## Tests
 
-`npm test` runs the unit tests. For the browser tests: `npm run build && npm run test:e2e`, which audit every panel page at 360, 390, 768 and 1280px against a fake backend limited to `docs/seller-api.md` in the backend repo.
+`npm test` runs the unit tests. For the browser tests: `npm run build && npm run test:e2e`, which audit every panel page at 360, 390, 768 and 1280px against a fake backend limited to `docs/seller-api.md` in the backend repo. `e2e/signup.spec.ts` walks registration in both countries against a stateful fake on a second server with the UAE open. `SHOTS=1` saves its screens to `docs/pr-screenshots`. `E2E_LIVE=1` also renders the public rate card from the live backend, which is the only live call any test makes.
 
 ## Backend gaps
 
@@ -71,6 +75,5 @@ Other gaps the panel works around:
 |---|---|
 | No drafts route | The listing wizard keeps drafts in the browser (IndexedDB), per seller, on that device only |
 | No bulk route | Bulk upload checks the CSV in the browser, then sends each good row to `POST /seller/products` one at a time |
-| No India bank fields on the seller | The missing-bank banner covers UAE sellers (IBAN) only |
 | Orders do not return `tracking_id` | A seller's own tracking shows only if the backend sends it |
 | Orders have no street address | The packing slip shows customer name, city and pincode |

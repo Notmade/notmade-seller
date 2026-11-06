@@ -2,30 +2,26 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { api, fmtDate, type Payout, type UpcomingSettlement, type Money } from "../lib/seller-api";
+import { api, fmtDate, type Money, type Payout, type PayoutsData, type UpcomingSettlement } from "../lib/seller-api";
 import { formatMoney, formatMoneyIn, otherCurrency, type Currency } from "../lib/currency";
 import { monthGrid, payoutEvents, type PayoutEvent } from "../lib/payout-calendar";
-import { useDashboardSeller, useSellerCurrency } from "../dashboard/seller-context";
+import { useSellerCurrency } from "../dashboard/seller-context";
+import { PayoutBlockedNotice } from "./BankDetails";
 import { Alert, Badge, Button, Card, EmptyState, PageHeader, PageSkeleton } from "./portal-ui";
-
-interface Data { payouts: Payout[]; upcoming: UpcomingSettlement[]; totals: { paid: Money; scheduled: Money; upcoming: Money }; settlement_days: number }
 
 interface Props {
   /** The seller's currency. Settlements in any other currency get their own section below. */
   currency: Currency;
   title: string;
-  /** Commission rate for the header, e.g. "17%". */
+  /** Commission for the header, e.g. "17%". */
   rates: string;
 }
 
 /** Payouts for the signed-in seller. */
 export default function PayoutsView({ currency, title, rates }: Props) {
-  const [d, setD] = useState<Data | null>(null);
+  const [d, setD] = useState<PayoutsData | null>(null);
   const [error, setError] = useState("");
-  const seller = useDashboardSeller();
   const { country } = useSellerCurrency();
-  // The backend keeps a bank destination only for UAE sellers (IBAN); see "Backend gaps" in the README
-  const bankMissing = country === "AE" && !seller.iban;
 
   useEffect(() => {
     api.payouts().then(setD).catch(err => setError(err instanceof Error ? err.message : "Could not load payouts"));
@@ -40,11 +36,7 @@ export default function PayoutsView({ currency, title, rates }: Props) {
   return (
     <div>
       <PageHeader title={title} sub={`Settlement within ${d.settlement_days} days${rates ? ` · Commission ${rates}` : ""}`} />
-      {bankMissing && (
-        <div style={{ marginBottom: 14 }}>
-          <Alert kind="warn"><strong>Add your bank details.</strong> We need your IBAN to pay your settlements. <Link href="/dashboard/profile" style={{ color: "#CC0000", fontWeight: 700 }}>Go to Profile</Link></Alert>
-        </div>
-      )}
+      {d.payout_blocked && <div style={{ marginBottom: 14 }}><PayoutBlockedNotice country={country} /></div>}
       <Settlements d={d} currency={currency} />
       {hasOther && (
         <section style={{ marginTop: 28 }}>
@@ -57,7 +49,7 @@ export default function PayoutsView({ currency, title, rates }: Props) {
 }
 
 /** Totals, upcoming settlements and history in one currency. */
-function Settlements({ d: all, currency }: { d: Data; currency: Currency }) {
+function Settlements({ d: all, currency }: { d: PayoutsData; currency: Currency }) {
   const amount = (n: number | null | undefined) => formatMoney(n, currency);
   const total = (m: Money) => formatMoneyIn(m, currency);
   const d = { ...all, payouts: all.payouts.filter(p => p.currency === currency), upcoming: all.upcoming.filter(u => u.currency === currency) };

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
-import { api, ApiError, downloadAgreement, type Agreement, type Seller, type SignBody } from "../lib/seller-api";
+import { api, ApiError, downloadAgreement, fmtDate, fmtTimestamp, type Agreement, type Seller, type SignBody } from "../lib/seller-api";
+import { WHO_SHIPS_LABEL } from "../lib/rate-card";
 import { Alert, Button, Card, Field, PageSkeleton, RED } from "./portal-ui";
 
 const grid2: React.CSSProperties = { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 16 };
@@ -28,14 +29,28 @@ export function AgreementDocument({ html, maxHeight = 420, onScrolledToEnd }: {
   );
 }
 
-/** Review + OTP e-sign for the seller agreement. */
-export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: {
+/** The terms quoted by the agreement, for the summary above its text. The text itself is what is signed. */
+export function agreementPills(a: Pick<Agreement, "commission_rate" | "commission_terms">): string[] {
+  const t = a.commission_terms;
+  const pills: string[] = [];
+  if (t?.basis === "rate_card") {
+    if (t.phones_laptops != null) pills.push(`Phones and laptops ${t.phones_laptops}%`);
+    if (t.handmade != null) pills.push(`Handmade ${t.handmade}%`);
+    if (t.default != null) pills.push(`All other categories ${t.default}%`);
+  } else {
+    const pct = t?.pct ?? a.commission_rate;
+    if (pct != null) pills.push(`Commission ${pct}%`);
+  }
+  if (t?.default_fulfilment_mode) pills.push(`Phones and laptops: ${WHO_SHIPS_LABEL[t.default_fulfilment_mode]}`);
+  return [...pills, "Seller-controlled pricing"];
+}
+
+/** Review + OTP e-sign for the seller agreement. Title, text and terms are the backend's, unedited. */
+export function AgreementSigner({ seller, load, sign, onSigned }: {
   seller: Seller;
-  title: string;
   load: () => Promise<Agreement>;
   sign: (body: SignBody) => Promise<unknown>;
   onSigned: () => Promise<void>;
-  pills?: (a: Agreement) => React.ReactNode;
 }) {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [loadErr, setLoadErr] = useState("");
@@ -92,21 +107,40 @@ export function AgreementSigner({ seller, title, load, sign, onSigned, pills }: 
   if (loadErr) return <Alert>{loadErr} <button type="button" onClick={() => void reload()} style={{ color: RED, fontWeight: 700, background: "none", border: "none", cursor: "pointer" }}>Retry</button></Alert>;
   if (!agreement) return <PageSkeleton stats={0} rows={3} />;
 
+  const title = agreement.title;
+  const terms = agreement.commission_terms;
+
+  // The backend sends a signed seller their stored record: there is nothing left to sign
+  if (agreement.signed) {
+    return (
+      <Card>
+        <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>{title}</h2>
+        <p style={{ fontSize: 12, color: "#888888", margin: "4px 0 12px" }}>Version {agreement.version} · signed {fmtTimestamp(agreement.signed_at)}</p>
+        <AgreementDocument html={agreement.html} />
+        <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 8 }}>
+          <Button variant="ghost" onClick={() => downloadAgreement(agreement.plain_text, title, agreement.version)} style={{ padding: "6px 10px", fontSize: 13, minHeight: 44 }}>Download</Button>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "baseline" }}>
         <h2 style={{ fontSize: 16, fontWeight: 800, color: "#111111" }}>{title}</h2>
-        <span style={{ fontSize: 12, color: "#888888" }}>Version {agreement.version}</span>
+        <span style={{ fontSize: 12, color: "#888888" }}>
+          Version {agreement.version}{terms?.version ? ` · Rate card ${terms.version}` : ""} · {fmtDate(agreement.signed_at ?? new Date().toISOString())}
+        </span>
       </div>
-      {pills && <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0 14px" }}>{pills(agreement)}</div>}
-      <div style={{ marginTop: pills ? 0 : 12 }}>
-        <AgreementDocument html={agreement.html} onScrolledToEnd={markRead} />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", margin: "12px 0 14px" }}>
+        {agreementPills(agreement).map(p => <Pill key={p}>{p}</Pill>)}
       </div>
+      <AgreementDocument html={agreement.html} onScrolledToEnd={markRead} />
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center", marginTop: 8 }}>
         <span style={{ fontSize: 12, color: readToEnd ? "#16A34A" : "#888888" }}>
           {readToEnd ? "You've reached the end of the agreement." : "Scroll to the end of the agreement to enable signing."}
         </span>
-        <Button variant="ghost" onClick={() => downloadAgreement(agreement.plain_text, agreement.title || title, agreement.version)} style={{ padding: "6px 10px", fontSize: 13 }}>
+        <Button variant="ghost" onClick={() => downloadAgreement(agreement.plain_text, title, agreement.version)} style={{ padding: "6px 10px", fontSize: 13, minHeight: 44 }}>
           Download
         </Button>
       </div>

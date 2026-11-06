@@ -1,54 +1,80 @@
-// UAE commission rate card for new sellers. Rates come from GET /seller/commission-rates when the
-// backend sends them; the values below are the published fallback.
+// Commission rate cards exactly as the backend publishes them (GET /seller/commission-rates,
+// GET /seller/me). There are no rates in this file: when the backend has no card, the panel shows no
+// number, because a seller must never read a rate their agreement does not state.
 
-export type ElectronicsFulfilment = "seller" | "notmade";
+export type FulfilmentMode = "seller_ships" | "notmade_ships";
 
-export interface UaeRateCard {
-  electronics_seller_ships_pct: number;
-  electronics_notmade_ships_pct: number;
-  fashion_accessories_pct: number;
-  /** False when every rate came from the fallback. */
-  live: boolean;
-}
+export interface RateLine { fulfilment_mode: FulfilmentMode | null; pct: number }
+export interface RateGroup { key: string; label: string; shipping_included: boolean; rates: RateLine[] }
+export interface RateCard { version?: string; effective_from?: string; groups: RateGroup[] }
 
-export const UAE_RATE_CARD_FALLBACK = {
-  electronics_seller_ships_pct: 12,
-  electronics_notmade_ships_pct: 14,
-  fashion_accessories_pct: 17,
-} as const;
-
-/** The part of GET /seller/commission-rates the rate card reads. */
-export interface RateCardSource {
-  uae_local_pct?: number | null;
-  uae_rate_card?: Partial<Record<keyof typeof UAE_RATE_CARD_FALLBACK, number | null>> | null;
-}
-
-const validPct = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) && v >= 0 && v < 100 ? v : null);
-
-/** Every rate is checked on its own, so one bad value never drags the others to the fallback. */
-export function resolveRateCard(source: RateCardSource | null | undefined): UaeRateCard {
-  const card = source?.uae_rate_card;
-  const fromCard = (k: keyof typeof UAE_RATE_CARD_FALLBACK) => validPct(card?.[k]);
-  const seller = fromCard("electronics_seller_ships_pct");
-  const notmade = fromCard("electronics_notmade_ships_pct");
-  // uae_local_pct is the UAE seller rate the backend has today
-  const fashion = fromCard("fashion_accessories_pct") ?? validPct(source?.uae_local_pct);
-  return {
-    electronics_seller_ships_pct: seller ?? UAE_RATE_CARD_FALLBACK.electronics_seller_ships_pct,
-    electronics_notmade_ships_pct: notmade ?? UAE_RATE_CARD_FALLBACK.electronics_notmade_ships_pct,
-    fashion_accessories_pct: fashion ?? UAE_RATE_CARD_FALLBACK.fashion_accessories_pct,
-    live: seller != null || notmade != null || fashion != null,
-  };
-}
-
-export function electronicsRate(card: UaeRateCard, mode: ElectronicsFulfilment): number {
-  return mode === "seller" ? card.electronics_seller_ships_pct : card.electronics_notmade_ships_pct;
-}
-
-export const FULFILMENT_LABEL: Record<ElectronicsFulfilment, string> = {
-  seller: "Seller ships",
-  notmade: "NOTMADE ships",
+export const WHO_SHIPS_LABEL: Record<FulfilmentMode, string> = {
+  seller_ships: "I ship",
+  notmade_ships: "NOTMADE ships",
 };
+
+const validPct = (v: unknown) => typeof v === "number" && Number.isFinite(v) && v >= 0 && v < 100;
+
+/** The card with only its usable rates. Null when nothing usable is left. */
+export function usableCard(card: Partial<RateCard> | null | undefined): RateCard | null {
+  const groups = (card?.groups ?? [])
+    .map((g) => ({ ...g, rates: (g.rates ?? []).filter((r) => validPct(r.pct)) }))
+    .filter((g) => g.rates.length > 0);
+  return groups.length ? { ...card, groups } : null;
+}
+
+function groupPct(group: RateGroup, mode: FulfilmentMode): number {
+  return (group.rates.find((r) => r.fulfilment_mode === mode) ?? group.rates.find((r) => r.fulfilment_mode === null) ?? group.rates[0]).pct;
+}
+
+/** The group the who-ships choice applies to: phones and laptops, or Electronics on a v1 card. */
+export function whoShipsGroup(card: RateCard | null): RateGroup | null {
+  if (!card) return null;
+  return card.groups.find((g) => g.rates.some((r) => r.fulfilment_mode)) ?? card.groups.find((g) => g.key === "phones_laptops") ?? null;
+}
+
+export function whoShipsRate(card: RateCard | null, mode: FulfilmentMode): number | null {
+  const group = whoShipsGroup(card);
+  return group ? groupPct(group, mode) : null;
+}
+
+/** False on a v2 card, where who ships sets no rate. */
+export function whoShipsChangesRate(card: RateCard | null): boolean {
+  return whoShipsRate(card, "seller_ships") !== whoShipsRate(card, "notmade_ships");
+}
+
+/** A group's rate in words, e.g. "12%" or "12% if you ship, 14% if NOTMADE ships". */
+export function groupRateText(group: RateGroup): string {
+  const seller = groupPct(group, "seller_ships");
+  const notmade = groupPct(group, "notmade_ships");
+  const rate = seller === notmade ? `${seller}%` : `${seller}% if you ship, ${notmade}% if NOTMADE ships`;
+  return group.shipping_included ? `${rate}, shipping included` : rate;
+}
+
+/** One "label: rate" line per group. Empty when there is no card. */
+export function rateCardLines(card: Partial<RateCard> | null | undefined): string[] {
+  return (usableCard(card)?.groups ?? []).map((g) => `${g.label}: ${groupRateText(g)}`);
+}
+
+/**
+ * The rate for a category, by the `commission_group` from GET /seller/categories. Same order as the
+ * backend: an unmapped category pays the default group, and who ships falls back to NOTMADE.
+ */
+export function categoryRate(card: Partial<RateCard> | null | undefined, group: string | null | undefined, mode?: FulfilmentMode | null): number | null {
+  const usable = usableCard(card);
+  if (!usable || !group) return null;
+  const match = usable.groups.find((g) => g.key === group) ?? usable.groups.find((g) => g.key === "default");
+  return match ? groupPct(match, mode ?? "notmade_ships") : null;
+}
+
+/** The commission to quote on a listing: the seller's card for that category, else India's one flat rate. */
+export function listingRate(
+  seller: { rate_card?: RateCard | null; default_fulfilment_mode?: FulfilmentMode | null; commission?: { india_pct: number | null } },
+  category: { commission_group?: string } | undefined,
+  mode?: FulfilmentMode | null,
+): number | null {
+  return categoryRate(seller.rate_card, category?.commission_group, mode ?? seller.default_fulfilment_mode) ?? seller.commission?.india_pct ?? null;
+}
 
 /** Commission and the seller's share of a price, rounded to the smallest unit. */
 export function splitPrice(price: number, pct: number): { commission: number; payout: number } {

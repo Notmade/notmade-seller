@@ -5,7 +5,7 @@
 import { AED } from "@/app/lib/currency";
 import {
   COMMISSION_STATEMENT_INDIA, ENTITY_BY_COUNTRY, MAIN_SITE_URL, MIN_PRODUCTS, NOTICE_DAYS_INDIA, NOTICE_DAYS_UAE,
-  RETURN_WINDOW_DAYS, REVIEW_HOURS, TERMINATION_SETTLEMENT_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS, UAE_SITE_URL,
+  RETURN_WINDOW_DAYS, TERMINATION_SETTLEMENT_DAYS, SETTLEMENT_DAYS_AFTER_DELIVERY as PAYOUT_DAYS, UAE_RATE_CHANGE_NOTICE_DAYS, UAE_SITE_URL,
 } from "@/app/lib/seller-config";
 import { getMarket } from "@/src/config/markets";
 
@@ -36,8 +36,8 @@ export const SELLER_FAQ: FaqGroup[] = [
         a: "Enter your email and the one-time code we send. There is no password. Then add your business details, upload your documents and sign the seller agreement in the panel with a code sent to your email.",
       },
       {
-        q: "How long does approval take?",
-        a: `Our team reviews your account after you sign the agreement, usually within ${REVIEW_HOURS} hours. We email you when you are approved, and you can follow the status in your panel.`,
+        q: "How soon can I start selling?",
+        a: "Your seller account is active as soon as you sign the agreement, and you can add products straight away. NOTMADE reviews each product before it goes live, and you can follow its status in your panel.",
       },
     ],
   },
@@ -109,7 +109,7 @@ export const SELLER_FAQ: FaqGroup[] = [
     items: [
       {
         q: "How do I list products?",
-        a: `Once you are approved, add products in your panel: photos, your price, stock, and variants such as size or colour with photos for each option. In India you need at least ${MIN_PRODUCTS} products to go live.`,
+        a: `Once you have signed, add products in your panel: photos, your price, stock, and variants such as size or colour with photos for each option. In India you need at least ${MIN_PRODUCTS} products to go live.`,
       },
       {
         q: "Who issues the invoice to the customer?",

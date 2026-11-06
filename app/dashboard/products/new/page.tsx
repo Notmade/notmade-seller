@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useRef, useState, type ChangeEvent, type 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { api, ApiError, netAfterCommission, type Category } from "../../../lib/seller-api";
+import { listingRate } from "../../../lib/rate-card";
 import { draftsAvailable, deleteDraft, getDraft, saveDraft } from "../../../lib/listing-drafts";
 import {
   EMPTY_LISTING, MAX_PHOTO_BYTES, MAX_PHOTOS, listingFormData, stepError, stockCombos, totalStock, type Listing, type WizardStep,
@@ -52,6 +53,7 @@ function Wizard() {
   }, [draftParam, seller.id]);
 
   const category = categories?.find((c) => c.id === listing.categoryId);
+  const pct = listingRate(seller, category, listing.fulfilmentMode);
   // Who ships exists only where the backend says so; anywhere else it answers FULFILMENT_MODE_NOT_APPLICABLE
   const steps = useMemo<WizardStep[]>(() => [
     "category", "photos", "details", "variants", "price", ...(category?.fulfilment_mode_applies ? ["shipping" as const] : []), "review",
@@ -144,8 +146,8 @@ function Wizard() {
             <div className="sp-stack">
               <Field label={`Selling price (${currency})`} htmlFor="w-price">
                 <PriceInput id="w-price" country={country} value={listing.price} onChange={(v) => patch({ price: v })} />
-                {seller.commission?.india_pct != null && Number(listing.price) > 0 && (
-                  <p aria-live="polite" className="sp-good">You receive {fmt(netAfterCommission(Number(listing.price), seller.commission.india_pct))} after {seller.commission.india_pct}% commission</p>
+                {pct != null && Number(listing.price) > 0 && (
+                  <p aria-live="polite" className="sp-good">You receive {fmt(netAfterCommission(Number(listing.price), pct))} after {pct}% commission</p>
                 )}
               </Field>
               <Field label="MRP (optional)" htmlFor="w-mrp" hint="Shown struck through when it is higher than the price.">

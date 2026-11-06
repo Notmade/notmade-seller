@@ -32,7 +32,7 @@ test("wizard: submit for review sends no live flag", async ({ page }) => {
   await page.getByRole("button", { name: "Continue" }).click();
   await page.getByRole("button", { name: "Submit for review" }).click();
   await expect(page).toHaveURL(/submitted=1/);
-  await expect(page.getByText(/Your product is In review/)).toBeVisible();
+  await expect(page.getByText("Product submitted, in review.")).toBeVisible();
   expect(be.created).toHaveLength(1);
   expect(be.created[0]).toContain('name="price_inr"');
   expect(be.created[0]).not.toMatch(/is_live|approval_status|review_status/);
@@ -118,20 +118,21 @@ test("packing slip prints alone, with no prices", async ({ page }) => {
   expect(await page.locator(".sp-slip").innerText()).not.toMatch(/₹|commission/i);
 });
 
-test("payouts: calendar, wording, and the missing-bank banner", async ({ page }) => {
-  await signIn(page, "AE", backend("AE"), { iban: null });
+test("payouts: calendar, wording, and the blocked-payout notice", async ({ page }) => {
+  const be = backend("AE");
+  await signIn(page, "AE", { ...be, payouts: { ...be.payouts, payout_blocked: true } });
   await page.goto("/dashboard/payouts");
   await expect(page.getByText(/Settlement within 7 days/).first()).toBeVisible();
-  await expect(page.getByText("Add your bank details.")).toBeVisible();
+  await expect(page.getByText("Add bank details to receive payouts.")).toBeVisible();
   await expect(page.getByRole("heading", { name: "Payout calendar" })).toBeVisible();
   await expect(page.locator(".sp-cal-list").getByText("Pending").first()).toBeVisible();
 });
 
-test("payouts: no banner when the IBAN is on file", async ({ page }) => {
-  await signIn(page, "AE");
+test("payouts: no notice unless the backend says they are blocked", async ({ page }) => {
+  await signIn(page, "AE", backend("AE"), { iban: null });
   await page.goto("/dashboard/payouts");
   await expect(page.getByRole("heading", { name: "Payout calendar" })).toBeVisible();
-  await expect(page.getByText("Add your bank details.")).toHaveCount(0);
+  await expect(page.getByText("Add bank details to receive payouts.")).toHaveCount(0);
 });
 
 test("notifications: the badge uses the backend's count and clears through it", async ({ page }) => {
