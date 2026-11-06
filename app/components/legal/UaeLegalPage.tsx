@@ -23,7 +23,7 @@ export default function UaeLegalPage({ doc, path }: { doc: LegalDoc; path: strin
           <p className="font-bebas text-[#CC0000] tracking-[0.4em] text-sm mb-3">LEGAL</p>
           <h1 className="font-bebas text-5xl md:text-6xl tracking-wider leading-none mb-4">{doc.title}</h1>
           <p className="text-gray-400 text-base leading-relaxed">{doc.intro}</p>
-          <p className="text-gray-600 text-xs mt-3">{ENTITY.name} · {ENTITY.licence}<br />{ENTITY.office}</p>
+          <p className="text-gray-600 text-xs mt-3">{ENTITY.name}</p>
         </div>
 
         <div className="space-y-10 text-sm text-gray-400 leading-relaxed">

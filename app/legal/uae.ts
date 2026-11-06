@@ -20,9 +20,7 @@ export interface LegalDoc {
 }
 
 export const ENTITY = {
-  name: "House of Notmade Studio FZE LLC",
-  licence: "Licence No: 2628021907888",
-  office: "Office No. BC-894509, 26th Floor, Amber Gem Tower, Sheikh Khalifa Street, Ajman, United Arab Emirates",
+  name: "HOUSE OF NOTMADE STUDIO FZE LLC",
   email: "admin@notmade.in",
   supportEmail: UAE_SUPPORT_EMAIL,
   phone: "+971557590282",

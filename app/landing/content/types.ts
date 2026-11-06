@@ -13,8 +13,8 @@ export interface RateRow { key: string; label: string; short: string; pct: numbe
 export interface Entity {
   /** Name shown on the site; the agreement carries the full registered name. */
   name: string;
-  registeredOffice: string;
-  ids: { label: string; value: string }[];
+  registeredOffice?: string;
+  ids?: { label: string; value: string }[];
   phone: string;
   law: string;
   store: string;

@@ -70,7 +70,7 @@ describe("landing selection by country", () => {
     const ld = (html: string) => JSON.parse(html.match(/application\/ld\+json">([\s\S]*?)<\/script>/)![1].replace(/\\u003c/g, "<"));
     expect(ld(indiaHtml())[0].areaServed.name).toBe("India");
     expect(ld(uaeHtml())[0].areaServed.name).toBe("United Arab Emirates");
-    expect(ld(uaeHtml())[0].legalName).toBe("House of Notmade Studio FZE LLC");
+    expect(ld(uaeHtml())[0].legalName).toBe("HOUSE OF NOTMADE STUDIO FZE LLC");
     expect(ld(indiaHtml()).map((x: { "@type": string }) => x["@type"])).toEqual(["Organization", "WebPage", "FAQPage"]);
   });
 
@@ -126,7 +126,7 @@ describe("UAE page", () => {
   });
 
   it("has the legal footer word for word", () => {
-    expect(page).toContain('<p class="n-foot-copy">HOUSE OF NOTMADE STUDIO FZE LLC, licence 2628021907888, Ajman Nuventures Centre Free Zone (ANC Free Zone), Office BC-894509, 26th Floor, Amber Gem Tower, Sheikh Khalifa Street, Ajman, United Arab Emirates</p>');
+    expect(page).toContain('<p class="n-foot-copy">HOUSE OF NOTMADE STUDIO FZE LLC</p>');
   });
 
   it("names nothing from the other country outside the switcher", () => {

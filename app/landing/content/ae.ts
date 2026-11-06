@@ -10,13 +10,11 @@ const host = STORE_URL.replace(/^https?:\/\//, "");
 
 export const SETTLEMENT_DAYS = 7;
 
-export const LEGAL_ENTITY = "House of Notmade Studio FZE LLC";
+export const LEGAL_ENTITY = "HOUSE OF NOTMADE STUDIO FZE LLC";
 
-/** Copied from the current backend agreement (uae-local-v2); update both together when it changes. */
+/** The site shows the legal name only. The licence and address are in the agreement, which comes from the backend. */
 export const ENTITY: Entity = {
   name: LEGAL_ENTITY,
-  registeredOffice: "Office No. BC-894509, 26th Floor, Amber Gem Tower, Sheikh Khalifa Street, Ajman, United Arab Emirates",
-  ids: [{ label: "Licence No.", value: "2628021907888" }],
   phone: "+971 55 759 0282",
   law: "Laws of the UAE as applied in Ajman, with the courts of Ajman",
   store: STORE_URL,
@@ -97,7 +95,7 @@ const uae: PageContent = {
   final: { title: "Open your UAE seller account.", sub: "Register with your email and finish onboarding in your seller panel." },
   signup: { label: "Register to sell", href: "/login?market=ae&apply=1" },
   login: { label: "Log in", href: "/login?market=ae" },
-  legalFooter: "HOUSE OF NOTMADE STUDIO FZE LLC, licence 2628021907888, Ajman Nuventures Centre Free Zone (ANC Free Zone), Office BC-894509, 26th Floor, Amber Gem Tower, Sheikh Khalifa Street, Ajman, United Arab Emirates",
+  legalFooter: LEGAL_ENTITY,
 };
 
 export const WAITLIST = {
