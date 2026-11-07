@@ -4,7 +4,7 @@ import type { Section } from "./SiteHeader";
 import SiteHeader from "./SiteHeader";
 import CountrySwitch from "./CountrySwitch";
 import SiteFooter from "./SiteFooter";
-import { Faq, Reveal, Tilt } from "./parts";
+import { Faq, Reveal, Tilt, TutorialVideo } from "./parts";
 import { flipCss, flipScript } from "./flip";
 import { ldJson } from "@/app/lib/seo";
 import "./landing.css";
@@ -108,7 +108,7 @@ export function Points({ items }: { items: Item[] }) {
   );
 }
 
-export function Steps({ steps, cta }: { steps: PageContent["steps"]; cta: Cta }) {
+export function Steps({ steps, tutorial, cta }: { steps: PageContent["steps"]; tutorial: PageContent["tutorial"]; cta: Cta }) {
   return (
     <section className="n-sec n-sec-soft" id="how" aria-labelledby="how-h">
       <div className="n-wrap">
@@ -121,6 +121,7 @@ export function Steps({ steps, cta }: { steps: PageContent["steps"]; cta: Cta })
             </li>
           ))}
         </ol>
+        <TutorialVideo video={tutorial} />
         <div className="n-cta nr"><a href={cta.href} className="n-btn n-btn-red">{cta.label}</a></div>
       </div>
     </section>

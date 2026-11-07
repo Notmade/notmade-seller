@@ -121,6 +121,14 @@
 .n-step p { margin-top: 4px; font-size: 15px; color: var(--mute); }
 @media (min-width: 768px) { .n-steps { grid-template-columns: repeat(2, 1fr); gap: 12px; } }
 @media (min-width: 1100px) { .n-steps { grid-template-columns: repeat(4, 1fr); } .n-step { flex-direction: column; } .n-step h3 { margin-top: 0; } }
+.n-video { margin: 0 0 24px; }
+.n-video video { display: block; width: 100%; aspect-ratio: 16 / 9; background: #000; border-radius: 14px; }
+.n-chapters { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.n-chapters button { display: inline-flex; gap: 6px; align-items: baseline; padding: 8px 12px; min-height: 36px; font: inherit; font-size: 14px; color: var(--ink); background: #fff; border: 1px solid var(--line); border-radius: 999px; cursor: pointer; }
+.n-chapters button span { font-size: 12px; color: var(--mute); font-variant-numeric: tabular-nums; }
+.n-chapters button[aria-current] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.n-chapters button[aria-current] span { color: #ccc; }
+.n-chapters button:focus-visible { outline: 2px solid var(--red); outline-offset: 2px; }
 
 
 /* commission + calculator */

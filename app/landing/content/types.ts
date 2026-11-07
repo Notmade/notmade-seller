@@ -24,6 +24,23 @@ export interface Entity {
   store: string;
 }
 
+/** A point in the tutorial video the viewer can jump to. */
+export interface Chapter { title: string; start: number }
+
+/** The seller tutorial video. Paths are served from /public. */
+export interface Tutorial {
+  title: string;
+  src: string;
+  poster: string;
+  /** WebVTT captions file. */
+  captions: string;
+  captionsLang: string;
+  /** Length in seconds. */
+  duration: number;
+  /** In order, each `start` in seconds. */
+  chapters: Chapter[];
+}
+
 export interface PageContent {
   code: ModeCode;
   label: string;
@@ -35,6 +52,8 @@ export interface PageContent {
   /** Short promises beside the commission card. */
   promises: Item[];
   steps: { title: string; sub: string; items: Item[] };
+  /** Walkthrough video shown with the registration steps. */
+  tutorial: Tutorial;
   faq: { q: string; a: string }[];
   final: { title: string; sub: string };
   signup: Cta;

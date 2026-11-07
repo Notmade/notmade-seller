@@ -67,7 +67,7 @@ export default function UaeLanding({ rates = uae.rates, payments, signupOpen }: 
         </div>
       </section>
 
-      <Steps steps={uae.steps} cta={primary} />
+      <Steps steps={uae.steps} tutorial={uae.tutorial} cta={primary} />
       <FaqSection items={uae.faq} />
       <FinalCta code="ae" final={signupOpen ? uae.final : WAITLIST.final}>
         {signupOpen
