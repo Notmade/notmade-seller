@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { Currency } from "@/app/lib/currency";
 import { currencySymbol, formatMoney } from "@/app/lib/currency";
 import { splitPrice } from "@/app/lib/rate-card";
+import type { Tutorial } from "@/app/landing/content/types";
 
 /** Adds .in to every .nr element below it as it scrolls into view. */
 export function Reveal({ children }: { children: React.ReactNode }) {
@@ -153,5 +154,45 @@ export function WaitlistForm({ label, note, done, market }: { label: string; not
       <p className="n-wl-note">{note}</p>
       {state === "error" && <p className="n-wl-err" role="alert">{msg}</p>}
     </form>
+  );
+}
+
+const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+
+/** The seller tutorial: captions available from the CC button (off until turned on), chapters to jump between. */
+export function TutorialVideo({ video }: { video: Tutorial }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [current, setCurrent] = useState(0);
+  const onTime = () => {
+    const t = ref.current?.currentTime ?? 0;
+    let i = 0;
+    video.chapters.forEach((c, n) => { if (t >= c.start) i = n; });
+    setCurrent(i);
+  };
+  const jump = (start: number) => {
+    const v = ref.current;
+    if (!v) return;
+    v.currentTime = start;
+    void v.play().catch(() => {});
+  };
+  return (
+    <figure className="n-video nr">
+      <video ref={ref} controls playsInline preload="metadata" poster={video.poster} onTimeUpdate={onTime}
+        aria-label={`${video.title} (${clock(video.duration)})`}>
+        <source src={video.src} type="video/mp4" />
+        <track kind="captions" src={video.captions} srcLang={video.captionsLang} label="English" />
+      </video>
+      <figcaption>
+        <ol className="n-chapters" aria-label="Chapters">
+          {video.chapters.map((c, i) => (
+            <li key={c.start}>
+              <button type="button" onClick={() => jump(c.start)} aria-current={i === current ? "true" : undefined}>
+                <span>{clock(c.start)}</span>{c.title}
+              </button>
+            </li>
+          ))}
+        </ol>
+      </figcaption>
+    </figure>
   );
 }

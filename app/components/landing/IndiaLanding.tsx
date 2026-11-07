@@ -46,7 +46,7 @@ export default function IndiaLanding({ rates = india.rates }: { rates?: RateRow[
         </div>
       </section>
 
-      <Steps steps={india.steps} cta={primary} />
+      <Steps steps={india.steps} tutorial={india.tutorial} cta={primary} />
       <FaqSection items={india.faq} />
       <FinalCta code="in" final={india.final}>
         <a href={primary.href} className="n-btn n-btn-red">{primary.label}</a>
