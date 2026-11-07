@@ -5,7 +5,8 @@ import india from "./landing/content/in";
 import { MARKET_COOKIE, selectMode } from "./landing/content";
 import { loadPublicRates, withLiveStandardRate } from "./lib/landing-data";
 import { pageMetadata } from "./lib/seo";
-import UaePage, { uaeMetadata } from "./uae/page";
+import { uaeMetadata } from "./uae/metadata";
+import UaePage from "./uae/page";
 
 // The country decides the whole page
 export const dynamic = "force-dynamic";
