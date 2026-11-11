@@ -5,7 +5,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import fixtures from "./fixtures/bulk-templates.json";
-import type { BulkTemplate, BulkValidation, Seller } from "@/app/lib/seller-api";
+import type { BulkPhoto, BulkTemplate, BulkValidation, Seller } from "@/app/lib/seller-api";
 import { LiveContext, SellerContext } from "@/app/dashboard/seller-context";
 import BulkUploadPage from "@/app/dashboard/products/bulk/page";
 
@@ -40,10 +40,18 @@ let calls: Call[];
 let templates: Record<string, BulkTemplate>;
 let validation: (rows: Record<string, unknown>[]) => BulkValidation;
 
+// As the backend reads an image_files entry (lib/bulk-upload.js photoInfo)
+const photoOf = (name: string): BulkPhoto => {
+  const id = name.match(/drive\.google\.com\/file\/d\/([\w-]+)/)?.[1];
+  return id ? { source: "drive", name: `drive-${id}`, drive_id: id, link: name } : { source: "file", name };
+};
+let drive: Record<string, Response | (() => Response)>;
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
 beforeEach(() => {
   calls = [];
+  drive = {};
   templates = { [T.in_hoodies.category.id]: T.in_hoodies, [T.in_home_decor.category.id]: T.in_home_decor };
   // Like the backend: a row of another category is refused, anything else here is fine
   validation = (rows) => {
@@ -53,7 +61,7 @@ beforeEach(() => {
     });
     return {
       category: T.in_home_decor.category, currency: "INR", rows: results,
-      products: rows.map((r, i) => ({ key: null, lines: [Number(r.line)], name: String(r.name), variants: 0, image_files: String(r.image_files).split("|"), ok: results[i].ok })),
+      products: rows.map((r, i) => ({ key: null, lines: [Number(r.line)], name: String(r.name), variants: 0, image_files: String(r.image_files).split("|"), photos: String(r.image_files).split("|").map(photoOf), ok: results[i].ok })),
       summary: { rows: rows.length, valid_rows: results.filter((r) => r.ok).length, invalid_rows: results.filter((r) => !r.ok).length, products: rows.length, valid_products: results.filter((r) => r.ok).length },
     };
   };
@@ -66,6 +74,10 @@ beforeEach(() => {
     if (method === "GET" && u.pathname === "/seller/bulk/template") return json(templates[u.searchParams.get("category_id") ?? ""]);
     if (method === "POST" && u.pathname === "/seller/bulk/validate") return json(validation((body as { rows: Record<string, unknown>[] }).rows));
     if (method === "POST" && u.pathname === "/seller/bulk/products") return json({ product: { id: "new" }, lines: [2], key: null }, 201);
+    if (method === "POST" && u.pathname === "/seller/products/import-image") {
+      const r = drive[(body as { url: string }).url];
+      return typeof r === "function" ? r() : r ?? json({ error: "We could not download this photo from Google Drive. Try again.", code: "FETCH_FAILED" }, 502);
+    }
     return new Response("<pre>Cannot</pre>", { status: 404, headers: { "Content-Type": "text/html" } });
   }));
 });
@@ -154,6 +166,30 @@ describe("bulk upload page", () => {
     expect(fd.get("category_id")).toBe(T.in_home_decor.category.id);
     expect(JSON.parse(String(fd.get("rows")))).toEqual([expect.objectContaining({ line: 2, category: "HOME DECOR", name: "Brass vase" })]);
     expect((fd.getAll("images") as File[]).map((f) => f.name)).toEqual(["a.png"]);
+  });
+
+  it("Google Drive links: no photo to pick, each one downloaded through the backend, a private one held back with its reason", async () => {
+    const pub = "https://drive.google.com/file/d/1PublicPhotoAbCdEf/view?usp=drive_link";
+    const priv = "https://drive.google.com/file/d/1PrivatePhotoAbCdEf/view?usp=drive_link";
+    const privMsg = 'This Google Drive photo is private. In Drive, set Share > General access to "Anyone with the link" and try again.';
+    drive[pub] = () => new Response(PNG, { status: 200, headers: { "Content-Type": "image/png" } });
+    drive[priv] = () => json({ error: privMsg, code: "PRIVATE" }, 422);
+    renderPage();
+    await choose("HOME DECOR");
+    await waitFor(() => expect((fileInput() as HTMLButtonElement).disabled).toBe(false));
+    upload(fileInput(), [csv(`category,name,description,stock,price (INR),mrp (INR),image_files\nHOME DECOR,Brass vase,Hand-finished brass vase here.,4,1650,,${pub}\nHOME DECOR,Clay vase,Hand-thrown clay vase here.,4,1650,,${priv}\n`)]);
+    expect(await screen.findByText(/2 products ready \(2 rows\), 0 rows to fix/)).toBeTruthy();
+    expect(screen.queryByText(/Photo not chosen/)).toBeNull();
+    expect(screen.getByText(/2 Drive photos in this file/)).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit 2 products for review" }));
+    await screen.findByText("Submitted · In review");
+    expect(await screen.findByText(`Photo 1: ${privMsg}`)).toBeTruthy();
+    expect(calls.filter((c) => c.path === "/seller/products/import-image").map((c) => (c.body as { url: string }).url)).toEqual([pub, priv]);
+    const posts = calls.filter((c) => c.path === "/seller/bulk/products");
+    expect(posts).toHaveLength(1);
+    expect(((posts[0].body as FormData).getAll("images") as File[]).map((f) => [f.name, f.type])).toEqual([["drive-1PublicPhotoAbCdEf.png", "image/png"]]);
+    expect(screen.getByText(/1 row to fix, 1 product submitted/)).toBeTruthy();
   });
 
   it("one click when every row is ready", async () => {

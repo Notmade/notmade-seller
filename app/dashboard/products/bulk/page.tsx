@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { api, type BulkCategory, type BulkTemplate, type BulkValidation } from "../../../lib/seller-api";
+import { ApiError, api, type BulkCategory, type BulkRowError, type BulkTemplate, type BulkValidation } from "../../../lib/seller-api";
 import { xlsxTemplate, readBulkXlsx } from "../../../lib/bulk-xlsx";
-import { MAX_ROWS, csvTemplate, errorCsv, missingPhotos, photosFor, readBulkCsv, type SheetRow } from "../../../lib/bulk-csv";
+import { MAX_ROWS, collectPhotos, csvTemplate, drivePhotos, errorCsv, missingPhotos, photoNotChosen, readBulkCsv, rowError, type SheetRow } from "../../../lib/bulk-csv";
 import { commissionView } from "../../../lib/bulk-commission";
 import { useDashboardSeller, useSellerCurrency } from "../../seller-context";
 import CategoryPicker from "../../../components/CategoryPicker";
 import { Alert, Button, Card, PageHeader, PageSkeleton } from "../../../components/portal-ui";
 
-type Outcome = { state: "done" } | { state: "failed"; error: string };
+type Outcome = { state: "done" } | { state: "failed"; error: BulkRowError };
 
 function download(name: string, data: string | Blob) {
   const blob = typeof data === "string" ? new Blob(["﻿" + data], { type: "text/csv;charset=utf-8" }) : data;
@@ -36,8 +36,10 @@ export default function BulkUploadPage() {
   const [fatal, setFatal] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [outcomes, setOutcomes] = useState<Record<number, Outcome>>({});
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; photo?: string } | null>(null);
   const [confirming, setConfirming] = useState(false);
+  // Drive photos already downloaded this session, by drive-<id>, so a retry or a second product with the same photo skips it
+  const driveCache = useMemo(() => new Map<string, File>(), []);
 
   useEffect(() => { api.bulkCategories().then((r) => setCategories(r.categories)).catch(() => setCategories([])); }, []);
 
@@ -52,18 +54,19 @@ export default function BulkUploadPage() {
   const busy = !!progress;
   const ready = !!template;
 
-  // Rows with the backend's verdict, plus the one check made here: the photos each product names have been picked
+  // Rows with the backend's verdict, plus the one check made here: the photo files each product names have been picked.
+  // Every error has the backend's { field, code, message } shape; the Row column says which row.
   const checked = useMemo(() => {
     if (!rows || !validation) return [];
     const byLine = new Map(validation.rows.map((r) => [r.line, r]));
     return validation.products.flatMap((p) => {
-      const missing = p.ok ? missingPhotos(p.image_files, files) : [];
+      const missing = p.ok ? missingPhotos(p, files) : [];
       const outcome = outcomes[p.lines[0]];
       return p.lines.map((line) => {
         const row = rows.find((r) => r.line === line)!;
-        const errors = [
-          ...(byLine.get(line)?.errors.map((e) => e.message) ?? []),
-          ...(missing.length ? [`Photo not chosen: ${missing.join(", ")}`] : []),
+        const errors: BulkRowError[] = [
+          ...(byLine.get(line)?.errors ?? []),
+          ...(missing.length ? [photoNotChosen(missing)] : []),
           ...(outcome?.state === "failed" ? [outcome.error] : []),
         ];
         return { row, product: p, errors, outcome };
@@ -72,7 +75,8 @@ export default function BulkUploadPage() {
   }, [rows, validation, files, outcomes]);
 
   const products = validation?.products ?? [];
-  const readyProducts = products.filter((p) => p.ok && !missingPhotos(p.image_files, files).length && outcomes[p.lines[0]]?.state !== "done" && outcomes[p.lines[0]]?.state !== "failed");
+  const readyProducts = products.filter((p) => p.ok && !missingPhotos(p, files).length && outcomes[p.lines[0]]?.state !== "done" && outcomes[p.lines[0]]?.state !== "failed");
+  const driveCount = products.reduce((n, p) => n + (p.ok ? drivePhotos(p).length : 0), 0);
   const readyRows = readyProducts.reduce((n, p) => n + p.lines.length, 0);
   const bad = checked.filter((c) => c.errors.length);
   const done = products.filter((p) => outcomes[p.lines[0]]?.state === "done").length;
@@ -98,7 +102,8 @@ export default function BulkUploadPage() {
   };
   const pickPhotos = (e: ChangeEvent<HTMLInputElement>) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; setFiles((p) => [...p, ...f]); };
 
-  // One product at a time, so a seller on a phone connection is not sending 200 uploads at once
+  // One product at a time, and its Drive photos one at a time, so a seller on a phone connection is not sending 200
+  // uploads at once. A Drive photo that fails holds back only its own product, with the reason on its rows.
   const upload = async () => {
     if (!template || !rows) return;
     setConfirming(false);
@@ -107,11 +112,16 @@ export default function BulkUploadPage() {
     for (let i = 0; i < queue.length; i++) {
       const p = queue[i];
       const cells = p.lines.map((line) => rows.find((r) => r.line === line)!.cells);
+      const fail = (error: BulkRowError) => setOutcomes((o) => ({ ...o, [p.lines[0]]: { state: "failed", error } }));
+      const photos = await collectPhotos(p, files, api.importDrivePhoto, driveCache,
+        (n, total) => setProgress({ done: i, total: queue.length, photo: `Drive photo ${n} of ${total}` }));
+      if ("error" in photos) { fail(photos.error); setProgress({ done: i + 1, total: queue.length }); continue; }
       try {
-        await api.bulkCreate(template.category.id, cells, photosFor(p.image_files, files));
+        await api.bulkCreate(template.category.id, cells, photos.files);
         setOutcomes((o) => ({ ...o, [p.lines[0]]: { state: "done" } }));
       } catch (err) {
-        setOutcomes((o) => ({ ...o, [p.lines[0]]: { state: "failed", error: err instanceof Error ? err.message : "Could not create" } }));
+        const data = err instanceof ApiError ? err.data : {};
+        fail(rowError(typeof data.field === "string" ? data.field : "row", typeof data.code === "string" ? data.code : "CREATE_FAILED", err instanceof Error ? err.message : "Could not create"));
       }
       setProgress({ done: i + 1, total: queue.length });
     }
@@ -177,6 +187,7 @@ export default function BulkUploadPage() {
         <li className={ready ? undefined : "is-off"}><Card>
           <h2>4. Choose the photos</h2>
           <p>Pick every photo file your sheet names, {template ? `${template.limits.min_photos} to ${template.limits.max_photos}` : "1 to 8"} per product. {files.length > 0 && `${files.length} chosen.`}</p>
+          <p className="sp-bulk-hint">Public Google Drive file links in image_files need no picking: we download them when you submit. In Drive, set Share &gt; General access to &quot;Anyone with the link&quot;. Folder links do not work.{driveCount > 0 && ` ${driveCount} Drive photo${driveCount === 1 ? "" : "s"} in this file.`}</p>
           <label className={`sp-btn-line${!ready || locked || busy ? " is-disabled" : ""}`}>Choose photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sp-file" disabled={!ready || locked || busy} onChange={pickPhotos} /></label>
         </Card></li>
       </ol>
@@ -189,7 +200,7 @@ export default function BulkUploadPage() {
             <h2>{productWord(readyProducts.length)} ready ({readyRows} rows), {bad.length} row{bad.length === 1 ? "" : "s"} to fix{done ? `, ${productWord(done)} submitted` : ""}</h2>
             <div className="sp-inline">
               {bad.length > 0 && <Button variant="secondary" disabled={busy} onClick={() => download(`notmade-bulk-${slugFile(template.category.name)}-errors.csv`, errorCsv(template.columns, bad))}>Download error file</Button>}
-              <Button disabled={busy || locked || readyProducts.length === 0} onClick={submit}>{progress ? `Submitting ${progress.done} of ${progress.total}…` : `Submit ${productWord(readyProducts.length)} for review`}</Button>
+              <Button disabled={busy || locked || readyProducts.length === 0} onClick={submit}>{progress ? `Submitting ${progress.done} of ${progress.total}${progress.photo ? ` · ${progress.photo}` : ""}…` : `Submit ${productWord(readyProducts.length)} for review`}</Button>
             </div>
           </div>
           {confirming && (
@@ -212,7 +223,7 @@ export default function BulkUploadPage() {
                     <td data-label="Row">{row.line}</td>
                     <td data-label="Product">{product.name || String(row.cells.name || "") || product.key || "—"}</td>
                     {template.uses_sizes && <td data-label="Variant">{[row.cells.colour, row.cells.size].filter(Boolean).join(" · ") || "—"}</td>}
-                    <td data-label="Status">{outcome?.state === "done" ? "Submitted · In review" : errors.length ? errors.join(". ") : "Ready"}</td>
+                    <td data-label="Status">{outcome?.state === "done" ? "Submitted · In review" : errors.length ? errors.map((e) => e.message).join(". ") : "Ready"}</td>
                   </tr>
                 ))}
               </tbody>

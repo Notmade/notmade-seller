@@ -7,7 +7,8 @@ import { Workbook } from "exceljs";
 import fixtures from "./fixtures/bulk-templates.json";
 import type { BulkTemplate } from "@/app/lib/seller-api";
 import { xlsxTemplate, readBulkXlsx, instructionLines } from "@/app/lib/bulk-xlsx";
-import { OLD_TEMPLATE_MESSAGE, csvTemplate, errorCsv, headerKey, isOldTemplate, missingPhotos, parseCsv, photosFor, readBulkCsv, readBulkTable } from "@/app/lib/bulk-csv";
+import { OLD_TEMPLATE_MESSAGE, collectPhotos, csvTemplate, errorCsv, headerKey, isOldTemplate, missingPhotos, parseCsv, photosOf, readBulkCsv, readBulkTable, rowErrorLine } from "@/app/lib/bulk-csv";
+import { ApiError, type BulkProductResult } from "@/app/lib/seller-api";
 import { commissionView } from "@/app/lib/bulk-commission";
 
 const T = fixtures as unknown as Record<"in_hoodies" | "in_home_decor" | "ae_laptops" | "ae_hoodies", BulkTemplate>;
@@ -171,9 +172,41 @@ describe("rows, photos and the error file", () => {
     expect(readBulkCsv(`${head}\n${row}\n`, T.in_hoodies).rows).toHaveLength(1);
   });
 
-  it("matches photos by file name in the row's order", () => {
-    expect(missingPhotos(["a.jpg", "b.jpg"], [photo("A.JPG")])).toEqual(["b.jpg"]);
-    expect(photosFor(["a.jpg", "b.jpg"], [photo("b.jpg"), photo("a.jpg")]).map((f) => f.name)).toEqual(["a.jpg", "b.jpg"]);
+  const DRIVE = "https://drive.google.com/file/d/1AbCdEfGhIjKlMnOp/view?usp=drive_link";
+  const product = (image_files: string[], photos?: BulkProductResult["photos"]): BulkProductResult =>
+    ({ key: null, lines: [2], name: "X", variants: 0, image_files, photos, ok: true });
+
+  it("matches photo files by name in the row's order; an older backend without photos means all files", async () => {
+    const p = product(["a.jpg", "b.jpg"]);
+    expect(photosOf(p).map((x) => x.source)).toEqual(["file", "file"]);
+    expect(missingPhotos(p, [photo("A.JPG")])).toEqual(["b.jpg"]);
+    const got = await collectPhotos(p, [photo("b.jpg"), photo("a.jpg")], async () => { throw new Error("no Drive here"); }, new Map());
+    expect("files" in got && got.files.map((f) => f.name)).toEqual(["a.jpg", "b.jpg"]);
+  });
+
+  it("Drive photos need no pick, download one at a time as drive-<id>.<ext>, in sheet order, once each", async () => {
+    const p = product([DRIVE, "a.jpg"], [{ source: "drive", name: "drive-1AbCdEfGhIjKlMnOp", drive_id: "1AbCdEfGhIjKlMnOp", link: DRIVE }, { source: "file", name: "a.jpg" }]);
+    expect(missingPhotos(p, [])).toEqual(["a.jpg"]);
+    expect(missingPhotos(p, [photo("a.jpg")])).toEqual([]);
+    let inFlight = 0, calls = 0;
+    const download = async (link: string) => {
+      expect(link).toBe(DRIVE); expect(++inFlight).toBe(1); calls++;
+      await new Promise((r) => setTimeout(r, 1)); inFlight--;
+      return new Blob([new Uint8Array([0x89, 0x50])], { type: "image/png" });
+    };
+    const cache = new Map<string, File>();
+    const got = await collectPhotos(p, [photo("a.jpg")], download, cache);
+    expect("files" in got && got.files.map((f) => f.name)).toEqual(["drive-1AbCdEfGhIjKlMnOp.png", "a.jpg"]);
+    await collectPhotos(p, [photo("a.jpg")], download, cache);
+    expect(calls).toBe(1);
+  });
+
+  it("a Drive photo that fails gives the backend's reason as a row error in the { field, code, message } shape", async () => {
+    const p = product(["x.jpg", DRIVE], [{ source: "file", name: "x.jpg" }, { source: "drive", name: "drive-1AbCdEfGhIjKlMnOp", link: DRIVE }]);
+    const msg = 'This Google Drive photo is private. In Drive, set Share > General access to "Anyone with the link" and try again.';
+    const got = await collectPhotos(p, [photo("x.jpg")], async () => { throw new ApiError(422, msg, { code: "PRIVATE" }); }, new Map());
+    expect(got).toEqual({ error: { field: "image_files", code: "PRIVATE", message: `Photo 2: ${msg}` } });
+    expect(rowErrorLine(5, (got as { error: { field: string; code: string; message: string } }).error)).toBe(`Row 5 · image_files: Photo 2: ${msg}`);
   });
 
   it("exports the rows to fix in the template's columns with the reason", () => {
@@ -182,6 +215,8 @@ describe("rows, photos and the error file", () => {
     expect(out[0]).toEqual(["row", ...T.in_hoodies.columns.map((c) => c.header), "error"]);
     expect(out[1][0]).toBe("2");
     expect(out[1].at(-1)).toBe("Price must be above 0; Name at least one photo file");
+    const typed = parseCsv(errorCsv(T.in_hoodies.columns, [{ row: rows[0], errors: [{ field: "price", code: "PRICE_RANGE", message: "Price must be above 0" }] }]));
+    expect(typed[1].at(-1)).toBe("price (INR): Price must be above 0");
   });
 });
 

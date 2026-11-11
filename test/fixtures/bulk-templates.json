@@ -129,7 +129,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
       }
     ],
     "limits": {
@@ -215,7 +215,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
       }
     ],
     "limits": {
@@ -310,7 +310,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
       },
       {
         "key": "who_ships",
@@ -495,7 +495,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
       }
     ],
     "limits": {
