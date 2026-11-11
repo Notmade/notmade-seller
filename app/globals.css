@@ -767,7 +767,7 @@ a.sp-row:hover { background: #FAFAFA; }
 .sp-pill { padding: 7px 14px; border-radius: 100px; border: 1.5px solid #E0E0E0; background: #FFF; color: #555; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .sp-pill[aria-pressed="true"] { border-color: #111; background: #111; color: #FFF; }
 *:focus-visible.sp-pill, .sp-tab:focus-visible, .sp-table a:focus-visible { outline: 2px solid #CC0000; outline-offset: 2px; }
-.sp-stock { width: 84px; padding: 7px 9px; border: 1.5px solid #E2E2E2; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 700; color: #111; background: #FFF; outline: none; text-align: right; font-variant-numeric: tabular-nums; }
+.sp-stock { width: 84px; padding: 7px 9px; min-height: 40px; border: 1.5px solid #E2E2E2; border-radius: 8px; font: inherit; font-size: 14px; font-weight: 700; color: #111; background: #FFF; outline: none; text-align: right; font-variant-numeric: tabular-nums; }
 .sp-stock:focus { border-color: #111; box-shadow: 0 0 0 3px rgba(17,17,17,.08); }
 .sp-stock.dirty { border-color: #B45309; }
 .sp-inv tr.out td { background: #FFF5F5; }

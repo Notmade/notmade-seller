@@ -322,10 +322,53 @@ export interface Product {
   submitted_at: string | null;
   reviewed_at: string | null;
   created_at: string;
-  product_variants: { size: string; stock: number; is_active: boolean }[] | null;
+  product_variants: { id?: string; size: string; stock: number; is_active: boolean }[] | null;
   /** Options beyond Size (migration 047). Values of non-Size options may carry an ordered gallery. */
   options?: ProductOption[] | null;
-  variants?: { id: string; label?: string | null; sku?: string | null; option_values: Record<string, string>; stock: number; is_active: boolean }[] | null;
+  variants?: ProductVariant[] | null;
+  size_and_fit?: string | null;
+  fulfilment_mode?: FulfilmentMode | null;
+  /** The latest change to an approved product (migration 080). Null when there is none. */
+  pending_change?: PendingChange | null;
+}
+
+export interface ProductVariant {
+  id: string; label?: string | null; sku?: string | null; option_values: Record<string, string>; stock: number; is_active: boolean;
+  image_url?: string | null; image_jpg_url?: string | null;
+}
+
+export type ChangeField = "name" | "description" | "category" | "price" | "images" | "variants" | "size_and_fit" | "fulfilment_mode";
+export type ChangeStatus = "pending" | "approved" | "partially_approved" | "rejected";
+
+/** A change to an approved product. While pending, the live listing stays as it is; `preview` is how it will look. */
+export interface PendingChange {
+  id: string;
+  status: ChangeStatus;
+  fields: ChangeField[];
+  labels: string[];
+  submitted_at: string;
+  reviewed_at: string | null;
+  rejection_reason: string | null;
+  decisions: Partial<Record<ChangeField, "approved" | "rejected">> | null;
+  preview?: Product;
+}
+
+/** PUT /seller/products/:id. 202 = waiting for approval (pending_fields), 200 = applied at once (stock) or nothing changed. */
+export interface ProductSaveResult { product: Product; pending_fields?: ChangeField[]; stock_updated?: boolean; message?: string }
+
+/** One line for PATCH /seller/inventory: absolute stock of a product without variants, or of one variant. */
+export interface InventoryLine { product_id: string; variant_id?: string; stock: number }
+
+// ─── Add photos to existing products ──────────────────────────────────────────
+export interface PhotoAddTemplate { columns: string[]; required: string[]; note: string; max_photos: number; max_rows: number }
+export interface PhotoAddRowInput { line: number; product_name?: string; product_id?: string; sku?: string; image_links?: string; variant_or_colour?: string }
+export type PhotoAddTarget =
+  | { kind: "product"; label: string }
+  | { kind: "colour"; option: string; value: string; label: string }
+  | { kind: "sku"; variant_id: string; label: string };
+export interface PhotoAddRowResult {
+  line: number; ok: boolean; errors: BulkRowError[]; product: { id: string; name: string } | null; target: PhotoAddTarget | null;
+  current_photos: number | null; photos: BulkPhoto[];
 }
 
 export interface OptionImage { url: string; jpg_url: string | null }
@@ -510,11 +553,6 @@ export interface UnboxingVideo {
   uploaded_at: string | null;
 }
 
-export type StockUpdate =
-  | { stock: number }
-  | { variant_id: string; stock: number }
-  | { size: string; stock: number };
-
 export interface TrackingInput { courier: string; tracking_id: string }
 
 /** Store traffic for the seller's products. Everything else on Analytics is computed from orders. */
@@ -620,16 +658,29 @@ export const api = {
   },
   products: () => request<{ products: Product[] }>("/seller/products"),
   createProduct: (fd: FormData) => post<{ product: Product }>("/seller/products", fd),
+  /** An approved product stays live as it is: stock applies at once, everything else waits for NOTMADE's approval. */
   updateProduct: (id: string, fd: FormData) =>
-    request<{ product: Product }>(`/seller/products/${id}`, { method: "PUT", body: fd }),
+    request<ProductSaveResult>(`/seller/products/${id}`, { method: "PUT", body: fd }),
+  /** Withdraws the change waiting for approval. The live listing is not touched. */
+  cancelPendingChange: (id: string) => request<{ product: Product; cancelled: true }>(`/seller/products/${id}/pending-change`, { method: "DELETE" }),
   deleteProduct: (id: string) => request<{ success: true }>(`/seller/products/${id}`, { method: "DELETE" }),
 
-  // Endpoints in the seller API contract that the backend does not serve yet. A 404 means "not
-  // switched on" (see isNotLive) and nothing was changed, which is why stock never falls back to
-  // PUT /seller/products/:id: that takes a live product offline for review.
-  saveDraft: (fd: FormData) => post<{ product: Product }>("/seller/products/drafts", fd),
-  updateStock: (id: string, body: StockUpdate) => post<{ product: Product }>(`/seller/products/${id}/stock`, body),
-  saveSettings: (body: { low_stock_threshold: number }) => post<{ low_stock_threshold: number }>("/seller/settings", body),
+  /** Stock only, applied at once with no review: PATCH /seller/inventory, up to 100 lines, all or none. */
+  updateInventory: (items: InventoryLine[]) =>
+    request<{ items: unknown[] }>("/seller/inventory", { method: "PATCH", body: JSON.stringify({ items }) }),
+  saveSettings: (body: { low_stock_threshold: number }) =>
+    request<{ low_stock_threshold: number }>("/seller/inventory/threshold", { method: "PUT", body: JSON.stringify(body) }),
+
+  photoAddTemplate: () => request<PhotoAddTemplate>("/seller/products/photos/template"),
+  photoAddValidate: (rows: PhotoAddRowInput[]) =>
+    post<{ rows: PhotoAddRowResult[]; summary: { rows: number; ok: number; errors: number } }>("/seller/products/photos/validate", { rows }),
+  /** One row: its photos in the order the row names them (Drive photos as drive-<id>.<ext>). Goes to approval. */
+  photoAddSubmit: (row: PhotoAddRowInput, photos: File[]) => {
+    const fd = new FormData();
+    fd.append("row", JSON.stringify(row));
+    photos.forEach((f) => fd.append("images", f));
+    return post<ProductSaveResult & { line: number; added: number }>("/seller/products/photos", fd);
+  },
   analytics: (days: number) => request<SellerAnalytics>(`/seller/analytics?days=${days}`),
 
   orders: () => request<{ orders: Order[]; counts: Record<OrderBucket, number>; sla_hours: number }>("/seller/orders"),

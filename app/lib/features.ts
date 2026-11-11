@@ -4,9 +4,6 @@
 // gaps" in the README, because some routes planned on the backend differ from the ones called here.
 
 export type BackendFeature =
-  | "quick_stock"       // POST /seller/products/:id/stock
-  | "low_stock_setting" // POST /seller/settings
-  | "drafts"            // POST /seller/products/drafts
   | "store_analytics"   // GET /seller/analytics returning { product_views, orders }
   | "sku";              // `sku` stored on products and variants
 

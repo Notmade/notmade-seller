@@ -11,7 +11,7 @@ export default defineConfig({
   // The flip runs first and alone: a browser skips a view transition when the machine is busy
   projects: [
     { name: "landing", testMatch: "landing.spec.ts" },
-    { name: "panel", testMatch: /(panel-mobile|seller-flows)\.spec\.ts/, dependencies: ["landing"] },
+    { name: "panel", testMatch: /(panel-mobile|seller-flows|product-changes)\.spec\.ts/, dependencies: ["landing"] },
     // Same build with the UAE open for sign-ups. No test here reaches a real backend's write routes
     { name: "signup", testMatch: "signup.spec.ts", dependencies: ["landing"], use: { baseURL: "http://localhost:3101" } },
   ],

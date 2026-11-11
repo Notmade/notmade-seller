@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { audit } from "./audit";
 import { signIn, type Country } from "./fixtures";
 
-const PAGES = ["/dashboard", "/dashboard/orders", "/dashboard/orders?tab=pack", "/dashboard/products", "/dashboard/products/new", "/dashboard/products/bulk", "/dashboard/inventory",
+const PAGES = ["/dashboard", "/dashboard/orders", "/dashboard/orders?tab=pack", "/dashboard/products", "/dashboard/products/new", "/dashboard/products/bulk", "/dashboard/products/photos", "/dashboard/inventory",
   "/dashboard/analytics", "/dashboard/delivery", "/dashboard/payouts", "/dashboard/notifications", "/dashboard/agreement", "/dashboard/profile", "/dashboard/orders/NM-1002/slip"];
 const WIDTHS = [360, 390, 768, 1280];
 
