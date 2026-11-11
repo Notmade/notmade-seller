@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
 import { api, type Category } from "../../../lib/seller-api";
+import { xlsxTemplate, readBulkXlsx } from "../../../lib/bulk-xlsx";
 import { MAX_ROWS, csvTemplate, errorCsv, missingPhotos, photosFor, readBulkCsv, type BulkRow } from "../../../lib/bulk-csv";
 import { listingFormData } from "../../../lib/product-listing";
 import { useDashboardSeller, useSellerCurrency } from "../../seller-context";
@@ -10,8 +11,9 @@ import { Alert, Button, Card, PageHeader, PageSkeleton } from "../../../componen
 
 type Outcome = { state: "done" } | { state: "failed"; error: string };
 
-function download(name: string, text: string) {
-  const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+function download(name: string, data: string | Blob) {
+  const blob = typeof data === "string" ? new Blob([data], { type: "text/csv;charset=utf-8" }) : data;
+  const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
@@ -44,7 +46,8 @@ export default function BulkUploadPage() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
-    const res = readBulkCsv(await file.text(), categories ?? []);
+    const isExcel = /\.xlsx$/i.test(file.name);
+    const res = isExcel ? await readBulkXlsx(await file.arrayBuffer(), categories ?? []) : readBulkCsv(await file.text(), categories ?? []);
     setFatal(res.fatal ?? ""); setRows(res.fatal ? null : res.rows); setOutcomes({});
   };
   const pickPhotos = (e: ChangeEvent<HTMLInputElement>) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; setFiles((p) => [...p, ...f]); };
@@ -71,7 +74,7 @@ export default function BulkUploadPage() {
 
   return (
     <div>
-      <PageHeader title="Bulk upload" sub={`Add up to ${MAX_ROWS} products from one CSV file. Every product goes to NOTMADE for review before it goes live.`}
+      <PageHeader title="Bulk upload" sub={`Add up to ${MAX_ROWS} products from one Excel file. Every product goes to NOTMADE for review before it goes live.`}
         action={<Link href="/dashboard/products" className="sp-link">Back to Catalogue</Link>} />
       {locked && <div style={{ marginBottom: 14 }}><Alert kind="warn">Sign your seller agreement to add products.</Alert></div>}
 
@@ -79,16 +82,19 @@ export default function BulkUploadPage() {
         <li><Card>
           <h2>1. Get the template</h2>
           <p>Prices are in your own currency. Use | between sizes, stock per size, and photo file names. Category names must match your list.</p>
-          <Button variant="secondary" onClick={() => download("notmade-products-template.csv", csvTemplate(categories))}>Download template</Button>
+          <div className="sp-inline">
+            <Button variant="secondary" onClick={() => void xlsxTemplate(categories).then((b) => download("notmade-bulk-listing-template.xlsx", b))}>Download Excel template</Button>
+            <Button variant="secondary" onClick={() => download("notmade-products-template.csv", csvTemplate(categories))}>CSV version</Button>
+          </div>
         </Card></li>
         <li><Card>
-          <h2>2. Choose your filled-in CSV</h2>
+          <h2>2. Upload your filled-in file</h2>
           <p>We check every row here first. Nothing is sent yet.</p>
-          <label className="sp-btn-line">Choose CSV<input type="file" accept=".csv,text/csv" className="sp-file" disabled={locked || busy} onChange={(e) => void pickCsv(e)} /></label>
+          <label className="sp-btn-line">Choose Excel or CSV<input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sp-file" disabled={locked || busy} onChange={(e) => void pickCsv(e)} /></label>
         </Card></li>
         <li><Card>
           <h2>3. Choose the photos</h2>
-          <p>Pick every file the CSV names. Each product needs at least one. {files.length > 0 && `${files.length} chosen.`}</p>
+          <p>Pick every photo file your sheet names. Each product needs at least one. {files.length > 0 && `${files.length} chosen.`}</p>
           <label className="sp-btn-line">Choose photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sp-file" disabled={locked || busy} onChange={pickPhotos} /></label>
         </Card></li>
       </ol>
