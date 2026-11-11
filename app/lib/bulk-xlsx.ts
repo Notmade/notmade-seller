@@ -1,6 +1,8 @@
 // Excel (.xlsx) side of the bulk upload. The template is built for one category from the backend's column list: the
-// category is filled in and locked, sizes, fit and who ships are dropdowns, and the examples sit on their own sheet so the
-// Products sheet starts empty. The file is read in the browser into the same rows as a CSV (readBulkTable).
+// category is filled in, sizes, fit and who ships are dropdowns, and the examples sit on their own sheet so the Products
+// sheet starts empty. No sheet is protected: a protected sheet blocked sellers typing more photo links, adding rows past
+// the template's last row and inserting rows. The category is held by the backend instead, which refuses any row whose
+// category is blank or not the chosen one (CATEGORY_MISMATCH), on preview and on submit. The file is read in the browser into the same rows as a CSV (readBulkTable).
 import type { BulkTemplate } from "./seller-api";
 import { MAX_ROWS, exampleRows, readBulkTable } from "./bulk-csv";
 
@@ -9,12 +11,15 @@ const WIDTH: Record<string, number> = {
   price: 14, mrp: 14, image_files: 36, who_ships: 16,
 };
 const META = "Meta";
+/** Rows below the header that get the category filled in and the dropdowns. More than MAX_ROWS, so a seller can space
+ * products out; the file is still read up to MAX_ROWS products. Rows past this are plain cells, as editable as these. */
+export const TEMPLATE_ROWS = 500;
 
 /** The lines of the Instructions sheet. No rate is written here: rates are on screen and in the seller's agreement. */
 export function instructionLines(t: BulkTemplate): string[] {
   const has = (k: string) => t.columns.some((c) => c.key === k);
   const steps = [
-    `This file is for ${t.category.name} only. The category column is filled in and locked. For another category, choose it on the Bulk upload screen and download its own template.`,
+    `This file is for ${t.category.name} only. The category column is filled in: do not change it. A row with another category, or none, is refused. For another category, choose it on the Bulk upload screen and download its own template.`,
     t.uses_sizes
       ? "One row per size and colour. Rows of one product share a variant_group code (for example TEE-001). Name, description, fit, price, MRP and photos go on the first row of the group; later rows can leave them blank."
       : `One row per product. ${t.category.name} has no sizes, so there is no size column.`,
@@ -22,7 +27,7 @@ export function instructionLines(t: BulkTemplate): string[] {
     `Price and MRP are in ${t.currency}. MRP is optional but cannot be lower than price. Stock is a whole number.`,
     ...(has("sku") ? ["SKU is optional. It must not repeat in this file or match one of your existing products."] : []),
     ...(has("who_ships") ? ["Who ships: pick NOTMADE ships or I ship for each product."] : []),
-    `Photos: in image_files, separated by | , write either the file names (front.jpg|back.jpg), which you pick on the upload screen from your phone or computer, or public Google Drive file links (https://drive.google.com/file/d/.../view). Each product needs ${t.limits.min_photos} to ${t.limits.max_photos} photos (jpg, png or webp, up to 8MB each).`,
+    `Photos: in image_files, up to ${t.limits.max_photos} photo links or file names, separated by | with no spaces. Write either the file names (front.jpg|back.jpg), which you pick on the upload screen from your phone or computer, or public Google Drive file links (https://drive.google.com/file/d/.../view). Each product needs ${t.limits.min_photos} to ${t.limits.max_photos} photos (jpg, png or webp, up to 8MB each).`,
     "Google Drive links: open each photo in Drive, set Share > General access to \"Anyone with the link\", then Copy link. Use the link of each photo file, not of a folder. iPhone HEIC photos do not work: save them as jpg first. Any other kind of link (Dropbox, Instagram, websites) does not work.",
     `Up to ${MAX_ROWS} rows per file. Do not rename or reorder the columns. The Example sheet shows filled-in rows.`,
     "Upload the file in Catalogue > Bulk upload. Every row is checked and you see any errors before anything is sent. Then you submit the ready products with one click. NOTMADE reviews each product before it goes live.",
@@ -59,15 +64,13 @@ export async function xlsxTemplate(t: BulkTemplate): Promise<Blob> {
       c.values.forEach((v, j) => { lists.getCell(j + 1, listCol).value = v; });
       formula = `Lists!$${letter}$1:$${letter}$${c.values.length}`;
     }
-    for (let r = 2; r <= MAX_ROWS + 1; r++) {
+    for (let r = 2; r <= TEMPLATE_ROWS + 1; r++) {
       const target = ws.getCell(r, col);
       if (c.type === "locked") {
         target.value = c.value ?? t.category.name;
-        target.protection = { locked: true };
         target.font = { color: { argb: "FF666666" } };
         continue;
       }
-      target.protection = { locked: false };
       if (formula) {
         target.dataValidation = {
           type: "list", allowBlank: !c.required, showErrorMessage: true, errorTitle: c.header, error: `Pick ${c.header} from the list`, formulae: [formula],
@@ -81,8 +84,6 @@ export async function xlsxTemplate(t: BulkTemplate): Promise<Blob> {
       }
     }
   });
-  // The category cells cannot be changed. No password: this guards against slips, the server is what enforces it
-  await ws.protect("", { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true, formatCells: true, sort: true, autoFilter: true });
 
   const ex = wb.addWorksheet("Example");
   ex.columns = t.columns.map((c) => ({ header: c.header, key: c.key, width: WIDTH[c.key] ?? 16 }));
