@@ -1,0 +1,2 @@
+category,name,description,stock,price (AED),mrp (AED),image_files,who_ships
+LAPTOPS,Example laptops,"What it is, what it is made of, and what is in the box.",10,79,99,front.jpg|side.jpg,NOTMADE ships
