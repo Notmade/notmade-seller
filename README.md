@@ -68,7 +68,7 @@ Turning on `store_analytics` needs the client in `app/lib/seller-api.ts` moved t
 
 Always on: Inventory saves stock with `PATCH /seller/inventory` (applied at once, no review) and the alert level with `PUT /seller/inventory/threshold`. Drafts of new products are kept on the device (`app/lib/listing-drafts.ts`); there is no server draft route.
 
-Edits to an approved product (backend migration 080, `docs/product-changes.md` in the backend repo) never take it offline: the panel shows the change as pending, approved or not approved with the reason, and the seller can cancel a pending change. Catalogue > Add photos adds photos to existing products from a sheet or a pasted table; each row waits for approval the same way.
+Edits to an approved product (backend migration 081, `docs/product-changes.md` in the backend repo) never take it offline: the panel shows the change as pending, approved or not approved with the reason, and the seller can cancel a pending change. Catalogue > Add photos adds photos to existing products from a sheet or a pasted table; each row waits for approval the same way.
 
 Other gaps the panel works around:
 

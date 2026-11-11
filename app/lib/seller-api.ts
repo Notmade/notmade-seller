@@ -328,7 +328,7 @@ export interface Product {
   variants?: ProductVariant[] | null;
   size_and_fit?: string | null;
   fulfilment_mode?: FulfilmentMode | null;
-  /** The latest change to an approved product (migration 080). Null when there is none. */
+  /** The latest change to an approved product (migration 081). Null when there is none. */
   pending_change?: PendingChange | null;
 }
 

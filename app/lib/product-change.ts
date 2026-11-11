@@ -1,4 +1,4 @@
-// Changes to approved products (backend migration 080). An approved product stays live exactly as it is while a change
+// Changes to approved products (backend migration 081). An approved product stays live exactly as it is while a change
 // waits: stock applies at once, every other change (each price change included) waits for NOTMADE's approval.
 import type { PendingChange, Product } from "./seller-api";
 
