@@ -36,7 +36,7 @@
         "required": true,
         "type": "locked",
         "value": "HOODIES",
-        "note": "Locked to HOODIES. One file is one category."
+        "note": "HOODIES only. Do not change it: a row of another category is refused. One file is one category."
       },
       {
         "key": "variant_group",
@@ -129,7 +129,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
+        "note": "Up to 8 photo links or file names, separated by | with no spaces. File names: you pick the files on the upload screen. Links: public Google Drive file links (Share > Anyone with the link)"
       }
     ],
     "limits": {
@@ -173,7 +173,7 @@
         "required": true,
         "type": "locked",
         "value": "HOME DECOR",
-        "note": "Locked to HOME DECOR. One file is one category."
+        "note": "HOME DECOR only. Do not change it: a row of another category is refused. One file is one category."
       },
       {
         "key": "name",
@@ -215,7 +215,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
+        "note": "Up to 8 photo links or file names, separated by | with no spaces. File names: you pick the files on the upload screen. Links: public Google Drive file links (Share > Anyone with the link)"
       }
     ],
     "limits": {
@@ -268,7 +268,7 @@
         "required": true,
         "type": "locked",
         "value": "LAPTOPS",
-        "note": "Locked to LAPTOPS. One file is one category."
+        "note": "LAPTOPS only. Do not change it: a row of another category is refused. One file is one category."
       },
       {
         "key": "name",
@@ -310,7 +310,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
+        "note": "Up to 8 photo links or file names, separated by | with no spaces. File names: you pick the files on the upload screen. Links: public Google Drive file links (Share > Anyone with the link)"
       },
       {
         "key": "who_ships",
@@ -402,7 +402,7 @@
         "required": true,
         "type": "locked",
         "value": "HOODIES",
-        "note": "Locked to HOODIES. One file is one category."
+        "note": "HOODIES only. Do not change it: a row of another category is refused. One file is one category."
       },
       {
         "key": "variant_group",
@@ -495,7 +495,7 @@
         "header": "image_files",
         "required": true,
         "type": "text",
-        "note": "1 to 8 photos, separated by |. Either photo file names (you pick the files on the upload screen) or public Google Drive file links (Share > Anyone with the link)"
+        "note": "Up to 8 photo links or file names, separated by | with no spaces. File names: you pick the files on the upload screen. Links: public Google Drive file links (Share > Anyone with the link)"
       }
     ],
     "limits": {

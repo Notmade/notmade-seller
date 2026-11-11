@@ -6,7 +6,7 @@ import { describe, expect, it } from "vitest";
 import { Workbook } from "exceljs";
 import fixtures from "./fixtures/bulk-templates.json";
 import type { BulkTemplate } from "@/app/lib/seller-api";
-import { xlsxTemplate, readBulkXlsx, instructionLines } from "@/app/lib/bulk-xlsx";
+import { TEMPLATE_ROWS, xlsxTemplate, readBulkXlsx, instructionLines } from "@/app/lib/bulk-xlsx";
 import { OLD_TEMPLATE_MESSAGE, collectPhotos, csvTemplate, errorCsv, headerKey, isOldTemplate, missingPhotos, parseCsv, photosOf, readBulkCsv, readBulkTable, rowErrorLine } from "@/app/lib/bulk-csv";
 import { ApiError, type BulkProductResult } from "@/app/lib/seller-api";
 import { commissionView } from "@/app/lib/bulk-commission";
@@ -22,17 +22,40 @@ async function workbook(t: BulkTemplate) {
 const headers = (wb: Workbook) => (wb.getWorksheet("Products")!.getRow(1).values as unknown[]).slice(1);
 
 describe("category lock", () => {
-  it("fills in the category on every row and locks it, on a protected sheet", async () => {
-    const ws = (await workbook(T.in_hoodies)).getWorksheet("Products")!;
-    expect(ws.getCell("A1").value).toBe("category");
-    for (const r of [2, 100, 201]) {
-      expect(ws.getCell(r, 1).value).toBe("HOODIES");
-      // Locked is Excel's default for a cell, so ExcelJS reads it back as unset; unlocked cells say so
-      expect(ws.getCell(r, 1).protection?.locked).not.toBe(false);
-      expect(ws.getCell(r, 2).protection?.locked).toBe(false);
-    }
-    expect((ws as unknown as { sheetProtection?: { sheet?: boolean } }).sheetProtection?.sheet).toBe(true);
-  });
+  // Sellers hit "The cell you are trying to change is on a protected sheet" adding photo links and rows. No sheet is
+  // protected now; the backend refuses a row of another category (or none), so the category is held there
+  for (const key of ["in_hoodies", "in_home_decor"] as const) {
+    it(`${key}: no sheet is protected, the category is filled in on ${TEMPLATE_ROWS} rows, every data cell is editable`, async () => {
+      const t = T[key];
+      const wb = await workbook(t);
+      for (const w of wb.worksheets) {
+        expect((w as unknown as { sheetProtection?: unknown }).sheetProtection ?? null, w.name).toBeNull();
+      }
+      const ws = wb.getWorksheet("Products")!;
+      expect(ws.getCell("A1").value).toBe("category");
+      const imageCol = t.columns.findIndex((c) => c.key === "image_files") + 1;
+      for (const r of [2, 201, 202, 301, TEMPLATE_ROWS + 1]) expect(ws.getCell(r, 1).value).toBe(t.category.name);
+      expect(ws.getCell(TEMPLATE_ROWS + 2, 1).value).toBeNull();
+      // Dropdowns and number checks reach row 301 and past, on the same rows as the category
+      const sizeCol = t.columns.findIndex((c) => c.type === "list") + 1;
+      if (sizeCol > 0) expect(ws.getCell(TEMPLATE_ROWS + 1, sizeCol).dataValidation?.type).toBe("list");
+      expect(ws.getCell(1, imageCol).note).toMatch(/Up to 8 photo links or file names, separated by \| with no spaces/);
+      // Eight Drive links in one image_files cell on row 301 read back whole
+      const links = Array.from({ length: 8 }, (_, i) => `https://drive.google.com/file/d/${"a".repeat(25)}${i}/view`).join("|");
+      const row = ws.getRow(301);
+      t.columns.forEach((c, i) => {
+        if (c.key === "image_files") row.getCell(i + 1).value = links;
+        else if (c.type === "number") row.getCell(i + 1).value = 5;
+        else if (c.type === "list") row.getCell(i + 1).value = c.values![0];
+        else if (c.type !== "locked") row.getCell(i + 1).value = c.key === "description" ? "Ten or more characters here." : "X";
+      });
+      const read = await readBulkXlsx(await wb.xlsx.writeBuffer() as ArrayBuffer, t);
+      expect(read.fatal).toBeNull();
+      expect(read.rows.map((r) => r.line)).toEqual([301]);
+      expect(read.rows[0].cells.image_files).toBe(links);
+      expect(read.rows[0].cells.category).toBe(t.category.name);
+    });
+  }
 
   it("refuses a template made for another category", async () => {
     const buf = await (await xlsxTemplate(T.in_hoodies)).arrayBuffer();

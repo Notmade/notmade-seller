@@ -173,7 +173,7 @@ export default function BulkUploadPage() {
       <ol className="sp-bulk" style={{ marginTop: 12 }} aria-label="Upload steps">
         <li className={ready ? undefined : "is-off"}><Card>
           <h2>2. Get the template</h2>
-          <p>{template ? `Made for ${template.category.name}. The category is filled in and locked. Prices are in ${template.currency}.` : "Choose a category first."}</p>
+          <p>{template ? `Made for ${template.category.name}. The category is filled in; rows of another category are refused. Prices are in ${template.currency}.` : "Choose a category first."}</p>
           <div className="sp-inline">
             <Button variant="secondary" disabled={!ready} onClick={() => template && void xlsxTemplate(template).then((b) => download(`notmade-bulk-${slugFile(template.category.name)}.xlsx`, b))}>Download Excel template</Button>
             <Button variant="secondary" disabled={!ready} onClick={() => template && download(`notmade-bulk-${slugFile(template.category.name)}.csv`, csvTemplate(template))}>CSV version</Button>
