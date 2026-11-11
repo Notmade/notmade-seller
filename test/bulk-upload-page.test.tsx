@@ -22,7 +22,7 @@ if (!File.prototype.text) {
   };
 }
 
-const T = fixtures as unknown as Record<"in_tees" | "in_candles" | "ae_laptops" | "ae_tees", BulkTemplate>;
+const T = fixtures as unknown as Record<"in_hoodies" | "in_home_decor" | "ae_laptops" | "ae_hoodies", BulkTemplate>;
 const IN_CATS = (fixtures as unknown as { in_categories: { categories: unknown[] } }).in_categories.categories;
 const recent = new Date().toISOString();
 
@@ -44,15 +44,15 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 
 beforeEach(() => {
   calls = [];
-  templates = { [T.in_tees.category.id]: T.in_tees, [T.in_candles.category.id]: T.in_candles };
+  templates = { [T.in_hoodies.category.id]: T.in_hoodies, [T.in_home_decor.category.id]: T.in_home_decor };
   // Like the backend: a row of another category is refused, anything else here is fine
   validation = (rows) => {
     const results = rows.map((r) => {
-      const wrong = r.category !== "Candles";
-      return { line: Number(r.line), group: null, ok: !wrong, errors: wrong ? [{ field: "category", code: "CATEGORY_MISMATCH", message: `Category "${r.category}" is not Candles. This file is for Candles only` }] : [] };
+      const wrong = r.category !== "HOME DECOR";
+      return { line: Number(r.line), group: null, ok: !wrong, errors: wrong ? [{ field: "category", code: "CATEGORY_MISMATCH", message: `Category "${r.category}" is not HOME DECOR. This file is for HOME DECOR only` }] : [] };
     });
     return {
-      category: T.in_candles.category, currency: "INR", rows: results,
+      category: T.in_home_decor.category, currency: "INR", rows: results,
       products: rows.map((r, i) => ({ key: null, lines: [Number(r.line)], name: String(r.name), variants: 0, image_files: String(r.image_files).split("|"), ok: results[i].ok })),
       summary: { rows: rows.length, valid_rows: results.filter((r) => r.ok).length, invalid_rows: results.filter((r) => !r.ok).length, products: rows.length, valid_products: results.filter((r) => r.ok).length },
     };
@@ -85,7 +85,7 @@ const fileInput = () => document.querySelector('input[accept*="csv"]') as HTMLIn
 const photoInput = () => document.querySelector('input[accept*="image"]') as HTMLInputElement;
 const upload = (input: HTMLInputElement, files: File[]) => fireEvent.change(input, { target: { files } });
 const csv = (text: string) => new File([text], "p.csv", { type: "text/csv" });
-const candleCsv = "category,name,description,stock,price (INR),mrp (INR),image_files\nCandles,Soy candle,Hand-poured soy candle here.,4,650,,a.png\nTees,Box tee,A heavy cotton box tee.,2,999,,b.png\n";
+const decorCsv = "category,name,description,stock,price (INR),mrp (INR),image_files\nHOME DECOR,Brass vase,Hand-finished brass vase here.,4,1650,,a.png\nHOODIES,Heavy hoodie,A heavyweight fleece hoodie.,2,2499,,b.png\n";
 
 describe("bulk upload page", () => {
   it("category first: nothing else is enabled until a category is chosen", async () => {
@@ -100,7 +100,7 @@ describe("bulk upload page", () => {
     fireEvent.focus(screen.getByRole("combobox"));
     expect(screen.getByRole("group", { name: "Fashion" })).toBeTruthy();
 
-    await choose("Tees");
+    await choose("HOODIES");
     await waitFor(() => expect((screen.getByRole("button", { name: "Download Excel template" }) as HTMLButtonElement).disabled).toBe(false));
     expect((fileInput() as HTMLButtonElement).disabled).toBe(false);
     expect(calls.some((c) => c.path === "/seller/bulk/template")).toBe(true);
@@ -108,19 +108,19 @@ describe("bulk upload page", () => {
   });
 
   it("shows the commission for the chosen category as the backend sends it", async () => {
-    templates[T.in_tees.category.id] = { ...T.in_tees, commission: { ...T.in_tees.commission, pct: 19 } };
+    templates[T.in_hoodies.category.id] = { ...T.in_hoodies, commission: { ...T.in_hoodies.commission, pct: 19 } };
     renderPage();
-    await choose("Tees");
-    const panel = await screen.findByRole("region", { name: "Commission on Tees" });
+    await choose("HOODIES");
+    const panel = await screen.findByRole("region", { name: "Commission on HOODIES" });
     expect(within(panel).getByText("19%")).toBeTruthy();
     expect(within(panel).getByText(/from your rate card IN-2026-11-v2/)).toBeTruthy();
     expect(within(panel).getByText("Settlement within 7 days.")).toBeTruthy();
   });
 
   it("phones and laptops: who ships and the NOTMADE shipping charge", async () => {
-    templates[T.in_tees.category.id] = T.ae_laptops;
+    templates[T.ae_laptops.category.id] = T.ae_laptops;
     renderPage(seller({ seller_country: "AE", uae: { seller_country: "AE", ready: true, required_agreement_version: "uae-local-v4", signed_agreement_version: "uae-local-v4", signed_at: recent, commission_pct: null } }));
-    await choose("Tees");
+    await choose("LAPTOPS");
     const panel = await screen.findByRole("region", { name: "Commission on LAPTOPS" });
     expect(within(panel).getByText("You ship: 12%")).toBeTruthy();
     expect(within(panel).getByText("NOTMADE ships: 13.5%")).toBeTruthy();
@@ -129,13 +129,13 @@ describe("bulk upload page", () => {
 
   it("preview: per-row errors, missing photos, an error file, and submit only the ready rows after confirming", async () => {
     renderPage();
-    await choose("Candles");
+    await choose("HOME DECOR");
     await waitFor(() => expect((fileInput() as HTMLButtonElement).disabled).toBe(false));
-    upload(fileInput(), [csv(candleCsv)]);
-    await screen.findByText(/This file is for Candles only/);
+    upload(fileInput(), [csv(decorCsv)]);
+    await screen.findByText(/This file is for HOME DECOR only/);
     const sent = calls.find((c) => c.path === "/seller/bulk/validate")!.body as { category_id: string; rows: Record<string, unknown>[] };
-    expect(sent.category_id).toBe(T.in_candles.category.id);
-    expect(sent.rows.map((r) => r.category)).toEqual(["Candles", "Tees"]);
+    expect(sent.category_id).toBe(T.in_home_decor.category.id);
+    expect(sent.rows.map((r) => r.category)).toEqual(["HOME DECOR", "HOODIES"]);
     expect(screen.getByText(/Photo not chosen: a.png/)).toBeTruthy();
     expect(screen.getByText(/0 products ready \(0 rows\), 2 rows to fix/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Download error file" })).toBeTruthy();
@@ -151,16 +151,16 @@ describe("bulk upload page", () => {
     const posts = calls.filter((c) => c.path === "/seller/bulk/products");
     expect(posts).toHaveLength(1);
     const fd = posts[0].body as FormData;
-    expect(fd.get("category_id")).toBe(T.in_candles.category.id);
-    expect(JSON.parse(String(fd.get("rows")))).toEqual([expect.objectContaining({ line: 2, category: "Candles", name: "Soy candle" })]);
+    expect(fd.get("category_id")).toBe(T.in_home_decor.category.id);
+    expect(JSON.parse(String(fd.get("rows")))).toEqual([expect.objectContaining({ line: 2, category: "HOME DECOR", name: "Brass vase" })]);
     expect((fd.getAll("images") as File[]).map((f) => f.name)).toEqual(["a.png"]);
   });
 
   it("one click when every row is ready", async () => {
     renderPage();
-    await choose("Candles");
+    await choose("HOME DECOR");
     await waitFor(() => expect((fileInput() as HTMLButtonElement).disabled).toBe(false));
-    upload(fileInput(), [csv(candleCsv.split("\n").slice(0, 2).join("\n") + "\n")]);
+    upload(fileInput(), [csv(decorCsv.split("\n").slice(0, 2).join("\n") + "\n")]);
     upload(photoInput(), [new File(["x"], "a.png", { type: "image/png" })]);
     fireEvent.click(await screen.findByRole("button", { name: "Submit 1 product for review" }));
     await screen.findByText("Submitted · In review");
@@ -169,16 +169,29 @@ describe("bulk upload page", () => {
 
   it("refuses a file priced in the other currency before anything is sent", async () => {
     renderPage();
-    await choose("Candles");
+    await choose("HOME DECOR");
     await waitFor(() => expect((fileInput() as HTMLButtonElement).disabled).toBe(false));
-    upload(fileInput(), [csv(candleCsv.replace(/\(INR\)/g, "(AED)"))]);
+    upload(fileInput(), [csv(decorCsv.replace(/\(INR\)/g, "(AED)"))]);
     await screen.findByText(/This file has prices in AED. Your prices are in INR/);
+    expect(calls.some((c) => c.path === "/seller/bulk/validate")).toBe(false);
+  });
+
+  it("old template: the whole upload fails with one clear message, no row errors, and nothing is sent", async () => {
+    renderPage();
+    await choose("HOODIES");
+    await waitFor(() => expect((fileInput() as HTMLButtonElement).disabled).toBe(false));
+    const old = "name,description,category,price,mrp,sizes,stock,image_files\nHeavy hoodie,Heavyweight fleece hoodie.,HOODIES,2499,,S|M,1|2,a.png\nBad,short,Nope,0,,,x,\n";
+    upload(fileInput(), [csv(old)]);
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toBe("Yeh purana template hai. Category chunkar naya template download karein.");
+    expect(screen.queryByRole("region", { name: "Rows in your file" })).toBeNull();
+    expect(screen.queryByText(/to fix/)).toBeNull();
     expect(calls.some((c) => c.path === "/seller/bulk/validate")).toBe(false);
   });
 
   it("agreement gating: a seller who must re-sign sees why and cannot upload", async () => {
     renderPage(seller({ agreement: { seller_country: "IN", required_version: "in-v3", required_open: true, signed_version: "in-v2", signed_at: recent, resign_required: true } }));
-    await choose("Candles");
+    await choose("HOME DECOR");
     await waitFor(() => expect((screen.getByRole("button", { name: "Download Excel template" }) as HTMLButtonElement).disabled).toBe(false));
     expect(screen.getByText(/Sign your seller agreement to add products/)).toBeTruthy();
     expect((fileInput() as HTMLButtonElement).disabled).toBe(true);
@@ -186,9 +199,9 @@ describe("bulk upload page", () => {
   });
 
   it("agreement gating: the backend's can_submit locks uploads too, e.g. a UAE seller without the UAE agreement", async () => {
-    templates[T.in_candles.category.id] = { ...T.in_candles, can_submit: false };
+    templates[T.in_home_decor.category.id] = { ...T.in_home_decor, can_submit: false };
     renderPage();
-    await choose("Candles");
+    await choose("HOME DECOR");
     await waitFor(() => expect((screen.getByRole("button", { name: "Download Excel template" }) as HTMLButtonElement).disabled).toBe(false));
     expect((fileInput() as HTMLButtonElement).disabled).toBe(true);
   });

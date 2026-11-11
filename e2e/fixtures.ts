@@ -8,10 +8,10 @@ import { join } from "node:path";
 const BULK = JSON.parse(readFileSync(join(__dirname, "..", "test", "fixtures", "bulk-templates.json"), "utf8"));
 type BulkCat = { id: string; name: string; slug: string; uses_sizes?: boolean };
 function bulkTemplate(country: Country, cat: BulkCat) {
-  const kind = cat.uses_sizes ? (country === "AE" ? "ae_tees" : "in_tees") : cat.slug === "mobiles" && country === "AE" ? "ae_laptops" : "in_candles";
+  const kind = cat.uses_sizes ? (country === "AE" ? "ae_hoodies" : "in_hoodies") : cat.slug === "laptops" && country === "AE" ? "ae_laptops" : "in_home_decor";
   const base = BULK[kind];
   const t = JSON.parse(JSON.stringify(base).split(base.category.name).join(cat.name).split(base.category.id).join(cat.id));
-  if (country === "AE" && kind === "in_candles") Object.assign(t, { country: "AE", currency: "AED", columns: JSON.parse(JSON.stringify(t.columns).split("INR").join("AED")) });
+  if (country === "AE" && kind === "in_home_decor") Object.assign(t, { country: "AE", currency: "AED", columns: JSON.parse(JSON.stringify(t.columns).split("INR").join("AED")) });
   return { ...t, category: { id: cat.id, name: cat.name, slug: cat.slug } };
 }
 /** A small stand-in for POST /seller/bulk/validate: the category lock, sizes, price and photos. */
@@ -92,10 +92,11 @@ export function backend(country: Country) {
       { id: "11111111-1111-4111-8111-111111111111", name: "Kurtas", slug: "kurtas" }, { id: "22222222-2222-4222-8222-222222222222", name: "Mobile phones", slug: "mobiles", fulfilment_mode_applies: country === "AE" },
       { id: "33333333-3333-4333-8333-333333333333", name: "Handmade", slug: "handmade" },
     ],
+    // Live production categories: HOODIES takes sizes (migration 078), HOME DECOR and LAPTOPS do not
     bulkCategories: [
-      { id: "11111111-1111-4111-8111-111111111111", name: "Kurtas", slug: "kurtas", group: "Fashion", uses_sizes: true, size_set: "apparel" },
-      { id: "22222222-2222-4222-8222-222222222222", name: "Mobile phones", slug: "mobiles", group: null, uses_sizes: false, size_set: null },
-      { id: "33333333-3333-4333-8333-333333333333", name: "Handmade", slug: "handmade", group: null, uses_sizes: false, size_set: null },
+      { id: "44444444-4444-4444-8444-444444444441", name: "HOODIES", slug: "hoodies", group: "Fashion", uses_sizes: true, size_set: "apparel" },
+      { id: "44444444-4444-4444-8444-444444444442", name: "HOME DECOR", slug: "home-decor", group: null, uses_sizes: false, size_set: null },
+      { id: "44444444-4444-4444-8444-444444444443", name: "LAPTOPS", slug: "laptops", group: null, uses_sizes: false, size_set: null },
     ],
     bulkCreated: [] as string[],
     dashboard: {

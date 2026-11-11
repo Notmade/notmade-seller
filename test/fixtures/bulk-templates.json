@@ -1,9 +1,9 @@
 {
-  "in_tees": {
+  "in_hoodies": {
     "category": {
-      "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc1",
-      "name": "Tees",
-      "slug": "tees"
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc11",
+      "name": "HOODIES",
+      "slug": "hoodies"
     },
     "country": "IN",
     "currency": "INR",
@@ -35,8 +35,8 @@
         "header": "category",
         "required": true,
         "type": "locked",
-        "value": "Tees",
-        "note": "Locked to Tees. One file is one category."
+        "value": "HOODIES",
+        "note": "Locked to HOODIES. One file is one category."
       },
       {
         "key": "variant_group",
@@ -154,11 +154,11 @@
     },
     "can_submit": true
   },
-  "in_candles": {
+  "in_home_decor": {
     "category": {
-      "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc3",
-      "name": "Candles",
-      "slug": "candles"
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc12",
+      "name": "HOME DECOR",
+      "slug": "home-decor"
     },
     "country": "IN",
     "currency": "INR",
@@ -172,8 +172,8 @@
         "header": "category",
         "required": true,
         "type": "locked",
-        "value": "Candles",
-        "note": "Locked to Candles. One file is one category."
+        "value": "HOME DECOR",
+        "note": "Locked to HOME DECOR. One file is one category."
       },
       {
         "key": "name",
@@ -365,11 +365,11 @@
     },
     "can_submit": true
   },
-  "ae_tees": {
+  "ae_hoodies": {
     "category": {
-      "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc1",
-      "name": "Tees",
-      "slug": "tees"
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc11",
+      "name": "HOODIES",
+      "slug": "hoodies"
     },
     "country": "AE",
     "currency": "AED",
@@ -401,8 +401,8 @@
         "header": "category",
         "required": true,
         "type": "locked",
-        "value": "Tees",
-        "note": "Locked to Tees. One file is one category."
+        "value": "HOODIES",
+        "note": "Locked to HOODIES. One file is one category."
       },
       {
         "key": "variant_group",
@@ -523,33 +523,25 @@
   "in_categories": {
     "categories": [
       {
-        "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc1",
-        "name": "Tees",
-        "slug": "tees",
+        "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc11",
+        "name": "HOODIES",
+        "slug": "hoodies",
         "group": "Fashion",
         "uses_sizes": true,
         "size_set": "apparel"
       },
       {
+        "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc12",
+        "name": "HOME DECOR",
+        "slug": "home-decor",
+        "group": null,
+        "uses_sizes": false,
+        "size_set": null
+      },
+      {
         "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc2",
         "name": "LAPTOPS",
         "slug": "laptops",
-        "group": null,
-        "uses_sizes": false,
-        "size_set": null
-      },
-      {
-        "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc3",
-        "name": "Candles",
-        "slug": "candles",
-        "group": null,
-        "uses_sizes": false,
-        "size_set": null
-      },
-      {
-        "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc4",
-        "name": "Handmade",
-        "slug": "handmade-crafts",
         "group": null,
         "uses_sizes": false,
         "size_set": null

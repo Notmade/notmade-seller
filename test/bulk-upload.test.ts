@@ -1,16 +1,16 @@
 // @vitest-environment node
 // The category-locked bulk template and the file reader. Fixtures are real GET /seller/bulk/template responses from the
-// backend's test harness (test/fixtures/bulk-templates.json): India Tees and Candles on IN-2026-11-v2, UAE Laptops and
-// Tees on AE-2026-11-v3.
+// backend's test harness (test/fixtures/bulk-templates.json): India HOODIES and HOME DECOR on IN-2026-11-v2, UAE LAPTOPS and
+// HOODIES on AE-2026-11-v3. These are live production categories; HOME DECOR is in no commission map, as in production.
 import { describe, expect, it } from "vitest";
 import { Workbook } from "exceljs";
 import fixtures from "./fixtures/bulk-templates.json";
 import type { BulkTemplate } from "@/app/lib/seller-api";
 import { xlsxTemplate, readBulkXlsx, instructionLines } from "@/app/lib/bulk-xlsx";
-import { csvTemplate, errorCsv, headerKey, missingPhotos, parseCsv, photosFor, readBulkCsv, readBulkTable } from "@/app/lib/bulk-csv";
+import { OLD_TEMPLATE_MESSAGE, csvTemplate, errorCsv, headerKey, isOldTemplate, missingPhotos, parseCsv, photosFor, readBulkCsv, readBulkTable } from "@/app/lib/bulk-csv";
 import { commissionView } from "@/app/lib/bulk-commission";
 
-const T = fixtures as unknown as Record<"in_tees" | "in_candles" | "ae_laptops" | "ae_tees", BulkTemplate>;
+const T = fixtures as unknown as Record<"in_hoodies" | "in_home_decor" | "ae_laptops" | "ae_hoodies", BulkTemplate>;
 const photo = (name: string) => new File(["x"], name, { type: "image/jpeg" });
 
 async function workbook(t: BulkTemplate) {
@@ -22,10 +22,10 @@ const headers = (wb: Workbook) => (wb.getWorksheet("Products")!.getRow(1).values
 
 describe("category lock", () => {
   it("fills in the category on every row and locks it, on a protected sheet", async () => {
-    const ws = (await workbook(T.in_tees)).getWorksheet("Products")!;
+    const ws = (await workbook(T.in_hoodies)).getWorksheet("Products")!;
     expect(ws.getCell("A1").value).toBe("category");
     for (const r of [2, 100, 201]) {
-      expect(ws.getCell(r, 1).value).toBe("Tees");
+      expect(ws.getCell(r, 1).value).toBe("HOODIES");
       // Locked is Excel's default for a cell, so ExcelJS reads it back as unset; unlocked cells say so
       expect(ws.getCell(r, 1).protection?.locked).not.toBe(false);
       expect(ws.getCell(r, 2).protection?.locked).toBe(false);
@@ -34,34 +34,70 @@ describe("category lock", () => {
   });
 
   it("refuses a template made for another category", async () => {
-    const buf = await (await xlsxTemplate(T.in_tees)).arrayBuffer();
-    const { fatal } = await readBulkXlsx(buf, T.in_candles);
-    expect(fatal).toMatch(/template for Tees/);
+    const buf = await (await xlsxTemplate(T.in_hoodies)).arrayBuffer();
+    const { fatal } = await readBulkXlsx(buf, T.in_home_decor);
+    expect(fatal).toMatch(/template for HOODIES/);
   });
 
   it("reads back its own template: the locked category alone is not a product", async () => {
-    const buf = await (await xlsxTemplate(T.in_tees)).arrayBuffer();
-    expect((await readBulkXlsx(buf, T.in_tees)).fatal).toMatch(/no products/);
+    const buf = await (await xlsxTemplate(T.in_hoodies)).arrayBuffer();
+    expect((await readBulkXlsx(buf, T.in_hoodies)).fatal).toMatch(/no products/);
   });
 
   it("sends a row of another category on as typed, so the backend refuses it with the reason", () => {
-    const csv = `${T.in_candles.columns.map((c) => c.header).join(",")}\nTees,Soy candle,Hand-poured soy candle here.,4,650,,a.jpg\n`;
-    const { rows, fatal } = readBulkCsv(csv, T.in_candles);
+    const csv = `${T.in_home_decor.columns.map((c) => c.header).join(",")}\nHOODIES,Brass vase,Hand-finished brass vase here.,4,1650,,a.jpg\n`;
+    const { rows, fatal } = readBulkCsv(csv, T.in_home_decor);
     expect(fatal).toBeNull();
-    expect(rows[0].cells).toMatchObject({ line: 2, category: "Tees", name: "Soy candle" });
+    expect(rows[0].cells).toMatchObject({ line: 2, category: "HOODIES", name: "Brass vase" });
+  });
+});
+
+describe("old template", () => {
+  // The template from before one file was one category: category as a dropdown, sizes and stock per size in one cell
+  const oldCsv = "name,description,category,price,mrp,sizes,stock,image_files\nHeavy hoodie,Heavyweight fleece hoodie.,HOODIES,2499,,S|M,1|2,a.jpg\nBad,short,Nope,0,,,x,\n";
+
+  it("fails the whole file with one message and no rows, CSV", () => {
+    expect(readBulkCsv(oldCsv, T.in_hoodies)).toEqual({ rows: [], fatal: OLD_TEMPLATE_MESSAGE });
+    expect(readBulkCsv(oldCsv, T.in_home_decor)).toEqual({ rows: [], fatal: OLD_TEMPLATE_MESSAGE });
+    expect(OLD_TEMPLATE_MESSAGE).toBe("Yeh purana template hai. Category chunkar naya template download karein.");
+  });
+
+  it("fails the whole file with one message and no rows, Excel from the old template", async () => {
+    const wb = new Workbook();
+    const ws = wb.addWorksheet("Products");
+    parseCsv(oldCsv).forEach((r) => ws.addRow(r));
+    wb.addWorksheet("How to fill it").getCell("A1").value = "How to fill this template";
+    const buf = await wb.xlsx.writeBuffer();
+    expect(await readBulkXlsx(buf as ArrayBuffer, T.in_hoodies)).toEqual({ rows: [], fatal: OLD_TEMPLATE_MESSAGE });
+  });
+
+  it("knows the old headers, and never flags a new template", () => {
+    expect(isOldTemplate(["name", "description", "category", "price", "mrp", "sizes", "stock", "image_files"])).toBe(true);
+    expect(isOldTemplate(["category", "name", "description", "stock", "price", "mrp", "image_files"])).toBe(true);
+    for (const t of [T.in_hoodies, T.in_home_decor, T.ae_laptops, T.ae_hoodies]) expect(isOldTemplate(t.columns.map((c) => c.header))).toBe(false);
+  });
+
+  it("a new template that lost its hidden Meta sheet still reads by its headers", async () => {
+    const wb = new Workbook();
+    await wb.xlsx.load(await (await xlsxTemplate(T.in_home_decor)).arrayBuffer());
+    wb.removeWorksheet(wb.getWorksheet("Meta")!.id);
+    wb.getWorksheet("Products")!.getRow(2).getCell(2).value = "Brass vase";
+    const res = await readBulkXlsx((await wb.xlsx.writeBuffer()) as ArrayBuffer, T.in_home_decor);
+    expect(res.fatal).toBeNull();
+    expect(res.rows[0].cells).toMatchObject({ category: "HOME DECOR", name: "Brass vase" });
   });
 });
 
 describe("sizes only for apparel and fashion", () => {
   it("non-apparel template has no size, colour or fit column", async () => {
-    const h = headers(await workbook(T.in_candles));
+    const h = headers(await workbook(T.in_home_decor));
     expect(h).toEqual(["category", "name", "description", "stock", "price (INR)", "mrp (INR)", "image_files"]);
-    expect(parseCsv(csvTemplate(T.in_candles))[0]).toEqual(h);
+    expect(parseCsv(csvTemplate(T.in_home_decor))[0]).toEqual(h);
     expect(h).not.toContain("size");
   });
 
   it("apparel template has Size, Colour and Fit, with the size set as a dropdown", async () => {
-    const wb = await workbook(T.in_tees);
+    const wb = await workbook(T.in_hoodies);
     const h = headers(wb);
     expect(h).toEqual(expect.arrayContaining(["variant_group", "colour", "size", "fit", "sku"]));
     const ws = wb.getWorksheet("Products")!;
@@ -75,32 +111,32 @@ describe("sizes only for apparel and fashion", () => {
   });
 
   it("passes a size typed into a non-apparel file on to the backend, which refuses it", () => {
-    const csv = "category,name,description,stock,price (INR),mrp (INR),image_files,size\nCandles,Soy candle,Hand-poured soy candle.,4,650,,a.jpg,M\n";
-    expect(readBulkCsv(csv, T.in_candles).rows[0].cells.size).toBe("M");
+    const csv = "category,name,description,stock,price (INR),mrp (INR),image_files,size\nHOME DECOR,Brass vase,Hand-finished brass vase.,4,1650,,a.jpg,M\n";
+    expect(readBulkCsv(csv, T.in_home_decor).rows[0].cells.size).toBe("M");
   });
 
   it("the worked examples are two size rows of one product, or one product without sizes", () => {
-    const tee = parseCsv(csvTemplate(T.in_tees)).slice(1);
-    const h = parseCsv(csvTemplate(T.in_tees))[0];
+    const tee = parseCsv(csvTemplate(T.in_hoodies)).slice(1);
+    const h = parseCsv(csvTemplate(T.in_hoodies))[0];
     expect(tee).toHaveLength(2);
     expect(tee.map((r) => r[h.indexOf("variant_group")])).toEqual(["EX-001", "EX-001"]);
     expect(tee.map((r) => r[h.indexOf("size")])).toEqual(["M", "L"]);
-    expect(parseCsv(csvTemplate(T.in_candles)).slice(1)).toHaveLength(1);
+    expect(parseCsv(csvTemplate(T.in_home_decor)).slice(1)).toHaveLength(1);
   });
 });
 
 describe("currency", () => {
   it("India prices in INR, the UAE in AED", async () => {
-    expect(headers(await workbook(T.in_tees))).toContain("price (INR)");
-    expect(headers(await workbook(T.ae_tees))).toContain("price (AED)");
-    expect(instructionLines(T.ae_tees).join("\n")).toMatch(/in AED/);
+    expect(headers(await workbook(T.in_hoodies))).toContain("price (INR)");
+    expect(headers(await workbook(T.ae_hoodies))).toContain("price (AED)");
+    expect(instructionLines(T.ae_hoodies).join("\n")).toMatch(/in AED/);
   });
 
   it("refuses a file priced in the other currency", () => {
-    const csv = parseCsv(csvTemplate(T.in_candles));
-    expect(readBulkTable(csv, T.in_candles).fatal).toBeNull();
-    const aeCandles = { ...T.in_candles, currency: "AED" } as BulkTemplate;
-    expect(readBulkTable(csv, aeCandles).fatal).toMatch(/prices in INR. Your prices are in AED/);
+    const csv = parseCsv(csvTemplate(T.in_home_decor));
+    expect(readBulkTable(csv, T.in_home_decor).fatal).toBeNull();
+    const aeHomeDecor = { ...T.in_home_decor, currency: "AED" } as BulkTemplate;
+    expect(readBulkTable(csv, aeHomeDecor).fatal).toMatch(/prices in INR. Your prices are in AED/);
   });
 
   it("reads headers with or without the unit", () => {
@@ -112,7 +148,7 @@ describe("currency", () => {
 
 describe("instructions sheet", () => {
   it("states no rate and points to the screen and the agreement", async () => {
-    for (const t of [T.in_tees, T.in_candles, T.ae_laptops, T.ae_tees]) {
+    for (const t of [T.in_hoodies, T.in_home_decor, T.ae_laptops, T.ae_hoodies]) {
       const wb = await workbook(t);
       const how = wb.getWorksheet("Instructions")!;
       const text = (how.getColumn(1).values as unknown[]).filter(Boolean).join("\n");
@@ -124,13 +160,15 @@ describe("instructions sheet", () => {
 });
 
 describe("rows, photos and the error file", () => {
-  const head = T.in_tees.columns.map((c) => c.header).join(",");
+  const head = T.in_hoodies.columns.map((c) => c.header).join(",");
   it("skips empty rows, refuses missing columns and more than 200 rows", () => {
-    expect(readBulkCsv("", T.in_tees).fatal).toMatch(/empty/);
-    expect(readBulkCsv("name,price\nx,1", T.in_tees).fatal).toMatch(/Missing columns: category, variant_group/);
-    const row = "Tees,G1,Tee,A heavy cotton tee.,Black,M,,4,,500,,a.jpg";
-    expect(readBulkCsv(`${head}\n${`${row}\n`.repeat(201)}`, T.in_tees).fatal).toMatch(/Up to 200/);
-    expect(readBulkCsv(`${head}\n${row}\n`, T.in_tees).rows).toHaveLength(1);
+    expect(readBulkCsv("", T.in_hoodies).fatal).toMatch(/empty/);
+    expect(readBulkCsv("name,price (INR)\nx,1", T.in_hoodies).fatal).toMatch(/Missing columns: category, variant_group/);
+    // A price with no currency is the old template's header
+    expect(readBulkCsv("name,price\nx,1", T.in_hoodies).fatal).toBe(OLD_TEMPLATE_MESSAGE);
+    const row = "HOODIES,G1,Hoodie,A heavy fleece hoodie.,Black,M,,4,,2499,,a.jpg";
+    expect(readBulkCsv(`${head}\n${`${row}\n`.repeat(201)}`, T.in_hoodies).fatal).toMatch(/Up to 200/);
+    expect(readBulkCsv(`${head}\n${row}\n`, T.in_hoodies).rows).toHaveLength(1);
   });
 
   it("matches photos by file name in the row's order", () => {
@@ -139,9 +177,9 @@ describe("rows, photos and the error file", () => {
   });
 
   it("exports the rows to fix in the template's columns with the reason", () => {
-    const { rows } = readBulkCsv(`${head}\nTees,G1,X,short,Black,M,,4,,0,,\n`, T.in_tees);
-    const out = parseCsv(errorCsv(T.in_tees.columns, [{ row: rows[0], errors: ["Price must be above 0", "Name at least one photo file"] }]));
-    expect(out[0]).toEqual(["row", ...T.in_tees.columns.map((c) => c.header), "error"]);
+    const { rows } = readBulkCsv(`${head}\nHOODIES,G1,X,short,Black,M,,4,,0,,\n`, T.in_hoodies);
+    const out = parseCsv(errorCsv(T.in_hoodies.columns, [{ row: rows[0], errors: ["Price must be above 0", "Name at least one photo file"] }]));
+    expect(out[0]).toEqual(["row", ...T.in_hoodies.columns.map((c) => c.header), "error"]);
     expect(out[1][0]).toBe("2");
     expect(out[1].at(-1)).toBe("Price must be above 0; Name at least one photo file");
   });
@@ -149,10 +187,10 @@ describe("rows, photos and the error file", () => {
 
 describe("commission on screen", () => {
   it("is the backend's rate for the category, never a number of its own", () => {
-    expect(commissionView(T.in_tees.commission).headline).toBe("17%");
-    const changed = { ...T.in_tees.commission, pct: 23 };
+    expect(commissionView(T.in_hoodies.commission).headline).toBe("17%");
+    const changed = { ...T.in_hoodies.commission, pct: 23 };
     expect(commissionView(changed).headline).toBe("23%");
-    expect(commissionView({ ...T.in_tees.commission, pct: null }).headline).toBeNull();
+    expect(commissionView({ ...T.in_hoodies.commission, pct: null }).headline).toBeNull();
   });
 
   it("phones and laptops: each who-ships option with its shipping charge", () => {
@@ -164,8 +202,8 @@ describe("commission on screen", () => {
   });
 
   it("notes the rate group, the card, shipping, settlement days from the backend, and an override", () => {
-    const v = commissionView(T.in_tees.commission);
+    const v = commissionView(T.in_hoodies.commission);
     expect(v.notes).toEqual(["Fashion & all other categories, from your rate card IN-2026-11-v2.", "Shipping is included.", "Settlement within 7 days."]);
-    expect(commissionView({ ...T.ae_tees.commission, source: "override", settlement_days: 10 }).notes).toEqual(expect.arrayContaining(["This is a rate NOTMADE set for your account.", "Settlement within 10 days."]));
+    expect(commissionView({ ...T.ae_hoodies.commission, source: "override", settlement_days: 10 }).notes).toEqual(expect.arrayContaining(["This is a rate NOTMADE set for your account.", "Settlement within 10 days."]));
   });
 });

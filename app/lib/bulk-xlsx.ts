@@ -111,6 +111,8 @@ export async function readBulkXlsx(data: ArrayBuffer, t: BulkTemplate) {
   const { Workbook } = await import("exceljs");
   const wb = new Workbook();
   try { await wb.xlsx.load(data); } catch { return { rows: [], fatal: "This file could not be read. Save it as an Excel (.xlsx) file and try again." }; }
+  // The old template has no Meta sheet; readBulkTable then knows it by its headers. A new template that lost the hidden
+  // sheet (some editors drop it) still reads, by its headers
   const meta = wb.getWorksheet(META);
   const fileCategory = meta ? String(meta.getCell("B1").value ?? "") : "";
   if (fileCategory && fileCategory !== t.category.id) {

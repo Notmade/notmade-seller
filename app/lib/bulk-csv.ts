@@ -64,6 +64,19 @@ export function headerKey(h: string): { key: string; unit: string | null } {
 
 export interface SheetRow { line: number; cells: BulkRowInput; raw: string[] }
 
+/** Shown for the template from before one file was one category. The whole file is refused, with no row errors. */
+export const OLD_TEMPLATE_MESSAGE = "Yeh purana template hai. Category chunkar naya template download karein.";
+
+/**
+ * The old template: a `sizes` column (sizes and stock per size in one cell), or prices with no currency in the header.
+ * Every new template names its currency, as in "price (INR)", and has no `sizes` column.
+ */
+export function isOldTemplate(headers: string[]): boolean {
+  const head = headers.map(headerKey);
+  if (head.some((h) => h.key === "sizes" || h.key === "stock_by_size")) return true;
+  return head.some((h) => (h.key === "price" || h.key === "mrp") && !h.unit);
+}
+
 // Columns the backend refuses on a category without sizes. Sent on, so the reason comes back with the row
 const PASS_THROUGH = ["size", "colour", "fit", "variant_group", "sku", "who_ships"];
 
@@ -74,6 +87,7 @@ const PASS_THROUGH = ["size", "colour", "fit", "variant_group", "sku", "who_ship
  */
 export function readBulkTable(all: string[][], t: BulkTemplate): { rows: SheetRow[]; fatal: string | null } {
   if (!all.length) return { rows: [], fatal: "This file is empty." };
+  if (isOldTemplate(all[0])) return { rows: [], fatal: OLD_TEMPLATE_MESSAGE };
   const head = all[0].map(headerKey);
   const index = new Map<string, number>();
   head.forEach((h, i) => { if (h.key && !index.has(h.key)) index.set(h.key, i); });
