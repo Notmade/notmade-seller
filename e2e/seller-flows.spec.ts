@@ -61,20 +61,49 @@ test("wizard: UAE electronics asks who ships; other categories do not", async ({
   await expect(page.getByRole("list", { name: "Steps" }).getByRole("listitem")).toHaveCount(7);
 });
 
-test("bulk: bad rows are held back with a reason; good rows go for review", async ({ page }) => {
+test("bulk: category first; bad rows held back with a reason; the good ones go for review once confirmed", async ({ page }) => {
   const be = backend("IN");
   await signIn(page, "IN", be);
   await page.goto("/dashboard/products/bulk");
-  const csv = "name,description,category,price,mrp,sizes,stock,image_files\nGood tee,A heavy cotton tee here.,Kurtas,500,,,4,a.png\nBad,short,Nope,0,,,x,\n";
+  await expect(page.getByRole("button", { name: "Download Excel template" })).toBeDisabled();
+  await expect(page.locator('input[accept*="csv"]')).toBeDisabled();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "HOODIES" }).click();
+  await expect(page.getByRole("region", { name: "Commission on HOODIES" }).getByText("17%")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download Excel template" })).toBeEnabled();
+
+  const head = "category,variant_group,name,description,colour,size,fit,stock,sku,price (INR),mrp (INR),image_files";
+  const csv = `${head}\nHOODIES,HD1,Heavy hoodie,Heavyweight fleece hoodie.,Black,M,Oversized,4,HD1-M,2499,,a.png\nHOODIES,HD1,,,Black,L,,3,HD1-L,,,\nHOME DECOR,HD2,Brass vase,A hand-finished brass vase.,Gold,,,2,,0,,b.png\n`;
   await page.locator('input[accept*="csv"]').setInputFiles({ name: "p.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
-  await expect(page.getByText(/0 ready, 2 to fix/)).toBeVisible();
-  await expect(page.getByText(/Photo not chosen: a.png/)).toBeVisible();
+  await expect(page.getByText(/This file is for HOODIES only/)).toBeVisible();
+  await expect(page.getByText(/Size is required for HOODIES/)).toBeVisible();
+  await expect(page.getByText(/Photo not chosen: a.png/).first()).toBeVisible();
   await page.locator('input[accept*="image"]').setInputFiles([png("a.png")]);
-  await expect(page.getByText(/1 ready, 1 to fix/)).toBeVisible();
-  await expect(page.getByText(/Category "Nope" not found/)).toBeVisible();
-  await page.getByRole("button", { name: "Submit 1 for review" }).click();
-  await expect(page.getByText("Submitted · In review")).toBeVisible();
-  expect(be.created).toHaveLength(1);
+  await expect(page.getByText(/1 product ready \(2 rows\), 1 row to fix/)).toBeVisible();
+  await page.getByRole("button", { name: "Submit 1 product for review" }).click();
+  await expect(page.getByText(/1 row has errors and will not be sent/)).toBeVisible();
+  expect(be.bulkCreated).toHaveLength(0);
+  await page.getByRole("button", { name: "Submit 1 product for review" }).last().click();
+  await expect(page.getByText("Submitted · In review").first()).toBeVisible();
+  expect(be.bulkCreated).toHaveLength(1);
+  expect(be.bulkCreated[0]).toContain("44444444-4444-4444-8444-444444444441");
+  expect(be.bulkCreated[0]).not.toMatch(/is_live|approval_status/);
+});
+
+test("bulk: the old template fails the whole upload with one message", async ({ page }) => {
+  const be = backend("IN");
+  await signIn(page, "IN", be);
+  await page.goto("/dashboard/products/bulk");
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "HOME DECOR" }).click();
+  await expect(page.locator('input[accept*="csv"]')).toBeEnabled();
+  const old = "name,description,category,price,mrp,sizes,stock,image_files\nBrass vase,A hand-finished brass vase.,HOME DECOR,1650,,,4,a.png\nBad,short,Nope,0,,,x,\n";
+  await page.locator('input[accept*="csv"]').setInputFiles({ name: "old.csv", mimeType: "text/csv", buffer: Buffer.from(old) });
+  // Next's route announcer is also role="alert", so find the message by its text, then check it is the whole alert
+  await expect(page.getByRole("alert").filter({ hasText: "Yeh purana template hai." })).toHaveText("Yeh purana template hai. Category chunkar naya template download karein.");
+  await expect(page.getByText(/to fix|is not HOME DECOR/)).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "Rows in your file" })).toHaveCount(0);
+  expect(be.bulkCreated).toHaveLength(0);
 });
 
 test("orders: one tap to accept and to mark ready", async ({ page }) => {

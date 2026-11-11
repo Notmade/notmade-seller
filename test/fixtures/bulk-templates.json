@@ -1,0 +1,551 @@
+{
+  "in_hoodies": {
+    "category": {
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc11",
+      "name": "HOODIES",
+      "slug": "hoodies"
+    },
+    "country": "IN",
+    "currency": "INR",
+    "uses_sizes": true,
+    "size_set": {
+      "key": "apparel",
+      "label": "Clothing sizes (XS to 3XL)",
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL",
+        "3XL"
+      ]
+    },
+    "fit_values": [
+      "Regular",
+      "Slim",
+      "Relaxed",
+      "Oversized",
+      "Boxy"
+    ],
+    "who_ships": null,
+    "columns": [
+      {
+        "key": "category",
+        "header": "category",
+        "required": true,
+        "type": "locked",
+        "value": "HOODIES",
+        "note": "Locked to HOODIES. One file is one category."
+      },
+      {
+        "key": "variant_group",
+        "header": "variant_group",
+        "required": true,
+        "type": "text",
+        "note": "Same code on every size and colour row of one product, e.g. TEE-001"
+      },
+      {
+        "key": "name",
+        "header": "name",
+        "required": true,
+        "type": "text",
+        "note": "Product name, 2 to 200 characters. On the first row of the group"
+      },
+      {
+        "key": "description",
+        "header": "description",
+        "required": true,
+        "type": "text",
+        "note": "At least 10 characters"
+      },
+      {
+        "key": "colour",
+        "header": "colour",
+        "required": true,
+        "type": "text",
+        "note": "One colour per row, e.g. Black"
+      },
+      {
+        "key": "size",
+        "header": "size",
+        "required": true,
+        "type": "list",
+        "values": [
+          "XS",
+          "S",
+          "M",
+          "L",
+          "XL",
+          "XXL",
+          "3XL"
+        ],
+        "note": "Pick from the dropdown: Clothing sizes (XS to 3XL)"
+      },
+      {
+        "key": "fit",
+        "header": "fit",
+        "required": false,
+        "type": "list",
+        "values": [
+          "Regular",
+          "Slim",
+          "Relaxed",
+          "Oversized",
+          "Boxy"
+        ],
+        "note": "Optional. On the first row of the group"
+      },
+      {
+        "key": "stock",
+        "header": "stock",
+        "required": true,
+        "type": "number",
+        "note": "Units of this size and colour, a whole number"
+      },
+      {
+        "key": "sku",
+        "header": "sku",
+        "required": false,
+        "type": "text",
+        "note": "Optional. Your own code for this size and colour, up to 64 characters. Must not repeat"
+      },
+      {
+        "key": "price",
+        "header": "price (INR)",
+        "required": true,
+        "type": "number",
+        "note": "Selling price in INR"
+      },
+      {
+        "key": "mrp",
+        "header": "mrp (INR)",
+        "required": false,
+        "type": "number",
+        "note": "Optional, in INR. Must not be lower than price"
+      },
+      {
+        "key": "image_files",
+        "header": "image_files",
+        "required": true,
+        "type": "text",
+        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+      }
+    ],
+    "limits": {
+      "max_rows": 200,
+      "min_photos": 1,
+      "max_photos": 8,
+      "max_variants_per_group": 100,
+      "max_price": 1000000,
+      "max_stock": 100000
+    },
+    "commission": {
+      "status": "active",
+      "terms_version": "IN-2026-11-v2",
+      "source": "rate_card",
+      "group": "default",
+      "group_label": "Fashion & all other categories",
+      "mapped": true,
+      "pct": 17,
+      "shipping_included": true,
+      "who_ships": null,
+      "settlement_days": 7
+    },
+    "can_submit": true
+  },
+  "in_home_decor": {
+    "category": {
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc12",
+      "name": "HOME DECOR",
+      "slug": "home-decor"
+    },
+    "country": "IN",
+    "currency": "INR",
+    "uses_sizes": false,
+    "size_set": null,
+    "fit_values": [],
+    "who_ships": null,
+    "columns": [
+      {
+        "key": "category",
+        "header": "category",
+        "required": true,
+        "type": "locked",
+        "value": "HOME DECOR",
+        "note": "Locked to HOME DECOR. One file is one category."
+      },
+      {
+        "key": "name",
+        "header": "name",
+        "required": true,
+        "type": "text",
+        "note": "Product name, 2 to 200 characters"
+      },
+      {
+        "key": "description",
+        "header": "description",
+        "required": true,
+        "type": "text",
+        "note": "At least 10 characters"
+      },
+      {
+        "key": "stock",
+        "header": "stock",
+        "required": true,
+        "type": "number",
+        "note": "Units in stock, a whole number"
+      },
+      {
+        "key": "price",
+        "header": "price (INR)",
+        "required": true,
+        "type": "number",
+        "note": "Selling price in INR"
+      },
+      {
+        "key": "mrp",
+        "header": "mrp (INR)",
+        "required": false,
+        "type": "number",
+        "note": "Optional, in INR. Must not be lower than price"
+      },
+      {
+        "key": "image_files",
+        "header": "image_files",
+        "required": true,
+        "type": "text",
+        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+      }
+    ],
+    "limits": {
+      "max_rows": 200,
+      "min_photos": 1,
+      "max_photos": 8,
+      "max_variants_per_group": 100,
+      "max_price": 1000000,
+      "max_stock": 100000
+    },
+    "commission": {
+      "status": "active",
+      "terms_version": "IN-2026-11-v2",
+      "source": "rate_card",
+      "group": "unmapped",
+      "group_label": "Fashion & all other categories",
+      "mapped": false,
+      "pct": 17,
+      "shipping_included": true,
+      "who_ships": null,
+      "settlement_days": 7
+    },
+    "can_submit": true
+  },
+  "ae_laptops": {
+    "category": {
+      "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc2",
+      "name": "LAPTOPS",
+      "slug": "laptops"
+    },
+    "country": "AE",
+    "currency": "AED",
+    "uses_sizes": false,
+    "size_set": null,
+    "fit_values": [],
+    "who_ships": [
+      {
+        "value": "NOTMADE ships",
+        "fulfilment_mode": "notmade_ships"
+      },
+      {
+        "value": "I ship",
+        "fulfilment_mode": "seller_ships"
+      }
+    ],
+    "columns": [
+      {
+        "key": "category",
+        "header": "category",
+        "required": true,
+        "type": "locked",
+        "value": "LAPTOPS",
+        "note": "Locked to LAPTOPS. One file is one category."
+      },
+      {
+        "key": "name",
+        "header": "name",
+        "required": true,
+        "type": "text",
+        "note": "Product name, 2 to 200 characters"
+      },
+      {
+        "key": "description",
+        "header": "description",
+        "required": true,
+        "type": "text",
+        "note": "At least 10 characters"
+      },
+      {
+        "key": "stock",
+        "header": "stock",
+        "required": true,
+        "type": "number",
+        "note": "Units in stock, a whole number"
+      },
+      {
+        "key": "price",
+        "header": "price (AED)",
+        "required": true,
+        "type": "number",
+        "note": "Selling price in AED"
+      },
+      {
+        "key": "mrp",
+        "header": "mrp (AED)",
+        "required": false,
+        "type": "number",
+        "note": "Optional, in AED. Must not be lower than price"
+      },
+      {
+        "key": "image_files",
+        "header": "image_files",
+        "required": true,
+        "type": "text",
+        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+      },
+      {
+        "key": "who_ships",
+        "header": "who_ships",
+        "required": true,
+        "type": "list",
+        "values": [
+          "NOTMADE ships",
+          "I ship"
+        ],
+        "note": "Who ships this product to the customer"
+      }
+    ],
+    "limits": {
+      "max_rows": 200,
+      "min_photos": 1,
+      "max_photos": 8,
+      "max_variants_per_group": 100,
+      "max_price": 1000000,
+      "max_stock": 100000
+    },
+    "commission": {
+      "status": "active",
+      "terms_version": "AE-2026-11-v3",
+      "source": "rate_card",
+      "group": "phones_laptops",
+      "group_label": "Mobile phones & laptops",
+      "mapped": true,
+      "pct": 13.5,
+      "shipping_included": false,
+      "who_ships": {
+        "sets_rate": true,
+        "default_mode": "notmade_ships",
+        "options": [
+          {
+            "fulfilment_mode": "seller_ships",
+            "label": "You ship",
+            "pct": 12,
+            "commission_pct": 12,
+            "shipping_charge_pct": 0
+          },
+          {
+            "fulfilment_mode": "notmade_ships",
+            "label": "NOTMADE ships",
+            "pct": 13.5,
+            "commission_pct": 12,
+            "shipping_charge_pct": 1.5
+          }
+        ]
+      },
+      "settlement_days": 7
+    },
+    "can_submit": true
+  },
+  "ae_hoodies": {
+    "category": {
+      "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc11",
+      "name": "HOODIES",
+      "slug": "hoodies"
+    },
+    "country": "AE",
+    "currency": "AED",
+    "uses_sizes": true,
+    "size_set": {
+      "key": "apparel",
+      "label": "Clothing sizes (XS to 3XL)",
+      "sizes": [
+        "XS",
+        "S",
+        "M",
+        "L",
+        "XL",
+        "XXL",
+        "3XL"
+      ]
+    },
+    "fit_values": [
+      "Regular",
+      "Slim",
+      "Relaxed",
+      "Oversized",
+      "Boxy"
+    ],
+    "who_ships": null,
+    "columns": [
+      {
+        "key": "category",
+        "header": "category",
+        "required": true,
+        "type": "locked",
+        "value": "HOODIES",
+        "note": "Locked to HOODIES. One file is one category."
+      },
+      {
+        "key": "variant_group",
+        "header": "variant_group",
+        "required": true,
+        "type": "text",
+        "note": "Same code on every size and colour row of one product, e.g. TEE-001"
+      },
+      {
+        "key": "name",
+        "header": "name",
+        "required": true,
+        "type": "text",
+        "note": "Product name, 2 to 200 characters. On the first row of the group"
+      },
+      {
+        "key": "description",
+        "header": "description",
+        "required": true,
+        "type": "text",
+        "note": "At least 10 characters"
+      },
+      {
+        "key": "colour",
+        "header": "colour",
+        "required": true,
+        "type": "text",
+        "note": "One colour per row, e.g. Black"
+      },
+      {
+        "key": "size",
+        "header": "size",
+        "required": true,
+        "type": "list",
+        "values": [
+          "XS",
+          "S",
+          "M",
+          "L",
+          "XL",
+          "XXL",
+          "3XL"
+        ],
+        "note": "Pick from the dropdown: Clothing sizes (XS to 3XL)"
+      },
+      {
+        "key": "fit",
+        "header": "fit",
+        "required": false,
+        "type": "list",
+        "values": [
+          "Regular",
+          "Slim",
+          "Relaxed",
+          "Oversized",
+          "Boxy"
+        ],
+        "note": "Optional. On the first row of the group"
+      },
+      {
+        "key": "stock",
+        "header": "stock",
+        "required": true,
+        "type": "number",
+        "note": "Units of this size and colour, a whole number"
+      },
+      {
+        "key": "sku",
+        "header": "sku",
+        "required": false,
+        "type": "text",
+        "note": "Optional. Your own code for this size and colour, up to 64 characters. Must not repeat"
+      },
+      {
+        "key": "price",
+        "header": "price (AED)",
+        "required": true,
+        "type": "number",
+        "note": "Selling price in AED"
+      },
+      {
+        "key": "mrp",
+        "header": "mrp (AED)",
+        "required": false,
+        "type": "number",
+        "note": "Optional, in AED. Must not be lower than price"
+      },
+      {
+        "key": "image_files",
+        "header": "image_files",
+        "required": true,
+        "type": "text",
+        "note": "1 to 8 photo file names, separated by |. You pick the files on the upload screen"
+      }
+    ],
+    "limits": {
+      "max_rows": 200,
+      "min_photos": 1,
+      "max_photos": 8,
+      "max_variants_per_group": 100,
+      "max_price": 1000000,
+      "max_stock": 100000
+    },
+    "commission": {
+      "status": "active",
+      "terms_version": "AE-2026-11-v3",
+      "source": "rate_card",
+      "group": "default",
+      "group_label": "Apparel & all other categories",
+      "mapped": true,
+      "pct": 17,
+      "shipping_included": false,
+      "who_ships": null,
+      "settlement_days": 7
+    },
+    "can_submit": true
+  },
+  "in_categories": {
+    "categories": [
+      {
+        "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc11",
+        "name": "HOODIES",
+        "slug": "hoodies",
+        "group": "Fashion",
+        "uses_sizes": true,
+        "size_set": "apparel"
+      },
+      {
+        "id": "cccccccc-cccc-4ccc-8ccc-cccccccccc12",
+        "name": "HOME DECOR",
+        "slug": "home-decor",
+        "group": null,
+        "uses_sizes": false,
+        "size_set": null
+      },
+      {
+        "id": "cccccccc-cccc-4ccc-8ccc-ccccccccccc2",
+        "name": "LAPTOPS",
+        "slug": "laptops",
+        "group": null,
+        "uses_sizes": false,
+        "size_set": null
+      }
+    ]
+  }
+}

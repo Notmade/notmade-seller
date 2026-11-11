@@ -225,6 +225,78 @@ export interface Category {
   commission_group?: string;
 }
 
+// ─── Bulk upload (GET /seller/bulk/template and friends). One file is one category. ─────────────────
+
+export interface BulkCategory extends Category {
+  /** Apparel and fashion: the template has Size, Colour and Fit. */
+  uses_sizes: boolean;
+  size_set: string | null;
+}
+
+export interface BulkColumn {
+  key: string;
+  /** The sheet header, e.g. "price (INR)". */
+  header: string;
+  required: boolean;
+  type: "locked" | "text" | "number" | "list";
+  /** The locked value (the category). */
+  value?: string;
+  /** Dropdown values. */
+  values?: string[];
+  note: string;
+}
+
+export interface BulkWhoShipsOption {
+  fulfilment_mode: FulfilmentMode;
+  label: string;
+  /** What the seller pays in all. */
+  pct: number | null;
+  commission_pct: number | null;
+  /** NOTMADE shipping charge inside `pct`. Null where there is none. */
+  shipping_charge_pct: number | null;
+}
+
+/** The commission on this category from the seller's own terms, worked out by the backend's order pricing. */
+export interface BulkCommission {
+  status: "active" | "pending_approval" | "legacy";
+  terms_version: string;
+  source: string;
+  group: string;
+  group_label: string;
+  mapped: boolean;
+  pct: number | null;
+  shipping_included: boolean;
+  who_ships: { sets_rate: boolean; default_mode: FulfilmentMode; options: BulkWhoShipsOption[] } | null;
+  settlement_days: number;
+}
+
+export interface BulkTemplate {
+  category: { id: string; name: string; slug: string };
+  country: SellerCountry;
+  currency: Currency;
+  uses_sizes: boolean;
+  size_set: { key: string; label: string; sizes: string[] } | null;
+  fit_values: string[];
+  who_ships: { value: string; fulfilment_mode: FulfilmentMode }[] | null;
+  columns: BulkColumn[];
+  limits: { max_rows: number; min_photos: number; max_photos: number; max_variants_per_group: number; max_price: number; max_stock: number };
+  commission: BulkCommission;
+  can_submit: boolean;
+}
+
+export interface BulkRowError { field: string; code: string; message: string }
+export interface BulkRowResult { line: number; group: string | null; ok: boolean; errors: BulkRowError[] }
+export interface BulkProductResult { key: string | null; lines: number[]; name: string | null; variants: number; image_files: string[]; ok: boolean }
+export interface BulkValidation {
+  category: { id: string; name: string; slug: string };
+  currency: Currency;
+  rows: BulkRowResult[];
+  products: BulkProductResult[];
+  summary: { rows: number; valid_rows: number; invalid_rows: number; products: number; valid_products: number };
+}
+/** One sheet row as sent to the backend: cells by column key, plus the sheet line. */
+export type BulkRowInput = { line: number } & Record<string, string | number>;
+
 export interface Product {
   id: string;
   name: string;
@@ -516,6 +588,17 @@ export const api = {
       "/seller/agreement/sign", body),
 
   categories: () => request<{ categories: Category[] }>("/seller/categories"),
+  bulkCategories: () => request<{ categories: BulkCategory[] }>("/seller/bulk/categories"),
+  bulkTemplate: (categoryId: string) => request<BulkTemplate>(`/seller/bulk/template?category_id=${encodeURIComponent(categoryId)}`),
+  bulkValidate: (categoryId: string, rows: BulkRowInput[]) => post<BulkValidation>("/seller/bulk/validate", { category_id: categoryId, rows }),
+  /** One product: its rows and its photos, in the order the rows name them. */
+  bulkCreate: (categoryId: string, rows: BulkRowInput[], photos: File[]) => {
+    const fd = new FormData();
+    fd.append("category_id", categoryId);
+    fd.append("rows", JSON.stringify(rows));
+    photos.forEach((f) => fd.append("images", f));
+    return post<{ product: Product; lines: number[]; key: string | null }>("/seller/bulk/products", fd);
+  },
   products: () => request<{ products: Product[] }>("/seller/products"),
   createProduct: (fd: FormData) => post<{ product: Product }>("/seller/products", fd),
   updateProduct: (id: string, fd: FormData) =>
