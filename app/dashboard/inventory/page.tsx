@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import Link from "next/link";
-import { api, isNotLive, type Product, type StockUpdate } from "../../lib/seller-api";
+import { api, type InventoryLine, type Product } from "../../lib/seller-api";
 import { stockRows, stockState, type StockRow } from "../../lib/insights";
 import { lowStockThreshold, rememberLowStock } from "../../lib/low-stock";
 import { featureOn } from "../../lib/features";
@@ -16,11 +16,9 @@ const clean = (raw: string) => raw.replace(/\D/g, "").slice(0, 6);
 
 export default function InventoryPage() {
   const seller = useDashboardSeller();
-  const editable = featureOn("quick_stock");
   const showSku = featureOn("sku");
   const [products, setProducts] = useState<Product[] | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [threshold, setThreshold] = useState(() => lowStockThreshold(seller));
@@ -70,20 +68,16 @@ export default function InventoryPage() {
     if (raw === undefined) return;
     const stock = Number(raw);
     if (raw === "" || stock === row.stock) { dropDraft(row.key); return; }
-    const body: StockUpdate = row.variantId ? { variant_id: row.variantId, stock } : row.size ? { size: row.size, stock } : { stock };
-    setSaving(row.key); setNotice(""); setError("");
+    if (row.size && !row.variantId) { setError("Reload the page and try again: this size has no stock id yet."); return; }
+    const line: InventoryLine = row.variantId ? { product_id: row.productId, variant_id: row.variantId, stock } : { product_id: row.productId, stock };
+    setSaving(row.key); setError("");
     try {
-      await api.updateStock(row.productId, body);
+      await api.updateInventory([line]);
       setRowStock(row, stock);
       dropDraft(row.key);
       setSaved(row.key);
     } catch (err) {
-      if (isNotLive(err)) {
-        dropDraft(row.key);
-        setNotice("Quick stock saving is not switched on yet, so nothing was changed. To update stock now, edit the product in Catalogue. That sends it for review and takes it offline until approved.");
-      } else {
-        setError(err instanceof Error ? err.message : "Could not save stock");
-      }
+      setError(err instanceof Error ? err.message : "Could not save stock");
     } finally {
       setSaving(null);
     }
@@ -107,15 +101,15 @@ export default function InventoryPage() {
     const n = Math.max(1, Number(clean(raw)) || 1);
     setThreshold(n);
     rememberLowStock(seller.id, n);
-    // Kept in this browser until the account setting exists
-    if (featureOn("low_stock_setting")) api.saveSettings({ low_stock_threshold: n }).catch(() => undefined);
+    // Kept in this browser, and saved on the account (PUT /seller/inventory/threshold)
+    api.saveSettings({ low_stock_threshold: n }).catch(() => undefined);
   };
 
   if (!products) return error ? <Alert>{error}</Alert> : <PageSkeleton stats={0} rows={8} />;
 
   return (
     <div>
-      <PageHeader title="Inventory" sub={editable ? "Live stock for every product and variant. Enter saves, Esc undoes, arrow keys move between rows." : "Live stock for every product and variant."}
+      <PageHeader title="Inventory" sub="Live stock for every product and variant. Saving applies at once with no review, and the listing stays live. Enter saves, Esc undoes, arrow keys move between rows."
         action={(
           <div style={{ width: 150 }}>
             <Field label="Low-stock alert at" htmlFor="low-stock">
@@ -124,15 +118,6 @@ export default function InventoryPage() {
           </div>
         )} />
 
-      {!editable && rows.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <Alert kind="info">
-            Quick stock editing is coming soon. To change stock now, edit the product in{" "}
-            <Link href="/dashboard/products" style={{ color: RED, fontWeight: 700 }}>Catalogue</Link>. That sends it for review and takes it offline until approved.
-          </Alert>
-        </div>
-      )}
-      {notice && <div style={{ marginBottom: 14 }}><Alert kind="warn">{notice}</Alert></div>}
       {error && <div style={{ marginBottom: 14 }}><Alert>{error}</Alert></div>}
 
       {rows.length === 0 ? (
@@ -178,10 +163,10 @@ export default function InventoryPage() {
                           {showSku && <td data-label="SKU" style={{ fontFamily: "var(--font-space-mono), monospace", fontSize: 12 }}>{r.sku ?? "—"}</td>}
                           <td data-label="Status"><span className={`sp-stock-tag ${state}`}>{STATE_LABEL[state]}</span></td>
                           <td data-label="Stock" className="sp-num">
-                            {editable ? <input className={draft !== undefined ? "sp-stock dirty" : "sp-stock"} inputMode="numeric" aria-label={`Stock for ${r.name}${r.variant ? `, ${r.variant}` : ""}`}
+                            <input className={draft !== undefined ? "sp-stock dirty" : "sp-stock"} inputMode="numeric" aria-label={`Stock for ${r.name}${r.variant ? `, ${r.variant}` : ""}`}
                               value={draft ?? String(r.stock)} disabled={saving === r.key}
                               onChange={e => { setSaved(null); setDrafts(d => ({ ...d, [r.key]: clean(e.target.value) })); }}
-                              onBlur={() => void save(r)} onKeyDown={e => onKey(e, r)} onFocus={e => e.target.select()} /> : <strong>{r.stock}</strong>}
+                              onBlur={() => void save(r)} onKeyDown={e => onKey(e, r)} onFocus={e => e.target.select()} />
                             {saved === r.key && <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700, color: "#166534" }} role="status">Saved</span>}
                           </td>
                         </tr>

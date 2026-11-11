@@ -40,6 +40,30 @@ export function bulkValidate(country: Country, cat: BulkCat, rows: Record<string
 }
 
 export type Country = "IN" | "AE";
+
+/** Inline photos, so screenshots show pictures without any network. */
+export const photo = (hue: number, label: string) => `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300"><rect width="300" height="300" fill="hsl(${hue},45%,62%)"/><text x="150" y="165" font-size="48" font-family="sans-serif" text-anchor="middle" fill="white">${label}</text></svg>`)}`;
+
+/** A small stand-in for POST /seller/products/photos/validate: own products by name, duplicate names, 8 photos. */
+export function photoValidate(products: { id: string; name: string; images?: string[]; approval_status?: string }[], rows: Record<string, string | number>[]) {
+  const norm = (v: unknown) => String(v ?? "").trim().replace(/\s+/g, " ").toLowerCase();
+  return {
+    rows: rows.map((r) => {
+      const line = Number(r.line);
+      const named = products.filter((p) => norm(p.name) === norm(r.product_name) && p.approval_status === "approved");
+      const links = String(r.image_links ?? "").split("|").filter(Boolean);
+      const errors: { field: string; code: string; message: string }[] = [];
+      const p = r.product_id ? named.find((x) => x.id === r.product_id) : named.length === 1 ? named[0] : null;
+      if (!named.length) errors.push({ field: "product_name", code: "NOT_FOUND", message: `Row ${line}: product nahi mila` });
+      else if (!p) errors.push({ field: "product_name", code: "DUPLICATE_NAME", message: `Row ${line}: ${named.length} products ke naam same hain, product ID ya SKU bhi daalo` });
+      const current = p?.images?.length ?? 0;
+      if (p && current + links.length > 8) errors.push({ field: "image_links", code: "MAX_PHOTOS", message: `Row ${line}: max 8 photos, abhi ${current} hain` });
+      const photos = links.map((l) => { const id = l.match(/\/d\/([^/]+)/)?.[1]; return id ? { source: "drive", name: `drive-${id}`, drive_id: id, link: l } : { source: "file", name: l }; });
+      return { line, ok: !errors.length, errors, product: p ? { id: p.id, name: p.name } : null, target: p ? { kind: "product", label: "Product photos" } : null, current_photos: p ? current : null, photos };
+    }),
+    summary: { rows: rows.length, ok: 0, errors: 0 },
+  };
+}
 const iso = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 export function seller(country: Country) {
@@ -87,7 +111,20 @@ export function backend(country: Country) {
   return {
     orders,
     created: [] as string[],
-    products: [product("p1", { is_live: true }), product("p2", { approval_status: "pending" }), product("p3", { approval_status: "rejected", rejection_reason: "Photo is too small" })],
+    products: [
+      product("p1", {
+        is_live: true, images: [photo(10, "Front"), photo(200, "Back"), photo(120, "Detail")],
+        pending_change: { id: "r1", status: "pending", fields: ["price", "images"], labels: ["Price and MRP", "Photos"], submitted_at: iso(-1), reviewed_at: null, rejection_reason: null, decisions: null },
+      }),
+      product("p2", { approval_status: "pending" }),
+      product("p3", { approval_status: "rejected", rejection_reason: "Photo is too small" }),
+      product("p4", {
+        name: "Block print cotton kurta", is_live: true, images: [photo(30, "Kurta")],
+        pending_change: { id: "r2", status: "rejected", fields: ["price"], labels: ["Price and MRP"], submitted_at: iso(-3), reviewed_at: iso(-2), rejection_reason: "The new MRP is higher than the market price", decisions: { price: "rejected" } },
+      }),
+      product("p5", { name: "Twin cap", is_live: true }), product("p6", { name: "Twin cap", is_live: true }),
+    ],
+    saved: [] as { method: string; path: string; body: string }[],
     categories: [
       { id: "11111111-1111-4111-8111-111111111111", name: "Kurtas", slug: "kurtas" }, { id: "22222222-2222-4222-8222-222222222222", name: "Mobile phones", slug: "mobiles", fulfilment_mode_applies: country === "AE" },
       { id: "33333333-3333-4333-8333-333333333333", name: "Handmade", slug: "handmade" },
@@ -153,7 +190,21 @@ export async function signIn(page: Page, country: Country, be: Backend = backend
       if (path === "/seller/documents") return json({ documents: [] });
       if (path === "/seller/bank-details") return json({ country, complete: true, bank: country === "AE" ? { account_holder_name: "Test Brand", bank_name: null, iban: "AE07 •••• •••• 3456" } : { account_holder_name: "Test Brand", bank_name: "HDFC", account_number: "•••• 9012", ifsc: "HDFC0001234" } });
     }
+    if (req.method() === "GET" && path === "/seller/products/photos/template") return json({ columns: ["product_name", "product_id", "sku", "image_links", "variant_or_colour"], required: ["product_name", "image_links"], note: "up to 8 photo links, separated by | with no spaces; Google Drive links must be shared as Anyone with the link; file links only, not folders", max_photos: 8, max_rows: 200 });
+    const own = path.match(/^\/seller\/products\/([^/]+)(\/pending-change)?$/);
+    if (own && ["PUT", "DELETE"].includes(req.method())) {
+      be.saved.push({ method: req.method(), path, body: req.postData() ?? "" });
+      const p = be.products.find((x) => x.id === own[1])!;
+      if (req.method() === "DELETE") { Object.assign(p, { pending_change: null }); return json({ product: p, cancelled: true }); }
+      Object.assign(p, { pending_change: { id: "r9", status: "pending", fields: ["images"], labels: ["Photos"], submitted_at: iso(0), reviewed_at: null, rejection_reason: null, decisions: null } });
+      return json({ product: p, pending_fields: ["images"] }, 202);
+    }
+    if (req.method() === "PATCH" && path === "/seller/inventory") { be.saved.push({ method: "PATCH", path, body: req.postData() ?? "" }); return json({ items: [] }); }
+    if (req.method() === "PUT" && path === "/seller/inventory/threshold") return json({ low_stock_threshold: 3 });
     if (req.method() === "POST") {
+      if (path === "/seller/products/photos/validate") return json(photoValidate(be.products, JSON.parse(req.postData() ?? "{}").rows));
+      if (path === "/seller/products/import-image") return route.fulfill({ status: 200, contentType: "image/png", headers: { "access-control-allow-origin": "*" }, body: Buffer.from("89504e470d0a1a0a0000", "hex") });
+      if (path === "/seller/products/photos") { be.saved.push({ method: "POST", path, body: "" }); return json({ product: be.products[0], pending_fields: ["images"], line: 2, added: 1 }, 202); }
       if (path === "/seller/products") { be.created.push(req.postData() ?? ""); return json({ product: product(`new-${be.created.length}`, { approval_status: "pending" }) }, 201); }
       if (path === "/seller/notifications/read") return json({ seen_at: iso(0) });
       if (path === "/seller/bulk/validate") {

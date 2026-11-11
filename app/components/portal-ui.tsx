@@ -167,7 +167,7 @@ export function Modal({ title, onClose, children, width = 640 }: { title: string
       <div onClick={e => e.stopPropagation()} style={{ background: "#FFFFFF", color: "#111111", borderRadius: 16, width: "100%", maxWidth: width, padding: "22px 22px 24px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
           <h2 style={{ fontSize: 18, fontWeight: 800, color: "#111111" }}>{title}</h2>
-          <button type="button" onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "#888888", fontSize: 22, lineHeight: 1 }}>×</button>
+          <button type="button" onClick={onClose} aria-label="Close" style={{ background: "none", border: "none", cursor: "pointer", color: "#888888", fontSize: 22, lineHeight: 1, minWidth: 40, minHeight: 40 }}>×</button>
         </div>
         {children}
       </div>

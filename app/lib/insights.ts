@@ -116,7 +116,7 @@ export function stockRows(products: Product[]): StockRow[] {
     const sized = (p.product_variants ?? []).filter((v) => v.is_active !== false);
     if (sized.length) {
       return sized.map((v) => ({
-        ...base, key: `${p.id}:${v.size}`, variantId: null, size: v.size, variant: v.size, stock: Number(v.stock) || 0,
+        ...base, key: `${p.id}:${v.size}`, variantId: v.id ?? null, size: v.size, variant: v.size, stock: Number(v.stock) || 0,
       }));
     }
     return [{ ...base, key: p.id, variantId: null, size: null, variant: null, stock: Number(p.stock) || 0 }];

@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { api, ApiError, fmtDate, isNotLive, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
+import { api, ApiError, fmtDate, netAfterCommission, type Category, type OptionImage, type Product } from "../../lib/seller-api";
+import { WHO_SHIPS_LABEL, type FulfilmentMode } from "../../lib/rate-card";
+import { CHANGE_LABEL, MAX_PRODUCT_PHOTOS, formSource, hasPendingChange, isApproved, movePhoto, photoPayload, photosChanged, type PhotoItem } from "../../lib/product-change";
 import { listingRate } from "../../lib/rate-card";
 import { productPrice, productPriceFields } from "../../lib/currency";
 import { featureOn } from "../../lib/features";
@@ -15,12 +17,11 @@ import { useDashboardSeller, useSellerCurrency } from "../seller-context";
 import { Alert, Badge, Button, Card, EmptyState, Field, Modal, PageHeader, PageSkeleton, PriceInput, RED } from "../../components/portal-ui";
 
 const PRESET_SIZES = ["XS", "S", "M", "L", "XL", "XXL"];
-const MAX_IMAGES = 10;      // per product (backend)
-const MAX_UPLOAD = 8;       // per request (backend)
+const MAX_IMAGES = MAX_PRODUCT_PHOTOS; // 8 per product, on create and edit (backend)
 const MAX_BYTES = 8 * 1024 * 1024;
 
-type Filter = "all" | "draft" | "live" | "pending" | "rejected";
-const FILTER_LABEL: Record<Filter, string> = { all: "All", draft: STATUS_LABEL.draft, live: STATUS_LABEL.live, pending: STATUS_LABEL.pending, rejected: STATUS_LABEL.rejected };
+type Filter = "all" | "draft" | "live" | "pending" | "rejected" | "changes";
+const FILTER_LABEL: Record<Filter, string> = { all: "All", draft: STATUS_LABEL.draft, live: STATUS_LABEL.live, pending: STATUS_LABEL.pending, rejected: STATUS_LABEL.rejected, changes: "Changes pending" };
 const FILTERS = Object.keys(FILTER_LABEL) as Filter[];
 
 export default function ProductsPage() {
@@ -39,6 +40,8 @@ export default function ProductsPage() {
   const routerRef = useRef(useRouter());
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [cancelling, setCancelling] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -60,9 +63,24 @@ export default function ProductsPage() {
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return (products ?? [])
-      .filter(p => filter === "all" || productStatus(p).key === filter)
+      .filter(p => filter === "all" || (filter === "changes" ? hasPendingChange(p) : productStatus(p).key === filter))
       .filter(p => !q || p.name.toLowerCase().includes(q) || p.sku?.toLowerCase().includes(q));
   }, [products, filter, query]);
+
+  const replace = (saved: Product) => setProducts(ps => (ps ?? []).map(p => (p.id === saved.id ? saved : p)));
+
+  /** Withdraws the waiting change; the live listing is not touched. */
+  const cancelChange = async (id: string) => {
+    setCancelling(id); setError(""); setNotice("");
+    try {
+      replace((await api.cancelPendingChange(id)).product);
+      setNotice("Change cancelled. Your live listing is unchanged.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not cancel the change");
+    } finally {
+      setCancelling(null);
+    }
+  };
 
   const remove = async (id: string) => {
     setDeleting(true);
@@ -79,10 +97,11 @@ export default function ProductsPage() {
 
   return (
     <div>
-      <PageHeader title="Catalogue" sub="New products and edits go to NOTMADE for review before going live."
+      <PageHeader title="Catalogue" sub="New products are reviewed before they go live. Edits to a live product wait for approval while the live version stays on sale. Stock changes apply at once."
         action={(
           <div className="sp-inline">
             <Link href="/dashboard/products/bulk" className="sp-btn-line">Bulk upload</Link>
+            {locked ? <Button variant="secondary" disabled>Add photos</Button> : <Link href="/dashboard/products/photos" className="sp-btn-line">Add photos</Link>}
             {locked ? <Button disabled>+ Add product</Button> : <Link href="/dashboard/products/new" className="sp-btn-red">+ Add product</Link>}
           </div>
         )} />
@@ -99,6 +118,7 @@ export default function ProductsPage() {
       )}
 
       {error && <div style={{ marginBottom: 14 }}><Alert>{error}</Alert></div>}
+      {notice && <div style={{ marginBottom: 14 }}><Alert kind="success">{notice}</Alert></div>}
 
       {drafts.length > 0 && (filter === "all" || filter === "draft") && (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
@@ -171,6 +191,7 @@ export default function ProductsPage() {
                       {p.approval_status === "rejected" && p.rejection_reason && (
                         <p style={{ fontSize: 13, color: RED, marginTop: 6 }}>What to change: {p.rejection_reason}</p>
                       )}
+                      <ChangeLine product={p} busy={cancelling === p.id} onCancel={() => void cancelChange(p.id)} />
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       {confirmDelete === p.id ? (
@@ -198,15 +219,31 @@ export default function ProductsPage() {
           product={editing}
           categories={categories}
           onClose={() => setEditing(null)}
-          onSaved={saved => {
-            setProducts(ps => {
-              const rest = (ps ?? []).filter(p => p.id !== saved.id);
-              return [saved, ...rest];
-            });
+          onSaved={(saved, message) => {
+            replace(saved);
+            setNotice(message);
             setEditing(null);
           }}
         />
       )}
+    </div>
+  );
+}
+
+/** The latest change to an approved product: waiting (with Cancel), approved, or not approved with the reason. */
+function ChangeLine({ product, busy, onCancel }: { product: Product; busy: boolean; onCancel: () => void }) {
+  const pc = product.pending_change;
+  if (!pc) return null;
+  const kind = pc.status === "pending" ? "pending" : pc.status === "rejected" ? "rejected" : "live";
+  const rejected = pc.fields.filter(f => pc.decisions?.[f] === "rejected");
+  return (
+    <div className="sp-change" data-status={pc.status} style={{ marginTop: 8, padding: "8px 10px", borderRadius: 8, background: pc.status === "rejected" ? "rgba(204,0,0,0.05)" : "#F7F7F7", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+      <Badge status={kind} label={CHANGE_LABEL[pc.status]} />
+      <span style={{ fontSize: 12, color: "#555555", flex: 1, minWidth: 160 }}>
+        {pc.labels.join(", ")}{pc.status === "pending" ? ` · sent ${fmtDate(pc.submitted_at)} · customers see the live version until it is approved` : ` · ${fmtDate(pc.reviewed_at)}`}
+        {pc.rejection_reason && <><br /><span style={{ color: RED }}>{rejected.length && rejected.length < pc.fields.length ? "Not approved: " : "Reason: "}{pc.rejection_reason}</span></>}
+      </span>
+      {pc.status === "pending" && <Button variant="ghost" onClick={onCancel} disabled={busy}>{busy ? "Cancelling…" : "Cancel change"}</Button>}
     </div>
   );
 }
@@ -220,12 +257,16 @@ const OPTION_SUGGESTIONS = ["Colour", "Style", "Material", "Pattern", "Finish"];
 const isSizeName = (n: string) => n.trim().toLowerCase() === "size";
 const comboKey = (value: string, size: string | null) => `${value}\u0000${size ?? ""}`;
 
-function ProductForm({ product, categories, onClose, onSaved }: {
-  product: Product | null; categories: Category[]; onClose: () => void; onSaved: (p: Product) => void;
+function ProductForm({ product: original, categories, onClose, onSaved }: {
+  product: Product | null; categories: Category[]; onClose: () => void; onSaved: (p: Product, message: string) => void;
 }) {
   const seller = useDashboardSeller();
   const { country, fmt } = useSellerCurrency();
-  const isEdit = !!product;
+  const isEdit = !!original;
+  // Edits build on a change that is already waiting, so nothing the seller sent before is lost
+  const product = original ? formSource(original) : null;
+  const approved = !!original && isApproved(original);
+  const waiting = !!original && hasPendingChange(original);
   const initialPrice = product ? productPrice(product, country) : { price: null, mrp: null };
 
   const initialSizes: SizeRow[] = product?.sizes?.length
@@ -261,30 +302,61 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   // UAE-based sellers can list once their signed agreement is on file (backend: isUaeReady)
   const agreementMissing = country === "AE" && !seller.uae?.ready;
   const pct = listingRate(seller, categories.find(c => c.id === categoryId));
-  const [existingImages, setExistingImages] = useState<string[]>(product?.images ?? []);
-  const [newImages, setNewImages] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const initialImages = product?.images ?? [];
+  const [photos, setPhotos] = useState<PhotoItem[]>(() => initialImages.map(url => ({ kind: "url" as const, url })));
+  const [drag, setDrag] = useState<number | null>(null);
+  const [sizeFit, setSizeFit] = useState(product?.size_and_fit ?? "");
+  const [whoShips, setWhoShips] = useState<FulfilmentMode | "">(product?.fulfilment_mode ?? "");
+  // Photo per SKU (variant), for products with an extra option: keyed like comboStock
+  const [skuImage, setSkuImage] = useState<Record<string, string>>(() => {
+    const out: Record<string, string> = {};
+    if (extraInit) for (const v of product?.variants ?? []) {
+      const val = v.option_values?.[extraInit.name];
+      if (val && v.image_url) out[comboKey(val, v.option_values?.Size ?? null)] = v.image_url;
+    }
+    return out;
+  });
+  const [skuBusy, setSkuBusy] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const category = categories.find(c => c.id === categoryId);
 
-  useEffect(() => {
-    const urls = newImages.map(f => URL.createObjectURL(f));
-    setPreviews(urls);
-    return () => urls.forEach(u => URL.revokeObjectURL(u));
-  }, [newImages]);
+  // Object URLs of picked files are released when the form closes
+  const previewsRef = useRef<string[]>([]);
+  useEffect(() => () => previewsRef.current.forEach(u => URL.revokeObjectURL(u)), []);
 
-  const totalImages = existingImages.length + newImages.length;
+  const totalImages = photos.length;
 
   const pickImages = (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     const tooBig = files.find(f => f.size > MAX_BYTES);
     if (tooBig) { setError(`${tooBig.name} is larger than 8 MB`); return; }
-    const room = Math.min(MAX_UPLOAD - newImages.length, MAX_IMAGES - existingImages.length - newImages.length);
-    if (files.length > room) setError(`You can add ${Math.max(room, 0)} more image(s) — max ${MAX_IMAGES} per product, ${MAX_UPLOAD} per save.`);
+    const room = MAX_IMAGES - photos.length;
+    if (files.length > room) setError(`You can add ${Math.max(room, 0)} more photo(s). Max ${MAX_IMAGES} per product.`);
     else setError("");
-    setNewImages(prev => [...prev, ...files.slice(0, Math.max(room, 0))]);
+    const added = files.slice(0, Math.max(room, 0)).map(file => {
+      const preview = URL.createObjectURL(file);
+      previewsRef.current.push(preview);
+      return { kind: "file" as const, file, preview };
+    });
+    setPhotos(prev => [...prev, ...added]);
+  };
+
+  const pickSkuImage = async (key: string, file: File | undefined) => {
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { setError("Use JPG, PNG or WEBP"); return; }
+    if (file.size > MAX_BYTES) { setError(`${file.name} is larger than 8 MB`); return; }
+    setSkuBusy(key); setError("");
+    try {
+      const r = await api.uploadVariantImage(file, product?.id);
+      setSkuImage(m => ({ ...m, [key]: r.url }));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setSkuBusy(null);
+    }
   };
 
   const toggleSize = (s: string) => {
@@ -297,13 +369,12 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     setCustomSize("");
   };
 
-  const submit = async (e: FormEvent) => { e.preventDefault(); await save(false); };
+  const submit = async (e: FormEvent) => { e.preventDefault(); await save(); };
 
-  /** Draft: POST /seller/products/drafts, so a backend without drafts can never submit it for review. */
-  const save = async (draft: boolean) => {
+  const save = async () => {
     setError("");
-    if (draft && !(formRef.current?.reportValidity() ?? true)) return;
     if (totalImages === 0) { setError("Add at least one image"); return; }
+    if (totalImages > MAX_IMAGES) { setError(`Max ${MAX_IMAGES} photos per product`); return; }
     if (hasSizes && sizes.length === 0) { setError("Add at least one size, or switch off sizes"); return; }
     if (extra && (!extra.name.trim() || isSizeName(extra.name))) { setError("Name the extra option, e.g. Colour"); return; }
     if (extra && !extra.values.length) { setError(`Add at least one ${extra.name || "option"} value, or remove the option`); return; }
@@ -312,6 +383,8 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     fd.append("name", name.trim());
     fd.append("description", description.trim());
     fd.append("category_id", categoryId);
+    fd.append("size_and_fit", sizeFit.trim());
+    if (category?.fulfilment_mode_applies && whoShips) fd.append("fulfilment_mode", whoShips);
     if (featureOn("sku")) fd.append("sku", sku.trim());
     for (const [k, v] of Object.entries(productPriceFields(country, price, mrp))) fd.append(k, v);
     if (extra) {
@@ -325,7 +398,11 @@ function ProductForm({ product, categories, onClose, onSaved }: {
       const variants = extra.values.flatMap(v => sizeList.map(sz => {
         const option_values: Record<string, string> = { [name]: v.value, ...(sz ? { Size: sz } : {}) };
         const prev = product?.variants?.find(x => x.option_values?.[name] === v.value && (x.option_values?.Size ?? null) === sz);
-        return { ...(prev ? { id: prev.id } : {}), option_values, stock: Number(comboStock[comboKey(v.value, sz)] || 0) };
+        const k = comboKey(v.value, sz);
+        return {
+          ...(prev ? { id: prev.id } : {}), ...(prev?.sku ? { sku: prev.sku } : {}),
+          option_values, stock: Number(comboStock[k] || 0), image_url: skuImage[k] ?? null,
+        };
       }));
       fd.append("options", JSON.stringify(options));
       fd.append("variants", JSON.stringify(variants));
@@ -336,21 +413,25 @@ function ProductForm({ product, categories, onClose, onSaved }: {
       fd.append("sizes", "[]");
       fd.append("stock", stock || "0");
     }
-    // Only touch images on edit when they actually changed, so unchanged products skip re-conversion
-    const imagesChanged = !isEdit || newImages.length > 0 || existingImages.length !== (product?.images?.length ?? 0);
-    if (isEdit && imagesChanged) fd.append("existing_images", JSON.stringify(existingImages));
-    newImages.forEach(f => fd.append("images", f));
+    // Photos go only when they changed. A new order alone is a change too, and new photos keep their place
+    const { existing, files } = photoPayload(photos);
+    if (!isEdit || photosChanged(initialImages, photos)) {
+      if (isEdit) fd.append("existing_images", JSON.stringify(existing));
+      files.forEach(f => fd.append("images", f));
+    }
 
     setSaving(true);
     try {
-      const res = draft ? await api.saveDraft(fd) : isEdit ? await api.updateProduct(product!.id, fd) : await api.createProduct(fd);
-      onSaved(res.product);
-    } catch (err) {
-      if (draft && isNotLive(err)) {
-        setError("Drafts are not switched on yet. Nothing was saved or submitted.");
-        setSaving(false);
-        return;
+      if (isEdit) {
+        const res = await api.updateProduct(original!.id, fd);
+        onSaved(res.product, res.pending_fields?.length
+          ? "Saved and sent for approval. Your product stays live as it is until NOTMADE approves the change."
+          : res.stock_updated ? "Stock updated. It is live now." : "Saved. Nothing needed approval.");
+      } else {
+        const res = await api.createProduct(fd);
+        onSaved(res.product, "Product submitted, in review.");
       }
+    } catch (err) {
       const list = err instanceof ApiError && Array.isArray(err.data.errors) ? (err.data.errors as string[]) : null;
       setError(list && list.length > 1 ? list.join(" · ") : err instanceof Error ? err.message : "Could not save product");
       setSaving(false);
@@ -363,8 +444,15 @@ function ProductForm({ product, categories, onClose, onSaved }: {
     <Modal title={isEdit ? "Edit product" : "Add product"} onClose={saving ? () => undefined : onClose} width={720}>
       <form ref={formRef} onSubmit={submit}>
         <fieldset disabled={saving} style={{ border: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 16 }}>
-          {isEdit && product?.approval_status !== "pending" && (
-            <Alert kind="warn">Saving changes sends this product back for review{product?.is_live ? " and takes it offline until approved" : ""}.</Alert>
+          {approved && (
+            <Alert kind={waiting ? "warn" : "info"}>
+              {waiting
+                ? <>A change is waiting for approval ({original!.pending_change!.labels.join(", ")}). You are editing on top of it; saving replaces it. Customers keep seeing the live version.</>
+                : <>Your product stays live as it is while NOTMADE reviews your change. Stock changes apply at once. Price, photos and every other change wait for approval.</>}
+            </Alert>
+          )}
+          {isEdit && !approved && original?.approval_status === "rejected" && (
+            <Alert kind="warn">Saving sends this product back for review.</Alert>
           )}
 
           <Field label="Product name" htmlFor="p-name">
@@ -397,6 +485,18 @@ function ProductForm({ product, categories, onClose, onSaved }: {
               <PriceInput id="p-mrp" country={country} value={mrp} onChange={setMrp} min={price || "1"} />
             </Field>
           </div>
+
+          <Field label="Size and fit (optional)" htmlFor="p-fit" hint="For example: Oversized. Model is 6 ft and wears M.">
+            <textarea id="p-fit" className="field-input" rows={2} value={sizeFit} onChange={e => setSizeFit(e.target.value)} maxLength={1000} />
+          </Field>
+          {category?.fulfilment_mode_applies && (
+            <Field label="Who ships" htmlFor="p-ships">
+              <select id="p-ships" className="field-input" value={whoShips} onChange={e => setWhoShips(e.target.value as FulfilmentMode)} required>
+                <option value="" disabled>Choose</option>
+                {(Object.keys(WHO_SHIPS_LABEL) as FulfilmentMode[]).map(m => <option key={m} value={m}>{WHO_SHIPS_LABEL[m]}</option>)}
+              </select>
+            </Field>
+          )}
 
           <div>
             <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 14, fontWeight: 600, color: "#333333", cursor: "pointer", marginBottom: 10 }}>
@@ -480,7 +580,8 @@ function ProductForm({ product, categories, onClose, onSaved }: {
 
                 {extra.values.length > 0 && (
                   <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: "#333333", marginBottom: 8 }}>Stock</p>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: "#333333", marginBottom: 8 }}>Stock and SKU photo</p>
+                    <p style={{ fontSize: 12, color: "#777777", marginBottom: 8 }}>Optional: one photo for a single SKU (for example Black · M). Shoppers see it when they pick that SKU.</p>
                     <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 10 }}>
                       {extra.values.flatMap(v => (hasSizes ? sizes.map(r => r.size) : [null]).map(sz => {
                         const k = comboKey(v.value, sz);
@@ -489,6 +590,8 @@ function ProductForm({ product, categories, onClose, onSaved }: {
                           <Field key={k} label={sz ? `${v.value} · ${sz}` : v.value} htmlFor={id}>
                             <input id={id} className="field-input" type="number" min="0" step="1" max="100000" value={comboStock[k] ?? ""} required
                               onChange={e => setComboStock(m => ({ ...m, [k]: e.target.value }))} />
+                            <SkuPhoto label={sz ? `${v.value} ${sz}` : v.value} url={skuImage[k] ?? null} busy={skuBusy === k}
+                              onPick={f => void pickSkuImage(k, f)} onRemove={() => setSkuImage(m => { const n = { ...m }; delete n[k]; return n; })} />
                           </Field>
                         );
                       }))}
@@ -499,17 +602,18 @@ function ProductForm({ product, categories, onClose, onSaved }: {
             )}
           </div>
 
-          <Field label={`Images (${totalImages}/${MAX_IMAGES})`} hint="JPG, PNG or WEBP, up to 8 MB each. The first image is the cover.">
-            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-              {existingImages.map(url => (
-                <Thumb key={url} src={url} onRemove={() => setExistingImages(prev => prev.filter(u => u !== url))} />
+          <Field label={`Photos (${totalImages}/${MAX_IMAGES})`} hint="JPG, PNG or WEBP, up to 8 MB each. The first photo is the cover. Drag, or use the arrows, to change the order.">
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }} role="list" aria-label="Product photos">
+              {photos.map((it, i) => (
+                <Thumb key={it.kind === "url" ? it.url : it.preview} src={it.kind === "url" ? it.url : it.preview} isNew={it.kind === "file"}
+                  index={i} count={photos.length} dragging={drag === i}
+                  onDragStart={() => setDrag(i)} onDrop={() => { if (drag !== null) setPhotos(p => movePhoto(p, drag, i)); setDrag(null); }}
+                  onMove={to => setPhotos(p => movePhoto(p, i, to))}
+                  onRemove={() => setPhotos(p => p.filter((_, j) => j !== i))} />
               ))}
-              {previews.map((url, i) => (
-                <Thumb key={url} src={url} onRemove={() => setNewImages(prev => prev.filter((_, j) => j !== i))} isNew />
-              ))}
-              {totalImages < MAX_IMAGES && newImages.length < MAX_UPLOAD && (
+              {totalImages < MAX_IMAGES && (
                 <label style={{
-                  width: 84, height: 84, borderRadius: 10, border: "1.5px dashed #CCCCCC", display: "flex", alignItems: "center",
+                  width: 124, height: 148, borderRadius: 10, border: "1.5px dashed #CCCCCC", display: "flex", alignItems: "center",
                   justifyContent: "center", cursor: "pointer", color: "#888888", fontSize: 24,
                 }}>
                   +
@@ -521,10 +625,9 @@ function ProductForm({ product, categories, onClose, onSaved }: {
 
           {error && <Alert>{error}</Alert>}
 
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 10, flexWrap: "wrap" }}>
             <Button variant="ghost" onClick={onClose}>Cancel</Button>
-            {featureOn("drafts") && (!isEdit || product?.status === "draft") && <Button variant="secondary" disabled={saving} onClick={() => void save(true)}>Save as draft</Button>}
-            <Button type="submit">{saving ? "Saving…" : isEdit && product?.status !== "draft" ? "Save & submit for review" : "Submit for review"}</Button>
+            <Button type="submit">{saving ? "Saving…" : approved ? "Save & send for approval" : isEdit ? "Save & submit for review" : "Submit for review"}</Button>
           </div>
         </fieldset>
       </form>
@@ -532,15 +635,49 @@ function ProductForm({ product, categories, onClose, onSaved }: {
   );
 }
 
-function Thumb({ src, onRemove, isNew = false }: { src: string; onRemove: () => void; isNew?: boolean }) {
+function Thumb({ src, onRemove, isNew = false, index, count, dragging, onDragStart, onDrop, onMove }: {
+  src: string; onRemove: () => void; isNew?: boolean; index: number; count: number; dragging: boolean;
+  onDragStart: () => void; onDrop: () => void; onMove: (to: number) => void;
+}) {
+  // Controls sit under the photo, 40px each, so they are easy to tap on a phone
+  const ctl: React.CSSProperties = { width: 40, height: 40, flexShrink: 0, border: "none", background: "transparent", color: "#555555", cursor: "pointer", fontSize: 18, padding: 0, fontFamily: "inherit" };
   return (
-    <div style={{ position: "relative", width: 84, height: 84, borderRadius: 10, overflow: "hidden", background: "#F3F3F3", border: isNew ? `1.5px solid ${RED}` : "1px solid #EEEEEE" }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-      <button type="button" onClick={onRemove} aria-label="Remove image" style={{
-        position: "absolute", top: 4, right: 4, width: 22, height: 22, borderRadius: "50%", border: "none",
-        background: "rgba(0,0,0,0.6)", color: "#FFFFFF", cursor: "pointer", fontSize: 14, lineHeight: "22px", padding: 0,
-      }}>×</button>
+    <div role="listitem" draggable onDragStart={onDragStart} onDragOver={e => e.preventDefault()} onDrop={e => { e.preventDefault(); onDrop(); }}
+      aria-label={`Photo ${index + 1} of ${count}${index === 0 ? ", cover" : ""}`}
+      style={{ width: 124, borderRadius: 10, overflow: "hidden", background: "#FFFFFF", cursor: "grab", opacity: dragging ? 0.4 : 1, border: index === 0 ? `2px solid ${RED}` : isNew ? `1.5px solid ${RED}` : "1px solid #EEEEEE" }}>
+      <div style={{ position: "relative", width: "100%", height: 104, background: "#F3F3F3" }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" }} />
+        {index === 0 && <span style={{ position: "absolute", top: 4, left: 4, background: RED, color: "#FFFFFF", fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 4 }}>COVER</span>}
+        {isNew && <span style={{ position: "absolute", top: 4, right: 4, background: "#FFFFFF", color: RED, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 4 }}>NEW</span>}
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between" }}>
+        <button type="button" onClick={() => onMove(index - 1)} disabled={index === 0} aria-label={`Move photo ${index + 1} left`} style={{ ...ctl, opacity: index === 0 ? 0.3 : 1 }}>‹</button>
+        <button type="button" onClick={onRemove} aria-label={`Remove photo ${index + 1}`} style={{ ...ctl, color: RED }}>×</button>
+        <button type="button" onClick={() => onMove(index + 1)} disabled={index === count - 1} aria-label={`Move photo ${index + 1} right`} style={{ ...ctl, opacity: index === count - 1 ? 0.3 : 1 }}>›</button>
+      </div>
+    </div>
+  );
+}
+
+/** One optional photo for one SKU (variant). Uploaded at once; it reaches shoppers when the product's change is approved. */
+function SkuPhoto({ label, url, busy, onPick, onRemove }: { label: string; url: string | null; busy: boolean; onPick: (f: File | undefined) => void; onRemove: () => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6 }}>
+      {url ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={url} alt={`Photo for ${label}`} style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
+          <button type="button" onClick={onRemove} aria-label={`Remove photo for ${label}`} style={{ border: "none", background: "transparent", color: "#999999", cursor: "pointer", fontSize: 12, fontFamily: "inherit" }}>Remove</button>
+        </>
+      ) : (
+        <button type="button" onClick={() => input.current?.click()} disabled={busy} aria-label={`Add photo for ${label}`}
+          style={{ border: "1px dashed #CCCCCC", background: "#FFFFFF", borderRadius: 6, padding: "4px 8px", fontSize: 11, fontWeight: 700, color: "#777777", cursor: busy ? "wait" : "pointer", fontFamily: "inherit" }}>
+          {busy ? "Uploading…" : "+ SKU photo"}
+        </button>
+      )}
+      <input ref={input} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={e => { onPick(e.target.files?.[0]); e.target.value = ""; }} />
     </div>
   );
 }

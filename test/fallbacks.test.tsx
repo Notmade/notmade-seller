@@ -206,30 +206,49 @@ describe("panel shell", () => {
 
 // ─── Inventory ───────────────────────────────────────────────────────────────
 
-describe("Inventory fallback", () => {
-  it("shows stock read-only and points to Catalogue, the path that works today", async () => {
-    inPanel(<InventoryPage />);
-    expect(await screen.findByText(/Quick stock editing is coming soon/)).toBeTruthy();
-    expect(screen.queryByRole("textbox", { name: /Stock for/ })).toBeNull();
-    expect(screen.getAllByText("2").length).toBeGreaterThan(0);
-  });
+describe("Inventory: quick stock through PATCH /seller/inventory", () => {
+  const sized = () => product({ product_variants: [{ id: "v-m", size: "M", stock: 2, is_active: true }] } as Partial<Product>);
+  const patchOk = () => { be.extra["PATCH /seller/inventory"] = () => json({ items: [] }); };
 
-  it("keeps the alert level in this browser without calling the backend", async () => {
-    inPanel(<InventoryPage />);
-    fireEvent.change(await screen.findByLabelText("Low-stock alert at"), { target: { value: "7" } });
-    expect(localStorage.getItem("nm_low_stock:s1")).toBe("7");
-    expect(missingRoutes()).toEqual([]);
-  });
-
-  it("if switched on too early, a 404 changes nothing and never takes the product offline", async () => {
-    vi.stubEnv("NEXT_PUBLIC_SELLER_FEATURES", "quick_stock");
+  it("saves a size's stock at once with the variant id, and never sends a product edit", async () => {
+    be.products = [sized()];
+    patchOk();
     inPanel(<InventoryPage />);
     const input = await screen.findByRole("textbox", { name: /Stock for/ });
     fireEvent.change(input, { target: { value: "9" } });
     fireEvent.blur(input);
-    expect(await screen.findByText(/not switched on yet, so nothing was changed/)).toBeTruthy();
-    expect(be.calls.some((c) => c.method === "PUT")).toBe(false);
-    expect((screen.getByRole("textbox", { name: /Stock for/ }) as HTMLInputElement).value).toBe("2");
+    expect(await screen.findByText("Saved")).toBeTruthy();
+    const call = be.calls.find((c) => c.method === "PATCH")!;
+    expect(call.path).toBe("/seller/inventory");
+    expect(JSON.parse(String(call.body))).toEqual({ items: [{ product_id: "p1", variant_id: "v-m", stock: 9 }] });
+    expect(be.calls.some((c) => c.method === "PUT" || c.path.endsWith("/stock"))).toBe(false);
+  });
+
+  it("a product without variants sends product_id and stock only", async () => {
+    patchOk();
+    inPanel(<InventoryPage />);
+    const input = await screen.findByRole("textbox", { name: /Stock for/ });
+    fireEvent.change(input, { target: { value: "4" } });
+    fireEvent.blur(input);
+    await screen.findByText("Saved");
+    expect(JSON.parse(String(be.calls.find((c) => c.method === "PATCH")!.body))).toEqual({ items: [{ product_id: "p1", stock: 4 }] });
+  });
+
+  it("a refused save shows the reason and keeps the old number", async () => {
+    be.extra["PATCH /seller/inventory"] = () => json({ error: "stock must be a whole number from 0 to 100000" }, 400);
+    inPanel(<InventoryPage />);
+    const input = await screen.findByRole("textbox", { name: /Stock for/ });
+    fireEvent.change(input, { target: { value: "9" } });
+    fireEvent.blur(input);
+    expect(await screen.findByText(/whole number/)).toBeTruthy();
+  });
+
+  it("the alert level is kept in this browser and saved on the account", async () => {
+    be.extra["PUT /seller/inventory/threshold"] = () => json({ low_stock_threshold: 7 });
+    inPanel(<InventoryPage />);
+    fireEvent.change(await screen.findByLabelText("Low-stock alert at"), { target: { value: "7" } });
+    expect(localStorage.getItem("nm_low_stock:s1")).toBe("7");
+    await waitFor(() => expect(be.calls.some((c) => c.method === "PUT" && c.path === "/seller/inventory/threshold")).toBe(true));
   });
 });
 
@@ -348,16 +367,6 @@ describe("Catalogue fallback", () => {
 
   const editable = () => product({ name: "Tee", description: "A heavy cotton tee.", images: ["https://x/1.jpg"], category_id: "c1", status: "draft" } as Partial<Product>);
 
-  it("if switched on too early, a draft 404 is explained and nothing is submitted for review", async () => {
-    vi.stubEnv("NEXT_PUBLIC_SELLER_FEATURES", "drafts");
-    be.products = [editable()];
-    inPanel(<ProductsPage />);
-    fireEvent.click(await screen.findByRole("button", { name: /^Edit/ }));
-    fireEvent.click(await screen.findByRole("button", { name: "Save as draft" }));
-    expect(await screen.findByText(/Drafts are not switched on yet/)).toBeTruthy();
-    expect(be.calls.some((c) => c.method === "PUT" || (c.method === "POST" && c.path === "/seller/products"))).toBe(false);
-  });
-
   it("editing keeps the existing route and sends no SKU or UAE listing fields for an India seller", async () => {
     be.products = [{ ...editable(), status: undefined, sell_in_uae: true, price_aed: 55 } as unknown as Product];
     be.extra["PUT /seller/products/p1"] = () => json({ product: be.products[0] });
@@ -375,14 +384,14 @@ describe("Catalogue fallback", () => {
 
 describe("api client", () => {
   it("never surfaces a raw status for a non-JSON error", async () => {
-    await expect(api.saveSettings({ low_stock_threshold: 1 })).rejects.toMatchObject({ status: 404, message: expect.not.stringMatching(/\b404\b|Request failed/) });
+    await expect(api.photoAddTemplate()).rejects.toMatchObject({ status: 404, message: expect.not.stringMatching(/\b404\b|Request failed/) });
   });
 
   it("features are off unless named", () => {
-    expect(featureOn("quick_stock")).toBe(false);
-    vi.stubEnv("NEXT_PUBLIC_SELLER_FEATURES", " drafts , quick_stock");
-    expect(featureOn("quick_stock")).toBe(true);
     expect(featureOn("sku")).toBe(false);
+    vi.stubEnv("NEXT_PUBLIC_SELLER_FEATURES", " store_analytics , sku");
+    expect(featureOn("sku")).toBe(true);
+    expect(featureOn("store_analytics")).toBe(true);
   });
 });
 
