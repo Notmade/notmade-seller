@@ -10,7 +10,7 @@ export const MAX_ROWS = 200;
 const cell = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
 export const toCsv = (rows: string[][]) => rows.map((r) => r.map(cell).join(",")).join("\r\n") + "\r\n";
 
-/** The template, with one worked example. `|` separates sizes, stock per size, and photo files. */
+/** The template, with one worked example. `|` (or a comma) separates sizes, stock per size, and photo files. */
 export function csvTemplate(categories: Category[]): string {
   return toCsv([
     [...CSV_HEADERS],
@@ -42,12 +42,16 @@ export function parseCsv(text: string): string[][] {
 
 export interface BulkRow { line: number; raw: string[]; listing: Listing | null; imageFiles: string[]; errors: string[] }
 
-const split = (v: string) => v.split("|").map((s) => s.trim()).filter(Boolean);
+const split = (v: string) => v.split(/[|,]/).map((s) => s.trim()).filter(Boolean);
 const whole = (v: string) => /^\d+$/.test(v) && Number(v) <= 100_000;
 
-/** Reads the file into rows, each with its own errors. A file-level problem comes back in `fatal`. */
+/** Reads CSV text into rows, each with its own errors. A file-level problem comes back in `fatal`. */
 export function readBulkCsv(text: string, categories: Category[]): { rows: BulkRow[]; fatal: string | null } {
-  const all = parseCsv(text);
+  return readBulkTable(parseCsv(text), categories);
+}
+
+/** The same checks for any table of cells, first row being the headers (used for CSV and Excel). */
+export function readBulkTable(all: string[][], categories: Category[]): { rows: BulkRow[]; fatal: string | null } {
   if (!all.length) return { rows: [], fatal: "This file is empty." };
   const head = all[0].map((h) => h.trim().toLowerCase());
   const missing = CSV_HEADERS.filter((h) => !head.includes(h));
