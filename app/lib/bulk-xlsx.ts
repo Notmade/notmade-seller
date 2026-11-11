@@ -1,81 +1,133 @@
-// Excel (.xlsx) side of the bulk upload. The file is read in the browser and goes through the same row
-// checks as a CSV (readBulkTable), then each good row is posted like a product added by hand.
-import type { Category } from "./seller-api";
-import { CSV_HEADERS, MAX_ROWS, readBulkTable } from "./bulk-csv";
+// Excel (.xlsx) side of the bulk upload. The template is built for one category from the backend's column list: the
+// category is filled in and locked, sizes, fit and who ships are dropdowns, and the examples sit on their own sheet so the
+// Products sheet starts empty. The file is read in the browser into the same rows as a CSV (readBulkTable).
+import type { BulkTemplate } from "./seller-api";
+import { MAX_ROWS, exampleRows, readBulkTable } from "./bulk-csv";
 
-const HEAD_NOTES: Record<(typeof CSV_HEADERS)[number], string> = {
-  name: "Product name (2–200 characters)",
-  description: "At least 10 characters",
-  category: "Pick from the dropdown",
-  price: "Selling price in your currency",
-  mrp: "Optional. Must not be lower than price",
-  sizes: "Optional. Separate with | e.g. S|M|L",
-  stock: "One number, or one per size e.g. 5|8|3",
-  image_files: "Photo file names, separated by |. You pick the files on the next screen",
+const WIDTH: Record<string, number> = {
+  category: 22, variant_group: 16, name: 32, description: 50, colour: 14, size: 10, fit: 12, stock: 10, sku: 20,
+  price: 14, mrp: 14, image_files: 36, who_ships: 16,
 };
-const WIDTHS = [32, 50, 22, 12, 12, 14, 14, 36];
+const META = "Meta";
 
-/** The template: Products sheet with a category dropdown, a worked example, and a How to fill it sheet. */
-export async function xlsxTemplate(categories: Category[]): Promise<Blob> {
+/** The lines of the Instructions sheet. No rate is written here: rates are on screen and in the seller's agreement. */
+export function instructionLines(t: BulkTemplate): string[] {
+  const has = (k: string) => t.columns.some((c) => c.key === k);
+  const steps = [
+    `This file is for ${t.category.name} only. The category column is filled in and locked. For another category, choose it on the Bulk upload screen and download its own template.`,
+    t.uses_sizes
+      ? "One row per size and colour. Rows of one product share a variant_group code (for example TEE-001). Name, description, fit, price, MRP and photos go on the first row of the group; later rows can leave them blank."
+      : `One row per product. ${t.category.name} has no sizes, so there is no size column.`,
+    ...(t.uses_sizes ? [`Size: pick from the dropdown (${t.size_set?.label ?? "sizes"}). Colour is required on every row. Fit is optional.`] : []),
+    `Price and MRP are in ${t.currency}. MRP is optional but cannot be lower than price. Stock is a whole number.`,
+    ...(has("sku") ? ["SKU is optional. It must not repeat in this file or match one of your existing products."] : []),
+    ...(has("who_ships") ? ["Who ships: pick NOTMADE ships or I ship for each product."] : []),
+    `Photos: write the file names in image_files, separated by | (front.jpg|back.jpg). Each product needs ${t.limits.min_photos} to ${t.limits.max_photos} photos (jpg, png or webp, up to 8MB each). On the upload screen you pick the same files from your phone or computer.`,
+    `Up to ${MAX_ROWS} rows per file. Do not rename or reorder the columns. The Example sheet shows filled-in rows.`,
+    "Upload the file in Catalogue > Bulk upload. Every row is checked and you see any errors before anything is sent. Then you submit the ready products with one click. NOTMADE reviews each product before it goes live.",
+    "Commission and settlement: the rates that apply to this category are shown on the Bulk upload screen and in your signed seller agreement.",
+  ];
+  return [`How to fill this template: ${t.category.name}`, "", ...steps.map((line, i) => `${i + 1}. ${line}`)];
+}
+
+/** The template for one category: Products (empty, category locked), Example, Instructions and hidden lists. */
+export async function xlsxTemplate(t: BulkTemplate): Promise<Blob> {
   const { Workbook } = await import("exceljs");
   const wb = new Workbook();
   const ws = wb.addWorksheet("Products", { views: [{ state: "frozen", ySplit: 1 }] });
   const lists = wb.addWorksheet("Lists", { state: "hidden" });
-  categories.forEach((c, i) => { lists.getCell(i + 1, 1).value = c.name; });
+  const meta = wb.addWorksheet(META, { state: "veryHidden" });
+  meta.getCell("A1").value = "category_id"; meta.getCell("B1").value = t.category.id;
+  meta.getCell("A2").value = "category"; meta.getCell("B2").value = t.category.name;
+  meta.getCell("A3").value = "currency"; meta.getCell("B3").value = t.currency;
 
-  ws.columns = CSV_HEADERS.map((h, i) => ({ header: h, key: h, width: WIDTHS[i] }));
+  ws.columns = t.columns.map((c) => ({ header: c.header, key: c.key, width: WIDTH[c.key] ?? 16 }));
   ws.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
   ws.getRow(1).fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF111111" } };
-  CSV_HEADERS.forEach((h, i) => { ws.getCell(1, i + 1).note = HEAD_NOTES[h]; });
-  ws.addRow({
-    name: "Example cotton tee", description: "Soft cotton tee with a relaxed fit. Machine wash cold.",
-    category: categories[0]?.name ?? "", price: 999, mrp: 1299, sizes: "S|M|L", stock: "5|8|3", image_files: "tee-front.jpg|tee-back.jpg",
-  });
-  ws.getRow(2).font = { italic: true, color: { argb: "FF888888" } };
+  t.columns.forEach((c, i) => { ws.getCell(1, i + 1).note = `${c.required ? "Required. " : ""}${c.note}`; });
 
-  // Text format keeps "5|8|3" and size names like "10" as typed
-  for (const col of [6, 7, 8]) ws.getColumn(col).numFmt = "@";
-  if (categories.length) {
-    for (let r = 2; r <= MAX_ROWS + 1; r++) {
-      ws.getCell(r, 3).dataValidation = {
-        type: "list", allowBlank: true, showErrorMessage: true, errorTitle: "Category", error: "Pick a category from the list",
-        formulae: [`Lists!$A$1:$A$${categories.length}`],
-      };
+  let listCol = 0;
+  t.columns.forEach((c, i) => {
+    const col = i + 1;
+    // Text format keeps sizes like "10" and SKUs like "007" as typed
+    if (c.type !== "number") ws.getColumn(col).numFmt = "@";
+    let formula: string | null = null;
+    if (c.type === "list" && c.values?.length) {
+      listCol++;
+      const letter = String.fromCharCode(64 + listCol);
+      c.values.forEach((v, j) => { lists.getCell(j + 1, listCol).value = v; });
+      formula = `Lists!$${letter}$1:$${letter}$${c.values.length}`;
     }
-  }
+    for (let r = 2; r <= MAX_ROWS + 1; r++) {
+      const target = ws.getCell(r, col);
+      if (c.type === "locked") {
+        target.value = c.value ?? t.category.name;
+        target.protection = { locked: true };
+        target.font = { color: { argb: "FF666666" } };
+        continue;
+      }
+      target.protection = { locked: false };
+      if (formula) {
+        target.dataValidation = {
+          type: "list", allowBlank: !c.required, showErrorMessage: true, errorTitle: c.header, error: `Pick ${c.header} from the list`, formulae: [formula],
+        };
+      } else if (c.type === "number") {
+        target.dataValidation = {
+          type: "decimal", operator: "between", allowBlank: true, showErrorMessage: true, errorTitle: c.header,
+          error: c.key === "stock" ? `Stock is a whole number from 0 to ${t.limits.max_stock}` : `Above 0 and up to ${t.limits.max_price} ${t.currency}`,
+          formulae: c.key === "stock" ? [0, t.limits.max_stock] : [0.01, t.limits.max_price],
+        };
+      }
+    }
+  });
+  // The category cells cannot be changed. No password: this guards against slips, the server is what enforces it
+  await ws.protect("", { selectLockedCells: true, selectUnlockedCells: true, formatColumns: true, formatCells: true, sort: true, autoFilter: true });
 
-  const how = wb.addWorksheet("How to fill it");
+  const ex = wb.addWorksheet("Example");
+  ex.columns = t.columns.map((c) => ({ header: c.header, key: c.key, width: WIDTH[c.key] ?? 16 }));
+  ex.getRow(1).font = { bold: true };
+  exampleRows(t).forEach((r) => ex.addRow(r));
+  ex.addRow({});
+  ex.addRow({ [t.columns[1]?.key ?? "name"]: "Example only. Fill in the Products sheet, not this one." }).font = { italic: true, color: { argb: "FF888888" } };
+
+  const how = wb.addWorksheet("Instructions");
   how.getColumn(1).width = 110;
-  [
-    "How to fill this template",
-    "",
-    "1. One row per product. Delete the grey example row (row 2) before you upload.",
-    "2. Category: choose from the dropdown. It must match your category list exactly.",
-    "3. Price and MRP are in your own currency. MRP is optional but cannot be lower than price.",
-    "4. Sizes and stock: separate with | (S|M|L and 5|8|3). Products without sizes need a single stock number.",
-    "5. Photos: write the file names here (tee-front.jpg|tee-back.jpg). On the upload screen you pick the same files from your phone or computer. Each product needs 1 to 8 photos (jpg, png or webp, up to 8MB each).",
-    `6. Up to ${MAX_ROWS} products per file. Do not rename or reorder the columns.`,
-    "7. Upload the file in Catalogue > Bulk upload. Every product is checked, then you submit them all with one click. NOTMADE reviews each product before it goes live.",
-  ].forEach((t, i) => { how.getCell(i + 1, 1).value = t; how.getCell(i + 1, 1).alignment = { wrapText: true, vertical: "top" }; });
+  instructionLines(t).forEach((line, i) => {
+    const c = how.getCell(i + 1, 1);
+    c.value = line;
+    c.alignment = { wrapText: true, vertical: "top" };
+  });
   how.getCell(1, 1).font = { bold: true, size: 14 };
 
   const buf = await wb.xlsx.writeBuffer();
   return new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
 }
 
-/** Reads the first sheet (or one called Products). Cell text is used as shown, so numbers and dates stay as typed. */
-export async function readBulkXlsx(data: ArrayBuffer, categories: Category[]) {
+/**
+ * Reads the Products sheet. A template made for another category is refused here; the backend refuses any row whose
+ * category is not the chosen one as well. Cell text is used as shown, so numbers and sizes stay as typed.
+ */
+export async function readBulkXlsx(data: ArrayBuffer, t: BulkTemplate) {
   const { Workbook } = await import("exceljs");
   const wb = new Workbook();
   try { await wb.xlsx.load(data); } catch { return { rows: [], fatal: "This file could not be read. Save it as an Excel (.xlsx) file and try again." }; }
+  const meta = wb.getWorksheet(META);
+  const fileCategory = meta ? String(meta.getCell("B1").value ?? "") : "";
+  if (fileCategory && fileCategory !== t.category.id) {
+    const name = String(meta?.getCell("B2").value ?? "another category");
+    return { rows: [], fatal: `This file is the template for ${name}. Choose ${name} above, or download the ${t.category.name} template.` };
+  }
   const ws = wb.getWorksheet("Products") ?? wb.worksheets.find((w) => w.state === "visible") ?? wb.worksheets[0];
   if (!ws) return { rows: [], fatal: "This file has no sheets." };
-  const width = CSV_HEADERS.length + 2;
+  const width = t.columns.length + 4;
   const table: string[][] = [];
-  ws.eachRow({ includeEmpty: false }, (row) => {
+  ws.eachRow({ includeEmpty: false }, (row, n) => {
     const cells: string[] = [];
     for (let c = 1; c <= Math.max(width, row.cellCount); c++) cells.push((row.getCell(c).text ?? "").trim());
-    if (cells.some((v) => v !== "")) table.push(cells);
+    // Keep the sheet's own row number: pad skipped rows so errors point at the right line
+    while (table.length < n - 1) table.push([]);
+    table.push(cells);
   });
-  return readBulkTable(table, categories);
+  const res = readBulkTable(table.map((r) => (r.length ? r : [""])), t);
+  return res;
 }

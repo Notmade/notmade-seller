@@ -2,122 +2,216 @@
 
 import { useEffect, useMemo, useState, type ChangeEvent } from "react";
 import Link from "next/link";
-import { api, type Category } from "../../../lib/seller-api";
+import { api, type BulkCategory, type BulkTemplate, type BulkValidation } from "../../../lib/seller-api";
 import { xlsxTemplate, readBulkXlsx } from "../../../lib/bulk-xlsx";
-import { MAX_ROWS, csvTemplate, errorCsv, missingPhotos, photosFor, readBulkCsv, type BulkRow } from "../../../lib/bulk-csv";
-import { listingFormData } from "../../../lib/product-listing";
+import { MAX_ROWS, csvTemplate, errorCsv, missingPhotos, photosFor, readBulkCsv, type SheetRow } from "../../../lib/bulk-csv";
+import { commissionView } from "../../../lib/bulk-commission";
 import { useDashboardSeller, useSellerCurrency } from "../../seller-context";
+import CategoryPicker from "../../../components/CategoryPicker";
 import { Alert, Button, Card, PageHeader, PageSkeleton } from "../../../components/portal-ui";
 
 type Outcome = { state: "done" } | { state: "failed"; error: string };
 
 function download(name: string, data: string | Blob) {
-  const blob = typeof data === "string" ? new Blob([data], { type: "text/csv;charset=utf-8" }) : data;
+  const blob = typeof data === "string" ? new Blob(["﻿" + data], { type: "text/csv;charset=utf-8" }) : data;
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url; a.download = name; a.click();
   URL.revokeObjectURL(url);
 }
+const slugFile = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "category";
 
 export default function BulkUploadPage() {
   const seller = useDashboardSeller();
   const { country } = useSellerCurrency();
-  const locked = !!seller.agreement?.resign_required || (country === "AE" && !seller.uae?.ready);
-  const [categories, setCategories] = useState<Category[] | null>(null);
-  const [rows, setRows] = useState<BulkRow[] | null>(null);
+  const agreementLocked = !!seller.agreement?.resign_required || (country === "AE" && !seller.uae?.ready);
+
+  const [categories, setCategories] = useState<BulkCategory[] | null>(null);
+  const [categoryId, setCategoryId] = useState("");
+  const [template, setTemplate] = useState<BulkTemplate | null>(null);
+  const [templateError, setTemplateError] = useState("");
+  const [rows, setRows] = useState<SheetRow[] | null>(null);
+  const [validation, setValidation] = useState<BulkValidation | null>(null);
+  const [checking, setChecking] = useState(false);
   const [fatal, setFatal] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [outcomes, setOutcomes] = useState<Record<number, Outcome>>({});
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
-  useEffect(() => { api.categories().then((r) => setCategories(r.categories)).catch(() => setCategories([])); }, []);
+  useEffect(() => { api.bulkCategories().then((r) => setCategories(r.categories)).catch(() => setCategories([])); }, []);
 
-  const checked = useMemo(() => (rows ?? []).map((row) => {
-    const missing = row.errors.length ? [] : missingPhotos(row, files);
-    const outcome = outcomes[row.line];
-    const errors = [...row.errors, ...(missing.length ? [`Photo not chosen: ${missing.join(", ")}`] : []), ...(outcome?.state === "failed" ? [outcome.error] : [])];
-    return { row, errors, outcome };
-  }), [rows, files, outcomes]);
-  const ready = checked.filter((c) => !c.errors.length && c.outcome?.state !== "done");
+  // Step 1 decides everything else: a new category clears the file, the photos and the results
+  const chooseCategory = (id: string) => {
+    if (id === categoryId) return;
+    setCategoryId(id); setTemplate(null); setTemplateError(""); setRows(null); setValidation(null); setFatal(""); setFiles([]); setOutcomes({}); setConfirming(false);
+    api.bulkTemplate(id).then(setTemplate).catch((e) => setTemplateError(e instanceof Error ? e.message : "Could not load this category's template"));
+  };
+
+  const locked = agreementLocked || (template ? !template.can_submit : false);
+  const busy = !!progress;
+  const ready = !!template;
+
+  // Rows with the backend's verdict, plus the one check made here: the photos each product names have been picked
+  const checked = useMemo(() => {
+    if (!rows || !validation) return [];
+    const byLine = new Map(validation.rows.map((r) => [r.line, r]));
+    return validation.products.flatMap((p) => {
+      const missing = p.ok ? missingPhotos(p.image_files, files) : [];
+      const outcome = outcomes[p.lines[0]];
+      return p.lines.map((line) => {
+        const row = rows.find((r) => r.line === line)!;
+        const errors = [
+          ...(byLine.get(line)?.errors.map((e) => e.message) ?? []),
+          ...(missing.length ? [`Photo not chosen: ${missing.join(", ")}`] : []),
+          ...(outcome?.state === "failed" ? [outcome.error] : []),
+        ];
+        return { row, product: p, errors, outcome };
+      });
+    }).sort((a, b) => a.row.line - b.row.line);
+  }, [rows, validation, files, outcomes]);
+
+  const products = validation?.products ?? [];
+  const readyProducts = products.filter((p) => p.ok && !missingPhotos(p.image_files, files).length && outcomes[p.lines[0]]?.state !== "done" && outcomes[p.lines[0]]?.state !== "failed");
+  const readyRows = readyProducts.reduce((n, p) => n + p.lines.length, 0);
   const bad = checked.filter((c) => c.errors.length);
-  const done = checked.filter((c) => c.outcome?.state === "done").length;
+  const done = products.filter((p) => outcomes[p.lines[0]]?.state === "done").length;
 
-  const pickCsv = async (e: ChangeEvent<HTMLInputElement>) => {
+  const pickFile = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
+    if (!file || !template) return;
+    setValidation(null); setOutcomes({}); setConfirming(false);
     const isExcel = /\.xlsx$/i.test(file.name);
-    const res = isExcel ? await readBulkXlsx(await file.arrayBuffer(), categories ?? []) : readBulkCsv(await file.text(), categories ?? []);
-    setFatal(res.fatal ?? ""); setRows(res.fatal ? null : res.rows); setOutcomes({});
+    const res = isExcel ? await readBulkXlsx(await file.arrayBuffer(), template) : readBulkCsv(await file.text(), template);
+    setFatal(res.fatal ?? ""); setRows(res.fatal ? null : res.rows);
+    if (res.fatal) return;
+    setChecking(true);
+    try {
+      setValidation(await api.bulkValidate(template.category.id, res.rows.map((r) => r.cells)));
+    } catch (err) {
+      setRows(null);
+      setFatal(err instanceof Error ? err.message : "Could not check this file");
+    } finally {
+      setChecking(false);
+    }
   };
   const pickPhotos = (e: ChangeEvent<HTMLInputElement>) => { const f = Array.from(e.target.files ?? []); e.target.value = ""; setFiles((p) => [...p, ...f]); };
 
-  // One at a time, so a seller on a phone connection is not sending 200 uploads at once
+  // One product at a time, so a seller on a phone connection is not sending 200 uploads at once
   const upload = async () => {
-    const queue = ready.map((c) => c.row);
+    if (!template || !rows) return;
+    setConfirming(false);
+    const queue = readyProducts;
     setProgress({ done: 0, total: queue.length });
     for (let i = 0; i < queue.length; i++) {
-      const row = queue[i];
+      const p = queue[i];
+      const cells = p.lines.map((line) => rows.find((r) => r.line === line)!.cells);
       try {
-        await api.createProduct(listingFormData(row.listing!, country, photosFor(row, files)));
-        setOutcomes((o) => ({ ...o, [row.line]: { state: "done" } }));
+        await api.bulkCreate(template.category.id, cells, photosFor(p.image_files, files));
+        setOutcomes((o) => ({ ...o, [p.lines[0]]: { state: "done" } }));
       } catch (err) {
-        setOutcomes((o) => ({ ...o, [row.line]: { state: "failed", error: err instanceof Error ? err.message : "Could not create" } }));
+        setOutcomes((o) => ({ ...o, [p.lines[0]]: { state: "failed", error: err instanceof Error ? err.message : "Could not create" } }));
       }
       setProgress({ done: i + 1, total: queue.length });
     }
     setProgress(null);
   };
+  // One click when every row is right. With rows to fix, say what is held back before sending the rest
+  const submit = () => (bad.length ? setConfirming(true) : void upload());
 
   if (!categories) return <PageSkeleton stats={0} />;
-  const busy = !!progress;
+  const view = template ? commissionView(template.commission) : null;
+  const productWord = (n: number) => `${n} product${n === 1 ? "" : "s"}`;
 
   return (
     <div>
-      <PageHeader title="Bulk upload" sub={`Add up to ${MAX_ROWS} products from one Excel file. Every product goes to NOTMADE for review before it goes live.`}
+      <PageHeader title="Bulk upload" sub={`Add up to ${MAX_ROWS} rows from one Excel file, one category per file. Every product goes to NOTMADE for review before it goes live.`}
         action={<Link href="/dashboard/products" className="sp-link">Back to Catalogue</Link>} />
-      {locked && <div style={{ marginBottom: 14 }}><Alert kind="warn">Sign your seller agreement to add products.</Alert></div>}
+      {agreementLocked && <div style={{ marginBottom: 14 }}><Alert kind="warn">Sign your seller agreement to add products. <Link href="/dashboard/agreement" style={{ color: "#CC0000", fontWeight: 700 }}>Review and sign</Link></Alert></div>}
 
-      <ol className="sp-bulk">
-        <li><Card>
-          <h2>1. Get the template</h2>
-          <p>Prices are in your own currency. Use | between sizes, stock per size, and photo file names. Category names must match your list.</p>
+      <Card>
+        <div className="sp-bulk-cat">
+          <div>
+            <h2 className="sp-bulk-h" id="bulk-cat-label">1. Choose the category</h2>
+            <p className="sp-bulk-p">One file is for one category. The template, the columns and the checks follow from it.</p>
+            <label htmlFor="bulk-cat" className="sp-visually-hidden">Category</label>
+            <CategoryPicker id="bulk-cat" categories={categories} value={categoryId} onChange={chooseCategory} />
+            {!categoryId && <p className="sp-bulk-hint">Choose a category to continue.</p>}
+            {template && (
+              <p className="sp-bulk-hint">
+                {template.uses_sizes ? `One row per size and colour. Sizes: ${template.size_set?.label ?? ""}.` : `${template.category.name} has no sizes: one row per product.`}
+              </p>
+            )}
+          </div>
+          {templateError && <Alert>{templateError}</Alert>}
+          {template && view && (
+            <section className="sp-bulk-rate" aria-labelledby="bulk-rate-h">
+              <h3 id="bulk-rate-h">Commission on {template.category.name}</h3>
+              {view.headline && <p className="sp-bulk-rate-big">{view.headline} <span>of the selling price</span></p>}
+              {view.options.length > 0 && (
+                <ul className="sp-bulk-rate-opts">
+                  {view.options.map((o) => <li key={o.mode}><strong>{o.title}</strong>{o.detail && <small>{o.detail}</small>}</li>)}
+                </ul>
+              )}
+              <ul className="sp-bulk-rate-notes">{view.notes.map((n) => <li key={n}>{n}</li>)}</ul>
+            </section>
+          )}
+        </div>
+      </Card>
+
+      <ol className="sp-bulk" style={{ marginTop: 12 }} aria-label="Upload steps">
+        <li className={ready ? undefined : "is-off"}><Card>
+          <h2>2. Get the template</h2>
+          <p>{template ? `Made for ${template.category.name}. The category is filled in and locked. Prices are in ${template.currency}.` : "Choose a category first."}</p>
           <div className="sp-inline">
-            <Button variant="secondary" onClick={() => void xlsxTemplate(categories).then((b) => download("notmade-bulk-listing-template.xlsx", b))}>Download Excel template</Button>
-            <Button variant="secondary" onClick={() => download("notmade-products-template.csv", csvTemplate(categories))}>CSV version</Button>
+            <Button variant="secondary" disabled={!ready} onClick={() => template && void xlsxTemplate(template).then((b) => download(`notmade-bulk-${slugFile(template.category.name)}.xlsx`, b))}>Download Excel template</Button>
+            <Button variant="secondary" disabled={!ready} onClick={() => template && download(`notmade-bulk-${slugFile(template.category.name)}.csv`, csvTemplate(template))}>CSV version</Button>
           </div>
         </Card></li>
-        <li><Card>
-          <h2>2. Upload your filled-in file</h2>
-          <p>We check every row here first. Nothing is sent yet.</p>
-          <label className="sp-btn-line">Choose Excel or CSV<input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sp-file" disabled={locked || busy} onChange={(e) => void pickCsv(e)} /></label>
+        <li className={ready ? undefined : "is-off"}><Card>
+          <h2>3. Upload your filled-in file</h2>
+          <p>We check every row first and show you any errors. Nothing is sent yet.</p>
+          <label className={`sp-btn-line${!ready || locked || busy ? " is-disabled" : ""}`}>{checking ? "Checking…" : "Choose Excel or CSV"}<input type="file" accept=".xlsx,.csv,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" className="sp-file" disabled={!ready || locked || busy || checking} onChange={(e) => void pickFile(e)} /></label>
         </Card></li>
-        <li><Card>
-          <h2>3. Choose the photos</h2>
-          <p>Pick every photo file your sheet names. Each product needs at least one. {files.length > 0 && `${files.length} chosen.`}</p>
-          <label className="sp-btn-line">Choose photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sp-file" disabled={locked || busy} onChange={pickPhotos} /></label>
+        <li className={ready ? undefined : "is-off"}><Card>
+          <h2>4. Choose the photos</h2>
+          <p>Pick every photo file your sheet names, {template ? `${template.limits.min_photos} to ${template.limits.max_photos}` : "1 to 8"} per product. {files.length > 0 && `${files.length} chosen.`}</p>
+          <label className={`sp-btn-line${!ready || locked || busy ? " is-disabled" : ""}`}>Choose photos<input type="file" accept="image/jpeg,image/png,image/webp" multiple className="sp-file" disabled={!ready || locked || busy} onChange={pickPhotos} /></label>
         </Card></li>
       </ol>
 
       {fatal && <div style={{ marginTop: 16 }}><Alert>{fatal}</Alert></div>}
 
-      {rows && (
+      {template && rows && validation && (
         <Card style={{ marginTop: 16, padding: 0 }}>
           <div className="sp-card-head sp-bulk-head">
-            <h2>{ready.length} ready, {bad.length} to fix{done ? `, ${done} submitted` : ""}</h2>
+            <h2>{productWord(readyProducts.length)} ready ({readyRows} rows), {bad.length} row{bad.length === 1 ? "" : "s"} to fix{done ? `, ${productWord(done)} submitted` : ""}</h2>
             <div className="sp-inline">
-              {bad.length > 0 && <Button variant="secondary" disabled={busy} onClick={() => download("notmade-products-errors.csv", errorCsv(bad))}>Download rows to fix</Button>}
-              <Button disabled={busy || locked || ready.length === 0} onClick={() => void upload()}>{progress ? `Submitting ${progress.done} of ${progress.total}…` : `Submit ${ready.length} for review`}</Button>
+              {bad.length > 0 && <Button variant="secondary" disabled={busy} onClick={() => download(`notmade-bulk-${slugFile(template.category.name)}-errors.csv`, errorCsv(template.columns, bad))}>Download error file</Button>}
+              <Button disabled={busy || locked || readyProducts.length === 0} onClick={submit}>{progress ? `Submitting ${progress.done} of ${progress.total}…` : `Submit ${productWord(readyProducts.length)} for review`}</Button>
             </div>
           </div>
+          {confirming && (
+            <div className="sp-bulk-confirm">
+              <Alert kind="warn">
+                {bad.length} row{bad.length === 1 ? " has" : "s have"} errors and will not be sent. Only the ready {productWord(readyProducts.length)} {readyProducts.length === 1 ? "goes" : "go"} to NOTMADE for review.
+              </Alert>
+              <div className="sp-inline">
+                <Button onClick={() => void upload()}>Submit {productWord(readyProducts.length)} for review</Button>
+                <Button variant="ghost" onClick={() => setConfirming(false)}>Cancel</Button>
+              </div>
+            </div>
+          )}
           <div className="sp-scroll" tabIndex={0} role="region" aria-label="Rows in your file">
-            <table className="sp-table sp-stacked">
-              <thead><tr><th scope="col">Row</th><th scope="col">Product</th><th scope="col">Status</th></tr></thead>
+            <table className="sp-table sp-stacked sp-bulk-table">
+              <thead><tr><th scope="col">Row</th><th scope="col">Product</th>{template.uses_sizes && <th scope="col">Variant</th>}<th scope="col">Status</th></tr></thead>
               <tbody>
-                {checked.map(({ row, errors, outcome }) => (
+                {checked.map(({ row, product, errors, outcome }) => (
                   <tr key={row.line} className={errors.length ? "sp-row-bad" : undefined}>
                     <td data-label="Row">{row.line}</td>
-                    <td data-label="Product">{row.raw[0] || "—"}</td>
+                    <td data-label="Product">{product.name || String(row.cells.name || "") || product.key || "—"}</td>
+                    {template.uses_sizes && <td data-label="Variant">{[row.cells.colour, row.cells.size].filter(Boolean).join(" · ") || "—"}</td>}
                     <td data-label="Status">{outcome?.state === "done" ? "Submitted · In review" : errors.length ? errors.join(". ") : "Ready"}</td>
                   </tr>
                 ))}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CSV_HEADERS, csvTemplate, errorCsv, missingPhotos, parseCsv, photosFor, readBulkCsv, toCsv } from "@/app/lib/bulk-csv";
+import { parseCsv, toCsv } from "@/app/lib/bulk-csv";
 import { ORDER_TABS, orderInTab, sellerShips, tabForParam, validTrackingId } from "@/app/lib/order-tabs";
 import { monthGrid, payoutEvents } from "@/app/lib/payout-calendar";
 import { productStatus, STATUS_LABEL } from "@/app/lib/product-status";
@@ -79,54 +79,11 @@ describe("wizard steps", () => {
 });
 
 describe("bulk CSV", () => {
-  const head = CSV_HEADERS.join(",");
-  const good = 'Tee,A heavy cotton tee.,Kurtas,500,600,S|M,1|2,a.jpg|b.jpg';
-
   it("parses quotes, commas, line breaks, CRLF and a BOM", () => {
-    expect(parseCsv('﻿a,b\r\n"x, ""y""\nz",2\r\n\r\n')).toEqual([["a", "b"], ['x, "y"\nz', "2"]]);
-  });
-
-  it("round-trips the template, whose example row is valid", () => {
-    const { rows, fatal } = readBulkCsv(csvTemplate(categories), categories);
-    expect(fatal).toBeNull();
-    expect(rows[0].errors).toEqual([]);
-  });
-
-  it("reads a good row into a listing", () => {
-    const [row] = readBulkCsv(`${head}\n${good}\n`, categories).rows;
-    expect(row).toMatchObject({ line: 2, errors: [], imageFiles: ["a.jpg", "b.jpg"] });
-    expect(row.listing).toMatchObject({ categoryId: "c1", price: "500", hasSizes: true, sizes: [{ size: "S", stock: "1" }, { size: "M", stock: "2" }] });
-  });
-
-  it("gives each bad row its own reasons and keeps the good ones", () => {
-    const { rows } = readBulkCsv(`${head}\n${good}\nX,short,Nope,0,,S|M,1,\n`, categories);
-    expect(rows[0].errors).toEqual([]);
-    expect(rows[1].line).toBe(3);
-    expect(rows[1].listing).toBeNull();
-    for (const e of [/Name/, /Description/, /Category "Nope"/, /Price/, /stock number per size/, /photo file/]) expect(rows[1].errors.join(" | ")).toMatch(e);
-  });
-
-  it("refuses a file it cannot read as a whole", () => {
-    expect(readBulkCsv("", categories).fatal).toMatch(/empty/);
-    expect(readBulkCsv("name,price\nx,1", categories).fatal).toMatch(/Missing columns/);
-    expect(readBulkCsv(head, categories).fatal).toMatch(/no products/);
-    expect(readBulkCsv(`${head}\n${`${good}\n`.repeat(201)}`, categories).fatal).toMatch(/Up to 200/);
-  });
-
-  it("matches photos by file name in the row's order", () => {
-    const [row] = readBulkCsv(`${head}\n${good}\n`, categories).rows;
-    expect(missingPhotos(row, [photo("A.JPG")])).toEqual(["b.jpg"]);
-    expect(photosFor(row, [photo("b.jpg"), photo("a.jpg")]).map((f) => f.name)).toEqual(["a.jpg", "b.jpg"]);
-  });
-
-  it("exports rows to fix with the reason", () => {
-    const { rows } = readBulkCsv(`${head}\nX,short,Nope,0,,,,\n`, categories);
-    const out = parseCsv(errorCsv([{ row: rows[0], errors: rows[0].errors }]));
-    expect(out[0].at(-1)).toBe("error");
-    expect(out[1][0]).toBe("X");
-    expect(out[1].at(-1)).toMatch(/Name must/);
+    expect(parseCsv('\uFEFFa,b\r\n"x, ""y""\nz",2\r\n\r\n')).toEqual([["a", "b"], ['x, "y"\nz', "2"]]);
     expect(toCsv([["a,b"]])).toBe('"a,b"\r\n');
   });
+  // Category-locked templates, rows and photos: test/bulk-upload.test.ts
 });
 
 describe("order tabs", () => {

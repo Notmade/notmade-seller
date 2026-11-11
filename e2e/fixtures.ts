@@ -1,6 +1,43 @@
 // A fake backend for the browser tests. It answers only the routes in docs/seller-api.md, in their
 // documented shapes; anything else is a 404, as it would be in production.
 import type { Page } from "@playwright/test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+// Real GET /seller/bulk/template responses from the backend test harness, renamed onto this backend's categories
+const BULK = JSON.parse(readFileSync(join(__dirname, "..", "test", "fixtures", "bulk-templates.json"), "utf8"));
+type BulkCat = { id: string; name: string; slug: string; uses_sizes?: boolean };
+function bulkTemplate(country: Country, cat: BulkCat) {
+  const kind = cat.uses_sizes ? (country === "AE" ? "ae_tees" : "in_tees") : cat.slug === "mobiles" && country === "AE" ? "ae_laptops" : "in_candles";
+  const base = BULK[kind];
+  const t = JSON.parse(JSON.stringify(base).split(base.category.name).join(cat.name).split(base.category.id).join(cat.id));
+  if (country === "AE" && kind === "in_candles") Object.assign(t, { country: "AE", currency: "AED", columns: JSON.parse(JSON.stringify(t.columns).split("INR").join("AED")) });
+  return { ...t, category: { id: cat.id, name: cat.name, slug: cat.slug } };
+}
+/** A small stand-in for POST /seller/bulk/validate: the category lock, sizes, price and photos. */
+export function bulkValidate(country: Country, cat: BulkCat, rows: Record<string, string | number>[]) {
+  const t = bulkTemplate(country, cat);
+  const results = rows.map((r) => {
+    const errors: { field: string; code: string; message: string }[] = [];
+    const add = (field: string, code: string, message: string) => errors.push({ field, code, message });
+    if (String(r.category) !== cat.name) add("category", "CATEGORY_MISMATCH", `Category "${r.category}" is not ${cat.name}. This file is for ${cat.name} only`);
+    if (t.uses_sizes && !r.size) add("size", "SIZE_REQUIRED", `Size is required for ${cat.name}`);
+    if (!t.uses_sizes && r.size) add("size", "SIZE_NOT_ALLOWED", `${cat.name} has no sizes. Remove the size`);
+    if (r.price !== "" && r.price !== undefined && !(Number(r.price) > 0)) add("price", "PRICE_RANGE", `Price must be above 0 and up to 1,000,000 ${t.currency}`);
+    if (r.price !== "" && r.price !== undefined && !String(r.image_files ?? "")) add("image_files", "PHOTO_REQUIRED", "Name at least one photo file");
+    return { line: Number(r.line), group: t.uses_sizes ? String(r.variant_group || "") || null : null, ok: !errors.length, errors };
+  });
+  const groups = new Map<string, number[]>();
+  rows.forEach((r, i) => { const k = t.uses_sizes ? String(r.variant_group) : String(i); groups.set(k, [...(groups.get(k) ?? []), i]); });
+  const products = Array.from(groups, ([key, idx]) => {
+    const ok = idx.every((i) => results[i].ok);
+    if (!ok) idx.forEach((i) => { if (results[i].ok) Object.assign(results[i], { ok: false, errors: [{ field: "variant_group", code: "GROUP_INVALID", message: `Another row of ${key} has an error` }] }); });
+    const first = rows[idx[0]];
+    return { key: t.uses_sizes ? key : null, lines: idx.map((i) => Number(rows[i].line)), name: String(first.name || "") || null, variants: t.uses_sizes ? idx.length : 0, image_files: String(first.image_files || "").split("|").filter(Boolean), ok };
+  });
+  const valid = results.filter((r) => r.ok).length;
+  return { category: t.category, currency: t.currency, rows: results, products, summary: { rows: rows.length, valid_rows: valid, invalid_rows: rows.length - valid, products: products.length, valid_products: products.filter((p) => p.ok).length } };
+}
 
 export type Country = "IN" | "AE";
 const iso = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
@@ -55,6 +92,12 @@ export function backend(country: Country) {
       { id: "11111111-1111-4111-8111-111111111111", name: "Kurtas", slug: "kurtas" }, { id: "22222222-2222-4222-8222-222222222222", name: "Mobile phones", slug: "mobiles", fulfilment_mode_applies: country === "AE" },
       { id: "33333333-3333-4333-8333-333333333333", name: "Handmade", slug: "handmade" },
     ],
+    bulkCategories: [
+      { id: "11111111-1111-4111-8111-111111111111", name: "Kurtas", slug: "kurtas", group: "Fashion", uses_sizes: true, size_set: "apparel" },
+      { id: "22222222-2222-4222-8222-222222222222", name: "Mobile phones", slug: "mobiles", group: null, uses_sizes: false, size_set: null },
+      { id: "33333333-3333-4333-8333-333333333333", name: "Handmade", slug: "handmade", group: null, uses_sizes: false, size_set: null },
+    ],
+    bulkCreated: [] as string[],
     dashboard: {
       country, currency, today: { orders: 1, payout: money(1658), revenue: money(1998) }, pending_accept: { count: 1, overdue: 0, next_due_at: iso(1) }, ready_for_pickup: { count: 1, awaiting_awb: 1, awb_generated: 0 },
       counts: { new: 1, accepted: 2, ready: 1, shipped: 1, delivered: 1, cancelled: 1, returns: 0 }, low_stock: { count: 1, threshold: 3, items: [{ product_id: "p1", name: "Scarf", variant: null, stock: 1, image: null }] },
@@ -94,6 +137,11 @@ export async function signIn(page: Page, country: Country, be: Backend = backend
       if (path === "/seller/returns") return json({ returns: [] });
       if (path === "/seller/products") return json({ products: be.products });
       if (path === "/seller/categories") return json({ categories: be.categories });
+      if (path === "/seller/bulk/categories") return json({ categories: be.bulkCategories });
+      if (path === "/seller/bulk/template") {
+        const cat = be.bulkCategories.find((c) => c.id === new URL(req.url()).searchParams.get("category_id"));
+        return cat ? json(bulkTemplate(country, cat)) : json({ error: "This category is not one you can list in", code: "CATEGORY_NOT_ALLOWED" }, 400);
+      }
       if (path === "/seller/payouts") return json(be.payouts);
       if (path === "/seller/notifications") return json({ notifications: [{ id: "n1", type: "new_order", urgent: false, title: "New order NM-1001", body: "Accept it soon", href: "/dashboard/orders?tab=new&ref=NM-1001", at: iso(0), read: false }], unread_count: 1 });
       if (path === "/seller/inventory") return json({ country, currency, low_stock_threshold: 3, summary: { skus: 1, low_stock: 1, out_of_stock: 0 }, items: [{ product_id: "p1", variant_id: null, name: "Scarf", variant: null, image: null, category: "Scarves", is_live: true, approval_status: "approved", stock: 1, low_stock: true, out_of_stock: false }] });
@@ -107,6 +155,12 @@ export async function signIn(page: Page, country: Country, be: Backend = backend
     if (req.method() === "POST") {
       if (path === "/seller/products") { be.created.push(req.postData() ?? ""); return json({ product: product(`new-${be.created.length}`, { approval_status: "pending" }) }, 201); }
       if (path === "/seller/notifications/read") return json({ seen_at: iso(0) });
+      if (path === "/seller/bulk/validate") {
+        const body = JSON.parse(req.postData() ?? "{}");
+        const cat = be.bulkCategories.find((c) => c.id === body.category_id)!;
+        return json(bulkValidate(country, cat, body.rows));
+      }
+      if (path === "/seller/bulk/products") { be.bulkCreated.push(req.postData() ?? ""); return json({ product: product(`bulk-${be.bulkCreated.length}`, { approval_status: "pending" }), lines: [], key: null }, 201); }
       const o = be.orders.find((x) => x.ref_no === ref);
       if (o && path.endsWith("/accept")) { Object.assign(o, { bucket: "accepted", seller_status: "accepted" }); return json({ order: o }); }
       if (o && path.endsWith("/ready")) { Object.assign(o, { bucket: "ready", ready_at: iso(0) }); return json({ order: o }); }

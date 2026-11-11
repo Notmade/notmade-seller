@@ -61,20 +61,33 @@ test("wizard: UAE electronics asks who ships; other categories do not", async ({
   await expect(page.getByRole("list", { name: "Steps" }).getByRole("listitem")).toHaveCount(7);
 });
 
-test("bulk: bad rows are held back with a reason; good rows go for review", async ({ page }) => {
+test("bulk: category first; bad rows held back with a reason; the good ones go for review once confirmed", async ({ page }) => {
   const be = backend("IN");
   await signIn(page, "IN", be);
   await page.goto("/dashboard/products/bulk");
-  const csv = "name,description,category,price,mrp,sizes,stock,image_files\nGood tee,A heavy cotton tee here.,Kurtas,500,,,4,a.png\nBad,short,Nope,0,,,x,\n";
+  await expect(page.getByRole("button", { name: "Download Excel template" })).toBeDisabled();
+  await expect(page.locator('input[accept*="csv"]')).toBeDisabled();
+  await page.getByRole("combobox").click();
+  await page.getByRole("option", { name: "Kurtas" }).click();
+  await expect(page.getByRole("region", { name: "Commission on Kurtas" }).getByText("17%")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download Excel template" })).toBeEnabled();
+
+  const head = "category,variant_group,name,description,colour,size,fit,stock,sku,price (INR),mrp (INR),image_files";
+  const csv = `${head}\nKurtas,K1,Block print kurta,Hand block printed in Jaipur.,Indigo,M,Regular,4,K1-M,1499,,a.png\nKurtas,K1,,,Indigo,L,,3,K1-L,,,\nHandmade,K2,Clay pot,A hand thrown clay pot.,Red,,,2,,0,,b.png\n`;
   await page.locator('input[accept*="csv"]').setInputFiles({ name: "p.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
-  await expect(page.getByText(/0 ready, 2 to fix/)).toBeVisible();
-  await expect(page.getByText(/Photo not chosen: a.png/)).toBeVisible();
+  await expect(page.getByText(/This file is for Kurtas only/)).toBeVisible();
+  await expect(page.getByText(/Size is required for Kurtas/)).toBeVisible();
+  await expect(page.getByText(/Photo not chosen: a.png/).first()).toBeVisible();
   await page.locator('input[accept*="image"]').setInputFiles([png("a.png")]);
-  await expect(page.getByText(/1 ready, 1 to fix/)).toBeVisible();
-  await expect(page.getByText(/Category "Nope" not found/)).toBeVisible();
-  await page.getByRole("button", { name: "Submit 1 for review" }).click();
-  await expect(page.getByText("Submitted · In review")).toBeVisible();
-  expect(be.created).toHaveLength(1);
+  await expect(page.getByText(/1 product ready \(2 rows\), 1 row to fix/)).toBeVisible();
+  await page.getByRole("button", { name: "Submit 1 product for review" }).click();
+  await expect(page.getByText(/1 row has errors and will not be sent/)).toBeVisible();
+  expect(be.bulkCreated).toHaveLength(0);
+  await page.getByRole("button", { name: "Submit 1 product for review" }).last().click();
+  await expect(page.getByText("Submitted · In review").first()).toBeVisible();
+  expect(be.bulkCreated).toHaveLength(1);
+  expect(be.bulkCreated[0]).toContain("11111111-1111-4111-8111-111111111111");
+  expect(be.bulkCreated[0]).not.toMatch(/is_live|approval_status/);
 });
 
 test("orders: one tap to accept and to mark ready", async ({ page }) => {
