@@ -286,7 +286,9 @@ export interface BulkTemplate {
 
 export interface BulkRowError { field: string; code: string; message: string }
 export interface BulkRowResult { line: number; group: string | null; ok: boolean; errors: BulkRowError[] }
-export interface BulkProductResult { key: string | null; lines: number[]; name: string | null; variants: number; image_files: string[]; ok: boolean }
+/** One entry of image_files as the backend reads it: a file the seller picks, a public Drive file, or a link it cannot use. */
+export interface BulkPhoto { source: "file" | "drive" | "link"; name: string; drive_id?: string; link?: string; code?: string }
+export interface BulkProductResult { key: string | null; lines: number[]; name: string | null; variants: number; image_files: string[]; photos?: BulkPhoto[]; ok: boolean }
 export interface BulkValidation {
   category: { id: string; name: string; slug: string };
   currency: Currency;
@@ -598,6 +600,23 @@ export const api = {
     fd.append("rows", JSON.stringify(rows));
     photos.forEach((f) => fd.append("images", f));
     return post<{ product: Product; lines: number[]; key: string | null }>("/seller/bulk/products", fd);
+  },
+  /** One public Google Drive photo, downloaded by the backend (jpg/png/webp, max 8MB). Errors carry the reason to show. */
+  importDrivePhoto: async (link: string): Promise<Blob> => {
+    const headers = new Headers({ "Content-Type": "application/json" });
+    const token = getToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}/seller/products/import-image`, { method: "POST", headers, body: JSON.stringify({ url: link }) });
+    } catch {
+      throw new ApiError(0, "Network error. Check your connection and try again.", { code: "NETWORK" });
+    }
+    if (!res.ok) {
+      const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+      throw new ApiError(res.status, typeof data.error === "string" ? data.error : "We could not download this photo from Google Drive. Try again.", data);
+    }
+    return res.blob();
   },
   products: () => request<{ products: Product[] }>("/seller/products"),
   createProduct: (fd: FormData) => post<{ product: Product }>("/seller/products", fd),

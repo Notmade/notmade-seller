@@ -1,9 +1,9 @@
 // Bulk product upload. One file is one category: the seller picks the category first, the backend sends that
 // category's columns (GET /seller/bulk/template), and the file is read here into rows keyed by those columns. The
 // backend checks every row (POST /seller/bulk/validate) and creates each ready product with POST /seller/bulk/products,
-// which runs the same checks again. Photos stay on the seller's device until then, so the one check made only here is
-// that every photo a row names has been picked.
-import type { BulkColumn, BulkRowInput, BulkTemplate } from "./seller-api";
+// which runs the same checks again. Photos are either files on the seller's device, checked here against the files
+// picked, or public Google Drive links, downloaded one at a time through the backend when the product is sent.
+import { ApiError, type BulkColumn, type BulkPhoto, type BulkProductResult, type BulkRowError, type BulkRowInput, type BulkTemplate } from "./seller-api";
 
 export const MAX_ROWS = 200;
 
@@ -118,20 +118,72 @@ export function readBulkCsv(text: string, t: BulkTemplate) {
 
 export const photoNames = (v: string | number | undefined) => String(v ?? "").split(/[|,]/).map((s) => s.trim()).filter(Boolean);
 
-/** Photos a product names that the seller has not picked. Matched by file name, ignoring case. */
-export function missingPhotos(names: string[], files: File[]): string[] {
+/** A product's photos as the backend read them; an older backend sends only image_files, which are all files then. */
+export const photosOf = (p: BulkProductResult): BulkPhoto[] => p.photos ?? p.image_files.map((name) => ({ source: "file" as const, name }));
+export const drivePhotos = (p: BulkProductResult) => photosOf(p).filter((x) => x.source === "drive");
+
+/** Photo files a product names that the seller has not picked. Matched by file name, ignoring case. Drive photos need no pick. */
+export function missingPhotos(p: BulkProductResult, files: File[]): string[] {
   const have = new Set(files.map((f) => f.name.toLowerCase()));
-  return names.filter((n) => !have.has(n.toLowerCase()));
+  return photosOf(p).filter((x) => x.source === "file" && !have.has(x.name.toLowerCase())).map((x) => x.name);
 }
 
-export function photosFor(names: string[], files: File[]): File[] {
-  return names.flatMap((n) => files.find((f) => f.name.toLowerCase() === n.toLowerCase()) ?? []);
+/** The error a row shows, in the backend's own shape, for a check made here. */
+export const rowError = (field: string, code: string, message: string): BulkRowError => ({ field, code, message });
+export const photoNotChosen = (missing: string[]) =>
+  rowError("image_files", "PHOTO_NOT_CHOSEN", `Photo not chosen: ${missing.join(", ")}. Pick ${missing.length === 1 ? "this file" : "these files"} in step 4, or use a public Google Drive link`);
+
+/**
+ * Every photo of one product in sheet order: picked files as they are, Drive photos downloaded one at a time and named
+ * drive-<id>.<ext>, which is how the backend matches them. A Drive photo that fails stops here with its reason.
+ * `cache` keeps photos already downloaded, so a retry does not download them again.
+ */
+export async function collectPhotos(
+  p: BulkProductResult, files: File[], download: (link: string) => Promise<Blob>, cache: Map<string, File>,
+  onPhoto?: (done: number, total: number) => void,
+): Promise<{ files: File[] } | { error: BulkRowError }> {
+  const photos = photosOf(p);
+  const drive = photos.filter((x) => x.source === "drive");
+  const out: File[] = [];
+  let fetched = 0;
+  for (let i = 0; i < photos.length; i++) {
+    const x = photos[i];
+    if (x.source === "file") {
+      const f = files.find((ff) => ff.name.toLowerCase() === x.name.toLowerCase());
+      if (!f) return { error: photoNotChosen([x.name]) };
+      out.push(f);
+      continue;
+    }
+    if (x.source !== "drive") return { error: rowError("image_files", x.code ?? "PHOTO_LINK", `Photo ${i + 1}: this link cannot be used`) };
+    let f = cache.get(x.name);
+    if (!f) {
+      try {
+        const blob = await download(x.link ?? x.name);
+        const ext = DRIVE_EXT[blob.type] ?? "jpg";
+        f = new File([blob], `${x.name}.${ext}`, { type: blob.type || "image/jpeg" });
+        cache.set(x.name, f);
+      } catch (err) {
+        const code = err instanceof ApiError && typeof err.data.code === "string" ? err.data.code : "DRIVE_IMPORT_FAILED";
+        const why = err instanceof Error ? err.message : "We could not download this photo from Google Drive. Try again.";
+        return { error: rowError("image_files", code, `Photo ${i + 1}: ${why}`) };
+      }
+    }
+    out.push(f);
+    onPhoto?.(++fetched, drive.length);
+  }
+  return { files: out };
 }
+const DRIVE_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 
 /** The rows to fix, in the template's columns with the reason last, so the seller can correct and re-upload them. */
-export function errorCsv(columns: BulkColumn[], rows: { row: SheetRow; errors: string[] }[]): string {
+export function errorCsv(columns: BulkColumn[], rows: { row: SheetRow; errors: (string | BulkRowError)[] }[]): string {
+  const header = (field: string) => columns.find((c) => c.key === field)?.header ?? field;
+  const text = (e: string | BulkRowError) => (typeof e === "string" ? e : `${header(e.field)}: ${e.message}`);
   return toCsv([
     ["row", ...columns.map((c) => c.header), "error"],
-    ...rows.map(({ row, errors }) => [String(row.line), ...columns.map((c) => String(row.cells[c.key] ?? "")), errors.join("; ")]),
+    ...rows.map(({ row, errors }) => [String(row.line), ...columns.map((c) => String(row.cells[c.key] ?? "")), errors.map(text).join("; ")]),
   ]);
 }
+
+/** "Row 5 · image_files: Photo 1: This Google Drive photo is private. ..." — one line per error, for the screen and support. */
+export const rowErrorLine = (line: number, e: BulkRowError) => `Row ${line} · ${e.field}: ${e.message}`;
